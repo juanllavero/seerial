@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Writable } from 'node:stream';
 import PropertiesReader, { type Reader } from 'properties-reader';
 import {
   audioExtensions,
@@ -9,6 +10,7 @@ import {
   videoExtensions,
 } from '@/utils/constants';
 import logger from '@/utils/logger';
+import { isSongVariantFile } from '@/utils/songVariants';
 import type { FileSystemServicePort } from '../../../application/ports/FileSystemServicePort';
 import type { FileOrDir } from '../../../domain/types/FilesTypes';
 
@@ -241,7 +243,7 @@ export class FileSystemServiceImpl implements FileSystemServicePort {
       const entries = await this.getFilesInFolder(currentPath);
       for (const entry of entries) {
         const entryPath = path.join(currentPath, entry.name);
-        if (entry.isFile() && this.isAudioFile(entryPath)) {
+        if (entry.isFile() && this.isAudioFile(entryPath) && !isSongVariantFile(entryPath)) {
           musicFiles.push(entryPath);
         } else if (
           entry.isDirectory() &&
@@ -316,7 +318,7 @@ export class FileSystemServiceImpl implements FileSystemServicePort {
     return fs.createReadStream(filePath, options);
   }
 
-  public createWriteStream(filePath: string): NodeJS.WritableStream {
+  public createWriteStream(filePath: string): Writable {
     return fs.createWriteStream(filePath);
   }
   //#endregion

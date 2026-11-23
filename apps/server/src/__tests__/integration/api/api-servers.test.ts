@@ -84,8 +84,17 @@ beforeEach(async () => {
 
 describe('Servers API', () => {
   describe('GET /api/servers', () => {
-    it('returns 200 without requiring auth', async () => {
+    it('returns 401 without auth token', async () => {
       const res = await request(app).get('/api/servers');
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('returns 200 with server data for an authenticated user', async () => {
+      const res = await request(app)
+        .get('/api/servers')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -96,7 +105,9 @@ describe('Servers API', () => {
     it('returns users list in server status response', async () => {
       await usersRepo.create({ username: 'user1', type: UserType.NORMAL });
 
-      const res = await request(app).get('/api/servers');
+      const res = await request(app)
+        .get('/api/servers')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.data).toHaveProperty('users');
@@ -104,7 +115,9 @@ describe('Servers API', () => {
     });
 
     it('returns INVALID_API_KEY status when no TMDB token is configured', async () => {
-      const res = await request(app).get('/api/servers');
+      const res = await request(app)
+        .get('/api/servers')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('INVALID_API_KEY');

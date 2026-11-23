@@ -1,9 +1,9 @@
 import type { PlayBackInfo, Video } from '@seerial/domain';
 import type { LibrariesRepositoryPort } from '@/api/v1/libraries/application/ports/LibrariesRepositoryPort';
 import type { FileSystemServicePort } from '@/api/v1/shared/application/ports/FileSystemServicePort';
+import { ContentCleanupService } from '@/api/v1/shared/application/services/ContentCleanupService';
 import type { VideoRepositoryPort } from '@/api/v1/videos/application/ports/VideosRepositoryPort';
 import { CreateVideoAsEpisodeUseCase } from '@/api/v1/videos/application/usecases/CreateVideoAsEpisodeUseCase';
-import { DeleteVideoDataUseCase } from '@/api/v1/videos/application/usecases/DeleteVideoDataUseCase';
 import { DeleteVideoUseCase } from '@/api/v1/videos/application/usecases/DeleteVideoUseCase';
 import { FindVideoByEpisodeIdUseCase } from '@/api/v1/videos/application/usecases/FindVideoByEpisodeIdUseCase';
 import { FindVideoByIdUseCase } from '@/api/v1/videos/application/usecases/FindVideoByIdUseCase';
@@ -14,8 +14,8 @@ import { UpdateMediaInfoUseCase } from '@/api/v1/videos/application/usecases/Upd
 import { UpdateVideoUseCase } from '@/api/v1/videos/application/usecases/UpdateVideosUseCase';
 
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
-  useCases: {
-    deleteVideoData: jest.fn(),
+  contentCleanupService: {
+    cleanVideo: jest.fn(),
   },
 }));
 
@@ -24,8 +24,8 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/ffmpeg/mediaInfo', () => ({
 }));
 
 const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/container') as {
-  useCases: {
-    deleteVideoData: jest.Mock;
+  contentCleanupService: {
+    cleanVideo: jest.Mock;
   };
 };
 
@@ -71,6 +71,7 @@ function buildLibrariesRepo(
   return {
     getAll: jest.fn(),
     getContent: jest.fn(),
+    getCollectionContent: jest.fn(),
     getById: jest.fn(),
     getByAlbumId: jest.fn(),
     getByMovieId: jest.fn(),
@@ -121,9 +122,6 @@ function buildFileSystemService(
 describe('Video use cases', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockContainer.useCases.deleteVideoData.mockReturnValue({
-      execute: jest.fn().mockResolvedValue(undefined),
-    });
   });
 
   describe('FindVideoByIdUseCase', () => {
@@ -294,13 +292,14 @@ describe('Video use cases', () => {
     });
   });
 
-  describe('DeleteVideoDataUseCase', () => {
-    it('deletes thumbnail and chapter folders for the video', async () => {
+  describe('ContentCleanupService.cleanVideo', () => {
+    it('deletes thumbnail and chapter folders for the video', () => {
       const fileSystemService = buildFileSystemService({
         deleteFolder: jest.fn(),
+        getExternalPath: jest.fn((relativePath: string) => relativePath),
       });
 
-      await new DeleteVideoDataUseCase(fileSystemService).execute('video-1');
+      new ContentCleanupService(fileSystemService).cleanVideo('video-1');
 
       expect(fileSystemService.deleteFolder).toHaveBeenNthCalledWith(
         1,
@@ -326,10 +325,6 @@ describe('Video use cases', () => {
 
     it('deletes video data, analyzed file entry, and the video row', async () => {
       const video = buildVideo();
-      const deleteVideoDataExecute = jest.fn().mockResolvedValue(undefined);
-      mockContainer.useCases.deleteVideoData.mockReturnValue({
-        execute: deleteVideoDataExecute,
-      });
 
       const videoRepo = buildVideoRepo({
         findById: jest.fn().mockResolvedValue(video),
@@ -342,17 +337,13 @@ describe('Video use cases', () => {
 
       await new DeleteVideoUseCase(videoRepo, librariesRepo).execute(video.id);
 
-      expect(deleteVideoDataExecute).toHaveBeenCalledWith(video.id);
+      expect(mockContainer.contentCleanupService.cleanVideo).toHaveBeenCalledWith(video.id);
       expect(librariesRepo.removeAnalyzedFile).toHaveBeenCalledWith('library-1', video.fileSrc);
       expect(videoRepo.delete).toHaveBeenCalledWith(video.id);
     });
 
     it('skips analyzed-file cleanup when the library cannot be found', async () => {
       const video = buildVideo();
-      const deleteVideoDataExecute = jest.fn().mockResolvedValue(undefined);
-      mockContainer.useCases.deleteVideoData.mockReturnValue({
-        execute: deleteVideoDataExecute,
-      });
 
       const videoRepo = buildVideoRepo({
         findById: jest.fn().mockResolvedValue(video),
@@ -365,7 +356,7 @@ describe('Video use cases', () => {
 
       await new DeleteVideoUseCase(videoRepo, librariesRepo).execute(video.id);
 
-      expect(deleteVideoDataExecute).toHaveBeenCalledWith(video.id);
+      expect(mockContainer.contentCleanupService.cleanVideo).toHaveBeenCalledWith(video.id);
       expect(librariesRepo.removeAnalyzedFile).not.toHaveBeenCalled();
       expect(videoRepo.delete).toHaveBeenCalledWith(video.id);
     });

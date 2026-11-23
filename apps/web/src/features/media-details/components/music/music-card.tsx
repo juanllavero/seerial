@@ -8,6 +8,7 @@ import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useIsTablet } from '@/shared/hooks/use-tablet';
 import { showToast } from '@/shared/lib/react-utils';
 import { Button } from '@/shared/ui/button';
+import DolbyAtmosBadge from '@/shared/ui/dolby-atmos-badge';
 import FlexBox from '@/shared/ui/flex-box';
 import { PauseIcon, PlayIcon } from '@/shared/ui/icon-library';
 import SmallSpinner from '@/shared/ui/small-spinner';
@@ -110,6 +111,7 @@ function MusicCard({ index, song, handlePlaySong }: MusicCardProps) {
         }}
       >
         <span>{formatTime(song.duration)}</span>
+        {!!song.hasDolbyAtmos && <DolbyAtmosBadge />}
         {!isMobile && !isTablet && (
           <div className="h-10 w-10">
             {isHovered && (

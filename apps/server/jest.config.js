@@ -2,6 +2,7 @@
 const uuidShim = '<rootDir>/src/__tests__/helpers/uuid-shim.cjs';
 const cliShim = '<rootDir>/src/__tests__/helpers/cli-shim.cjs';
 const electronShim = '<rootDir>/src/__tests__/helpers/electron-shim.cjs';
+const pLimitShim = '<rootDir>/src/__tests__/helpers/p-limit-shim.cjs';
 
 const sharedTransform = {
   '^.+\\.ts$': 'ts-jest',
@@ -9,6 +10,7 @@ const sharedTransform = {
 
 const sharedModuleNameMapper = {
   '^uuid$': uuidShim,
+  '^p-limit$': pLimitShim,
   '^@seerial/cli$': cliShim,
   '^electron$': electronShim,
   '^@/index$': '<rootDir>/src/__tests__/helpers/index-shim.cjs',

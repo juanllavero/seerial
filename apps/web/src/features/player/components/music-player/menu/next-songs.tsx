@@ -8,6 +8,7 @@ import { PauseIcon, PlayIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import FlexBox from '@/shared/ui/flex-box';
+import DolbyAtmosBadge from '@/shared/ui/dolby-atmos-badge';
 
 function NextSongs() {
   const { t } = useTranslation();
@@ -72,7 +73,10 @@ function NextSongs() {
               <span>{album.title}</span>
             </FlexBox>
           </FlexBox>
-          <span>{formatTime(item.duration)}</span>
+          <FlexBox gap={0.5} align="center">
+            {!!item.hasDolbyAtmos && <DolbyAtmosBadge />}
+            <span>{formatTime(item.duration)}</span>
+          </FlexBox>
         </FlexBox>
       ))}
     </FlexBox>

@@ -21,7 +21,9 @@ function buildSongsRepo(overrides: Partial<SongsRepositoryPort> = {}): SongsRepo
   return {
     findById: jest.fn(),
     findByPath: jest.fn(),
+    findByAnyFilePath: jest.fn(),
     findByAlbum: jest.fn(),
+    findWithoutAlbum: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -61,7 +63,7 @@ describe('Song use cases', () => {
         findById: jest.fn().mockResolvedValue(song),
       });
 
-      const result = await new FindSongByIdUseCase(repo).execute(song.id);
+      const result = await new FindSongByIdUseCase(repo).execute(song.id as string);
 
       expect(result).toEqual(song);
       expect(repo.findById).toHaveBeenCalledWith(song.id);

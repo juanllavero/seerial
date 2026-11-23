@@ -173,7 +173,11 @@ describe('SanitizationService', () => {
 
       return false;
     });
-    jest.spyOn(fs, 'readdirSync').mockReturnValue(['Media', 'Archive'] as unknown as fs.Dirent[]);
+    const directoryEntries = ['Media', 'Archive'].map((name) => ({
+      name,
+      isDirectory: () => true,
+    }));
+    jest.spyOn(fs, 'readdirSync').mockReturnValue(directoryEntries as never);
 
     const allowed = getSystemAllowedPaths();
 

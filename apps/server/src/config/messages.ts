@@ -47,6 +47,10 @@ export const messages = {
     conflict: {
       itemAlreadyInCollection: 'Item is already in the collection.',
       itemNotInCollection: 'Item is not in the collection.',
+      localPlayList:
+        'This playlist is created from a local folder and can only be removed from the file system.',
+      localSong:
+        'This song comes from a local playlist folder and can only be removed from the file system.',
     },
     collection: {
       nameExists: 'A collection with that name already exists.',

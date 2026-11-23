@@ -24,6 +24,7 @@ export type DialogPayloads = {
   deleteEpisode: { id: string };
   deleteAlbum: { id: string };
   deleteSong: { id: string };
+  deletePlaylist: { id: string };
   deleteCollection: { id: string };
 
   // Feature dialogs

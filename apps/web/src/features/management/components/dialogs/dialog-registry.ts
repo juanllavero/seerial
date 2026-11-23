@@ -19,6 +19,7 @@ export const dialogRegistry = {
   deleteEpisode: lazy(() => import('./delete/delete-dialog')),
   deleteAlbum: lazy(() => import('./delete/delete-dialog')),
   deleteSong: lazy(() => import('./delete/delete-dialog')),
+  deletePlaylist: lazy(() => import('./delete/delete-dialog')),
   deleteCollection: lazy(() => import('./delete/delete-dialog')),
   deleteLibrary: lazy(() => import('./delete/delete-dialog')),
 } as const;

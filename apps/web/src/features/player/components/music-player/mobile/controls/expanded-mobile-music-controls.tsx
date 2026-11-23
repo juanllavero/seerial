@@ -16,6 +16,7 @@ import { forwardRef } from 'react';
 import { shallow } from 'zustand/shallow';
 import { Button } from '@/shared/ui/button';
 import CustomSlider from '@/shared/ui/custom-slider';
+import DolbyAtmosBadge from '@/shared/ui/dolby-atmos-badge';
 import { NextTrackIcon, PrevTrackIcon } from '@/shared/ui/icon-library';
 import SmallSpinner from '@/shared/ui/small-spinner';
 
@@ -128,7 +129,10 @@ const ExpandedMobileMusicControls = forwardRef<HTMLDivElement, ExpandedMobileMus
           {/* Información de la canción */}
           <div className="mb-8 text-left">
             <h2 className="mb-2 text-3xl font-black text-white">{currentSong?.title}</h2>
-            <p className="mb-6 text-lg font-semibold text-gray-200">{album?.title}</p>
+            <p className="mb-2 text-lg font-semibold text-gray-200">{album?.title}</p>
+            <div className="mb-6 h-3">
+              {!!currentSong?.hasDolbyAtmos && <DolbyAtmosBadge />}
+            </div>
 
             {/* Progress Slider */}
             <div className="mb-2">

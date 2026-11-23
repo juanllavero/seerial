@@ -2,6 +2,7 @@ import { realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import pLimit from 'p-limit';
+import { isPlaylistsFolderName } from '@/api/v1/playlists/domain/PlayListFolder';
 import type { FileSystemServicePort } from '@/api/v1/shared/application/ports/FileSystemServicePort';
 import {
   notificationService,
@@ -95,6 +96,8 @@ export class ScanLibraryUseCase {
               await useCases.scanSeries().execute(library, filePath);
             } else if (library.type === 'Movies') {
               await useCases.scanMovie().execute(library, filePath);
+            } else if (file.isDirectory() && isPlaylistsFolderName(file.name)) {
+              await useCases.scanPlayListFolders().execute(library, filePath);
             } else {
               await useCases.scanMusic().execute(library, filePath);
             }
@@ -186,6 +189,10 @@ export class ScanLibraryUseCase {
     const updatedLibrary = await this.librariesRepo.getById(library.id);
     const currentAnalyzedFiles = updatedLibrary?.analyzedFiles ?? library.analyzedFiles;
     await this.cleanupMissingFiles(library, currentAnalyzedFiles, accessibleRoots);
+
+    if (library.type === 'Music') {
+      await this.cleanupMissingPlaylistFolders(library, accessibleRoots);
+    }
 
     // Cleanup empty collections/albums/series after removing missing content, to avoid leaving orphaned entries in the DB
     await this.cleanupEmptyCollections(library.id);
@@ -314,7 +321,7 @@ export class ScanLibraryUseCase {
       } else if (library.type === 'Movies') {
         await useCases.deleteVideo().execute(contentId);
       } else {
-        await useCases.deleteSong().execute(contentId);
+        await useCases.deleteSong().execute(contentId, { force: true });
       }
     } catch (error) {
       logger.error(
@@ -331,6 +338,32 @@ export class ScanLibraryUseCase {
       delete library.analyzedFiles[filePath];
     } catch (error) {
       logger.error({ filePath, error }, 'Failed to remove analyzed file entry');
+    }
+  }
+
+  private async cleanupMissingPlaylistFolders(
+    library: Library,
+    accessibleRoots: string[],
+  ): Promise<void> {
+    const playlists = await useCases.getPlayListsByLibrary().execute(library.id);
+
+    for (const playlist of playlists) {
+      if (!playlist.folder || !this.isAccessibleRoot(playlist.folder, accessibleRoots)) continue;
+      if (!(await this.isFolderMissing(playlist.folder))) continue;
+
+      logger.info(
+        { playlistId: playlist.id, folder: playlist.folder },
+        'Playlist folder no longer exists, removing playlist from DB',
+      );
+
+      try {
+        await useCases.removeFolderPlayList().execute(playlist);
+      } catch (error) {
+        logger.error(
+          { playlistId: playlist.id, err: error instanceof Error ? error.message : String(error) },
+          'Failed to remove playlist for missing folder',
+        );
+      }
     }
   }
 

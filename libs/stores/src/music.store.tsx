@@ -2,6 +2,25 @@ import type { Album, Song } from '@seerial/domain';
 import { RepeateMode } from '@seerial/domain';
 import { createWithEqualityFn } from 'zustand/traditional';
 
+const ATMOS_PREFERENCE_KEY = 'music_atmos_enabled';
+
+function loadAtmosPreference(): boolean {
+  try {
+    // Enabled by default until the user turns it off
+    return localStorage.getItem(ATMOS_PREFERENCE_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function saveAtmosPreference(isEnabled: boolean) {
+  try {
+    localStorage.setItem(ATMOS_PREFERENCE_KEY, String(isEnabled));
+  } catch {
+    // The preference only lives in memory when storage is unavailable.
+  }
+}
+
 interface MusicState {
   currentSong: Song | null;
   album: Album | null;
@@ -10,6 +29,7 @@ interface MusicState {
   showQueue: boolean;
   isPlaying: boolean;
   isShuffling: boolean;
+  isAtmosEnabled: boolean;
   repeateMode: RepeateMode;
   prevVolume: number;
   volume: number;
@@ -41,6 +61,7 @@ interface MusicState {
   setShowQueue: (showQueue: boolean) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   setIsShuffling: (isShuffling: boolean) => void;
+  setIsAtmosEnabled: (isAtmosEnabled: boolean) => void;
   setRepeateMode: (repeateMode: RepeateMode) => void;
   setPrevVolume: (volume: number) => void;
   setVolume: (volume: number) => void;
@@ -74,6 +95,7 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
   showQueue: false,
   isPlaying: false,
   isShuffling: false,
+  isAtmosEnabled: loadAtmosPreference(),
   repeateMode: RepeateMode.NONE,
   prevVolume: 75,
   volume: 75,
@@ -158,6 +180,10 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
   setShowQueue: (showQueue) => set({ showQueue }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setIsShuffling: (isShuffling) => set({ isShuffling }),
+  setIsAtmosEnabled: (isAtmosEnabled) => {
+    saveAtmosPreference(isAtmosEnabled);
+    set({ isAtmosEnabled });
+  },
   setRepeateMode: (repeateMode) => set({ repeateMode }),
   setPrevVolume: (volume) => set({ prevVolume: volume }),
   setVolume: (volume) => {

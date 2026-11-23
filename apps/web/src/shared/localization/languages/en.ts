@@ -59,6 +59,7 @@ export const en = {
     addLyrics: 'Add Lyrics',
     queue: 'Queue',
     addToQueue: 'Add to Queue',
+    dolbyAtmos: 'Dolby Atmos',
     removeFromQueue: 'Remove from Queue',
     repeat: 'Repeat',
     shuffle: 'Shuffle',
@@ -135,6 +136,13 @@ export const en = {
     addButton: 'Add',
     saveButton: 'Save',
     cancelButton: 'Cancel',
+    deletePlaylist: 'Remove playlist',
+    deletePlaylistMessage: 'Are you sure you want to remove this playlist?',
+    localSourceDeleteErrorTitle: "This can't be removed from Seerial",
+    localSourceDeleteErrorSong:
+      'This song is stored in one of your playlist folders, so Seerial can’t remove it. To get rid of it, delete the file from that folder on your computer. The library will update the next time it is scanned.',
+    localSourceDeleteErrorPlaylist:
+      'This playlist was created from a folder on your computer, so Seerial can’t remove it. To get rid of it, delete or move that folder on your computer. The library will update the next time it is scanned.',
     generalButton: 'General',
     ok: 'OK',
     switchToDesktop: 'Switch to Desktop Mode',

@@ -15,6 +15,23 @@ import { UpdateLibraryUseCase } from '@/api/v1/libraries/application/usecases/Up
 import type { MoviesRepositoryPort } from '@/api/v1/movies/application/ports/MoviesRepositoryPort';
 import type { SeriesRepositoryPort } from '@/api/v1/series/application/ports/SeriesRepositoryPort';
 
+jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
+  useCases: {
+    deleteSeries: jest.fn(),
+    deleteMovie: jest.fn(),
+    deleteAlbum: jest.fn(),
+    getPlayListsByLibrary: jest.fn(),
+    removeFolderPlayList: jest.fn(),
+  },
+}));
+
+const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/container') as {
+  useCases: {
+    getPlayListsByLibrary: jest.Mock;
+    removeFolderPlayList: jest.Mock;
+  };
+};
+
 function buildLibrary(overrides: Partial<Library> = {}): Library {
   return {
     id: 'lib-1',
@@ -37,6 +54,7 @@ function buildLibrariesRepo(
   return {
     getAll: jest.fn(),
     getContent: jest.fn(),
+    getCollectionContent: jest.fn(),
     getById: jest.fn(),
     getByAlbumId: jest.fn(),
     getByMovieId: jest.fn(),
@@ -257,10 +275,19 @@ describe('Libraries use cases', () => {
       const seriesRepo = buildSeriesRepo();
       const moviesRepo = buildMoviesRepo();
       const albumsRepo = buildAlbumsRepo();
+      const folderPlaylist = { id: 'playlist-1' };
+      const removeFolderPlayListExecute = jest.fn().mockResolvedValue(undefined);
+      mockContainer.useCases.getPlayListsByLibrary.mockReturnValue({
+        execute: jest.fn().mockResolvedValue([folderPlaylist]),
+      });
+      mockContainer.useCases.removeFolderPlayList.mockReturnValue({
+        execute: removeFolderPlayListExecute,
+      });
 
       const useCase = new DeleteLibraryUseCase(librariesRepo, seriesRepo, moviesRepo, albumsRepo);
       await useCase.execute('lib-1');
 
+      expect(removeFolderPlayListExecute).toHaveBeenCalledWith(folderPlaylist);
       expect(librariesRepo.delete).toHaveBeenCalledWith('lib-1');
     });
   });

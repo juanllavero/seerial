@@ -11,29 +11,36 @@ import { SearchController } from '@/api/v1/shared/infrastructure/web/controllers
 import { ContinueWatchingController } from '@/api/v1/watch-lists/infrastructure/web/controllers/ContinueWatchingController';
 import { messages } from '@/config/messages';
 
-jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
-  fileSystemService: {
-    getExternalPath: jest.fn(),
-    isFolder: jest.fn(),
-    propertiesFilePath: '/tmp/app.properties',
-    resourcesPath: '/resources',
-  },
-  tmdbApiClient: {
-    THEMOVIEDB_API_TOKEN: 'token',
-    initialize: jest.fn(),
-    getAPIKeyStatus: jest.fn(),
-  },
-  downloaderService: {
-    downloadVideo: jest.fn(),
-    downloadAudio: jest.fn(),
-  },
-  externalSearchService: {
-    searchDownloadableMedia: jest.fn(),
-  },
-  useCases: {
-    getContinueWatchingVideos: jest.fn(),
-  },
-}));
+jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => {
+  const nodeFs = jest.requireActual('node:fs');
+  return {
+    fileSystemService: {
+      getExternalPath: jest.fn(),
+      isFolder: jest.fn(),
+      existsSync: jest.fn((p: string) => nodeFs.existsSync(p)),
+      createFolder: jest.fn(),
+      getFilesInFolder: jest.fn(async (p: string) => nodeFs.readdirSync(p, { withFileTypes: true })),
+      getFoldersInFolderSync: jest.fn(() => []),
+      propertiesFilePath: '/tmp/app.properties',
+      resourcesPath: '/resources',
+    },
+    tmdbApiClient: {
+      THEMOVIEDB_API_TOKEN: 'token',
+      initialize: jest.fn(),
+      getAPIKeyStatus: jest.fn(),
+    },
+    downloaderService: {
+      downloadVideo: jest.fn(),
+      downloadAudio: jest.fn(),
+    },
+    externalSearchService: {
+      searchDownloadableMedia: jest.fn(),
+    },
+    useCases: {
+      getContinueWatchingVideos: jest.fn(),
+    },
+  };
+});
 
 jest.mock('@/utils/auth', () => ({
   getUserId: jest.fn(() => 'user-1'),
@@ -104,7 +111,10 @@ describe('Shared controllers', () => {
 
   describe('HealthController', () => {
     it('returns ok status when all checks pass', async () => {
-      jest.spyOn(childProcess, 'exec').mockImplementation(((_command, cb) => {
+      jest.spyOn(childProcess, 'exec').mockImplementation(((
+        _command: string,
+        cb?: (err: Error | null) => void,
+      ) => {
         cb?.(null);
         return {} as never;
       }) as never);
@@ -127,7 +137,10 @@ describe('Shared controllers', () => {
       });
       ServerModel.find.mockRejectedValue(new Error('db down'));
       container.tmdbApiClient.THEMOVIEDB_API_TOKEN = '';
-      jest.spyOn(childProcess, 'exec').mockImplementation(((_command, cb) => {
+      jest.spyOn(childProcess, 'exec').mockImplementation(((
+        _command: string,
+        cb?: (err: Error | null) => void,
+      ) => {
         cb?.(new Error('missing ffmpeg'));
         return {} as never;
       }) as never);
@@ -185,7 +198,9 @@ describe('Shared controllers', () => {
         apiKey: 'abc123',
       });
 
-      expect(propertiesReader).toHaveBeenCalledWith(container.fileSystemService.propertiesFilePath);
+      expect(propertiesReader).toHaveBeenCalledWith({
+        sourceFile: container.fileSystemService.propertiesFilePath,
+      });
       expect(container.tmdbApiClient.initialize).toHaveBeenCalled();
       expect(container.tmdbApiClient.THEMOVIEDB_API_TOKEN).toBe('abc123');
       expect(response.data).toEqual({ status: 'VALID_API_KEY' });
@@ -228,9 +243,10 @@ describe('Shared controllers', () => {
         fileName: 'cover',
       });
 
+      expect(container.fileSystemService.getExternalPath).toHaveBeenCalledWith('img');
       expect(utils.downloadImage).toHaveBeenCalledWith(
         'https://example.com/image',
-        path.join('/resources', 'img', 'cover.jpg'),
+        path.join('/resources', 'cover.jpg'),
       );
       expect(response.message).toBe(messages.success.download);
     });

@@ -277,9 +277,9 @@ describe('expressAuthentication', () => {
 
     it('rejects remote non-admin user even with valid token', async () => {
       const req = buildRequest({
+        ip: '203.0.113.11',
         headers: {
           authorization: 'Bearer remote-token',
-          'x-forwarded-for': '203.0.113.11',
         },
       } as unknown as Partial<Request>);
       jwtVerify.mockReturnValue({ userId: 'user-1' });
@@ -291,11 +291,11 @@ describe('expressAuthentication', () => {
       });
     });
 
-    it('returns admin user for remote request with forwarded ip', async () => {
+    it('returns admin user for remote request resolved by Express', async () => {
       const req = buildRequest({
+        ip: '203.0.113.12',
         headers: {
           authorization: 'Bearer remote-admin-token',
-          'x-forwarded-for': '203.0.113.12, 10.0.0.1',
         },
       } as unknown as Partial<Request>);
       const user = buildMockUser({ id: 'admin-1', type: UserType.ADMIN });
@@ -304,6 +304,16 @@ describe('expressAuthentication', () => {
 
       const result = await expressAuthentication(req, 'managementAuth');
       expect(result).toEqual(user);
+    });
+
+    it('ignores the raw x-forwarded-for header and relies on the resolved request ip', async () => {
+      const req = buildRequest({
+        ip: '127.0.0.1',
+        headers: { 'x-forwarded-for': '203.0.113.13' },
+      } as unknown as Partial<Request>);
+
+      const result = await expressAuthentication(req, 'managementAuth');
+      expect(result).toBeNull();
     });
   });
 

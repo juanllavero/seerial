@@ -40,7 +40,7 @@ function RelatedSongsSection({
   const songsWithAlbum = useMemo<SongWithAlbum[]>(() => {
     const albumMap = new Map(albums.map((album) => [album.id, album]));
     return songs.flatMap((song) => {
-      const album = albumMap.get(song.albumId);
+      const album = song.albumId ? albumMap.get(song.albumId) : undefined;
       return album ? [{ ...song, album }] : [];
     });
   }, [albums, songs]);

@@ -49,13 +49,23 @@ describe('mediaInfo adapter', () => {
     await expect(getOnlyRuntime('C:/videos/movie.mkv')).resolves.toBe(2.5);
   });
 
-  it('returns 0 when runtime data is missing or ffprobe fails', async () => {
+  it('returns 0 when runtime data is missing or ffprobe keeps failing', async () => {
     mockExecuteFfprobe
       .mockResolvedValueOnce({ format: {} })
+      .mockRejectedValueOnce(new Error('boom'))
       .mockRejectedValueOnce(new Error('boom'));
 
     await expect(getOnlyRuntime('C:/videos/no-duration.mkv')).resolves.toBe(0);
     await expect(getOnlyRuntime('C:/videos/error.mkv')).resolves.toBe(0);
+    expect(mockExecuteFfprobe).toHaveBeenCalledTimes(3);
+  });
+
+  it('retries once when ffprobe fails transiently', async () => {
+    mockExecuteFfprobe
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValueOnce({ format: { duration: 120 } });
+
+    await expect(getOnlyRuntime('C:/videos/flaky.mkv')).resolves.toBe(2);
   });
 
   it('returns undefined and logs when getMediaInfo receives an empty path', async () => {

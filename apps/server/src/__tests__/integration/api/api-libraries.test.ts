@@ -51,6 +51,12 @@ function buildLibraryData(overrides: Record<string, unknown> = {}) {
   };
 }
 
+async function createLibrary(data: ReturnType<typeof buildLibraryData>) {
+  const library = await libRepo.create(data);
+  if (!library) throw new Error('Test library was not created');
+  return library;
+}
+
 beforeAll(async () => {
   process.env.JWT_SECRET = 'test-api-secret-libraries';
   const ds = await getTestDataSource();
@@ -129,7 +135,7 @@ describe('Libraries API', () => {
 
   describe('GET /api/libraries/:id', () => {
     it('returns 200 with library data for existing id', async () => {
-      const lib = await libRepo.create(
+      const lib = await createLibrary(
         buildLibraryData({ name: 'My Movies', type: LibraryTypes.MOVIES }),
       );
 
@@ -154,7 +160,7 @@ describe('Libraries API', () => {
 
   describe('GET /api/libraries/:id/content', () => {
     it('returns 200 with empty content for a library with no items', async () => {
-      const lib = await libRepo.create(
+      const lib = await createLibrary(
         buildLibraryData({ name: 'Empty', type: LibraryTypes.MOVIES }),
       );
 
@@ -178,7 +184,7 @@ describe('Libraries API', () => {
 
   describe('PATCH /api/libraries/:id', () => {
     it('returns 200 and updates library name', async () => {
-      const lib = await libRepo.create(
+      const lib = await createLibrary(
         buildLibraryData({ name: 'Old Name', type: LibraryTypes.MOVIES }),
       );
 
@@ -193,7 +199,7 @@ describe('Libraries API', () => {
     });
 
     it('returns 401 without auth', async () => {
-      const lib = await libRepo.create(
+      const lib = await createLibrary(
         buildLibraryData({ name: 'A Library', type: LibraryTypes.MOVIES }),
       );
 
@@ -205,7 +211,7 @@ describe('Libraries API', () => {
 
   describe('DELETE /api/libraries/:id', () => {
     it('returns 200 when deleting a library (mocked use case)', async () => {
-      const lib = await libRepo.create(
+      const lib = await createLibrary(
         buildLibraryData({ name: 'To Delete', type: LibraryTypes.MOVIES }),
       );
 
@@ -218,17 +224,17 @@ describe('Libraries API', () => {
     });
   });
 
-  describe('POST /api/libraries/order', () => {
+  describe('PATCH /api/libraries/order', () => {
     it('returns 200 when reordering libraries', async () => {
-      const lib1 = await libRepo.create(
+      const lib1 = await createLibrary(
         buildLibraryData({ name: 'First', type: LibraryTypes.MOVIES }),
       );
-      const lib2 = await libRepo.create(
+      const lib2 = await createLibrary(
         buildLibraryData({ name: 'Second', type: LibraryTypes.SHOWS }),
       );
 
       const res = await request(app)
-        .post('/api/libraries/order')
+        .patch('/api/libraries/order')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ orderedLibraryIds: [lib2.id, lib1.id] });
 

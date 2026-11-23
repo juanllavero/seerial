@@ -9,7 +9,8 @@ import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../he
 
 const mockMovie = {
   id: 'movie-1',
-  title: 'Test Movie',
+  name: 'Test Movie',
+  folder: '/media/movies/test-movie',
   description: 'A great test film',
   year: 2023,
   rating: 7.5,
@@ -92,7 +93,7 @@ beforeEach(async () => {
     execute: jest.fn().mockResolvedValue(mockMovie),
   });
   mockContainer.useCases.updateMovie.mockReturnValue({
-    execute: jest.fn().mockResolvedValue({ ...mockMovie, title: 'Updated Movie' }),
+    execute: jest.fn().mockResolvedValue({ ...mockMovie, name: 'Updated Movie' }),
   });
   mockContainer.useCases.deleteMovie.mockReturnValue({
     execute: jest.fn().mockResolvedValue(undefined),
@@ -140,15 +141,15 @@ describe('Movies API', () => {
       const res = await request(app)
         .patch('/api/movies/movie-1')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ title: 'Updated Movie' });
+        .send({ name: 'Updated Movie' });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.title).toBe('Updated Movie');
+      expect(res.body.data.name).toBe('Updated Movie');
     });
 
     it('returns 401 without auth', async () => {
-      const res = await request(app).patch('/api/movies/movie-1').send({ title: 'X' });
+      const res = await request(app).patch('/api/movies/movie-1').send({ name: 'X' });
 
       expect(res.status).toBeGreaterThanOrEqual(400);
     });
@@ -157,7 +158,7 @@ describe('Movies API', () => {
       const res = await request(app)
         .patch('/api/movies/movie-1')
         .set('Authorization', `Bearer ${userToken}`)
-        .send({ title: 'X' });
+        .send({ name: 'X' });
 
       expect(res.status).toBeGreaterThanOrEqual(400);
     });

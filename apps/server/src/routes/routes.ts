@@ -690,7 +690,7 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "id": {"dataType":"string"},
-            "albumId": {"dataType":"string","required":true},
+            "albumId": {"dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
             "title": {"dataType":"string","required":true},
             "codec": {"dataType":"string","required":true},
             "hasDolbyAtmos": {"dataType":"boolean","required":true},
@@ -1409,23 +1409,6 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "UpdateLibraryDTO": {
-        "dataType": "refObject",
-        "properties": {
-            "name": {"dataType":"string"},
-            "language": {"dataType":"string"},
-            "type": {"ref":"LibraryType"},
-            "order": {"dataType":"double"},
-            "hidden": {"dataType":"boolean"},
-            "folders": {"dataType":"array","array":{"dataType":"string"}},
-            "preferAudioLan": {"dataType":"string"},
-            "preferSubLan": {"dataType":"string"},
-            "subsMode": {"dataType":"string"},
-            "backgroundSrc": {"dataType":"string"},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "ApiResponse_boolean_": {
         "dataType": "refObject",
         "properties": {
@@ -1441,6 +1424,23 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "orderedLibraryIds": {"dataType":"array","array":{"dataType":"string"},"required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "UpdateLibraryDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "name": {"dataType":"string"},
+            "language": {"dataType":"string"},
+            "type": {"ref":"LibraryType"},
+            "order": {"dataType":"double"},
+            "hidden": {"dataType":"boolean"},
+            "folders": {"dataType":"array","array":{"dataType":"string"}},
+            "preferAudioLan": {"dataType":"string"},
+            "preferSubLan": {"dataType":"string"},
+            "subsMode": {"dataType":"string"},
+            "backgroundSrc": {"dataType":"string"},
         },
         "additionalProperties": false,
     },
@@ -1563,8 +1563,12 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "id": {"dataType":"string","required":true},
+            "userId": {"dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
+            "libraryId": {"dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
+            "folder": {"dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
             "title": {"dataType":"string","required":true},
             "description": {"dataType":"string"},
+            "songs": {"dataType":"array","array":{"dataType":"refObject","ref":"Song"}},
         },
         "additionalProperties": false,
     },
@@ -4327,6 +4331,37 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsLibrariesController_reorder: Record<string, TsoaRoute.ParameterSchema> = {
+                body: {"in":"body","name":"body","required":true,"ref":"ReorderLibrariesDTO"},
+        };
+        app.patch('/api/libraries/order',
+            authenticateMiddleware([{"adminAuth":[]}]),
+            ...(fetchMiddlewares<RequestHandler>(LibrariesController)),
+            ...(fetchMiddlewares<RequestHandler>(LibrariesController.prototype.reorder)),
+
+            async function LibrariesController_reorder(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsLibrariesController_reorder, request, response });
+
+                const controller = new LibrariesController();
+
+              await templateService.apiHandler({
+                methodName: 'reorder',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsLibrariesController_update: Record<string, TsoaRoute.ParameterSchema> = {
                 id: {"in":"path","name":"id","required":true,"dataType":"string"},
                 body: {"in":"body","name":"body","required":true,"ref":"UpdateLibraryDTO"},
@@ -4379,37 +4414,6 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
 
               await templateService.apiHandler({
                 methodName: 'delete',
-                controller,
-                response,
-                next,
-                validatedArgs,
-                successStatus: undefined,
-              });
-            } catch (err) {
-                return next(err);
-            }
-        });
-        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsLibrariesController_reorder: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"ref":"ReorderLibrariesDTO"},
-        };
-        app.patch('/api/libraries/order',
-            authenticateMiddleware([{"adminAuth":[]}]),
-            ...(fetchMiddlewares<RequestHandler>(LibrariesController)),
-            ...(fetchMiddlewares<RequestHandler>(LibrariesController.prototype.reorder)),
-
-            async function LibrariesController_reorder(request: ExRequest, response: ExResponse, next: any) {
-
-            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-
-            let validatedArgs: any[] = [];
-            try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsLibrariesController_reorder, request, response });
-
-                const controller = new LibrariesController();
-
-              await templateService.apiHandler({
-                methodName: 'reorder',
                 controller,
                 response,
                 next,

@@ -66,7 +66,10 @@ import { CreatePlayListUseCase } from '@/api/v1/playlists/application/usecases/C
 import { DeletePlayListUseCase } from '@/api/v1/playlists/application/usecases/DeletePlayListUseCase';
 import { FindAllPlayListsUseCase } from '@/api/v1/playlists/application/usecases/FindAllPlayListsUseCase';
 import { FindPlayListByIdUseCase } from '@/api/v1/playlists/application/usecases/FindPlayListByIdUseCase';
+import { FindPlayListsByLibraryUseCase } from '@/api/v1/playlists/application/usecases/FindPlayListsByLibraryUseCase';
+import { RemoveFolderPlayListUseCase } from '@/api/v1/playlists/application/usecases/RemoveFolderPlayListUseCase';
 import { RemoveSongFromPlayListUseCase } from '@/api/v1/playlists/application/usecases/RemoveSongFromPlayListUseCase';
+import { ScanPlayListFoldersUseCase } from '@/api/v1/playlists/application/usecases/ScanPlayListFoldersUseCase';
 import { UpdatePlayListUseCase } from '@/api/v1/playlists/application/usecases/UpdatePlayListUseCase';
 import { PlayListRepositoryImpl } from '@/api/v1/playlists/infrastructure/persistence/repositories/PlayListRepositoryImpl';
 import { CreateSeasonUseCase } from '@/api/v1/seasons/application/usecases/CreateSeasonUseCase';
@@ -95,6 +98,7 @@ import { ContentCleanupService } from '@/api/v1/shared/application/services/Cont
 import { CreateSongUseCase } from '@/api/v1/songs/application/usecases/CreateSongUseCase';
 import { DeleteSongUseCase } from '@/api/v1/songs/application/usecases/DeleteSongUseCase';
 import { FindSongByIdUseCase } from '@/api/v1/songs/application/usecases/FindSongByIdUseCase';
+import { FindSongByAnyFilePathUseCase } from '@/api/v1/songs/application/usecases/FindSongByAnyFilePathUseCase';
 import { FindSongByPathUseCase } from '@/api/v1/songs/application/usecases/FindSongByPathUseCase';
 import { FindSongsByAlbumIdUseCase } from '@/api/v1/songs/application/usecases/FindSongsByAlbumIdUseCase';
 import { ScanMusicUseCase } from '@/api/v1/songs/application/usecases/ScanSongsUseCase';
@@ -314,6 +318,7 @@ export const useCases = {
   getSongById: () => new FindSongByIdUseCase(songsRepo),
   getSongsByAlbum: () => new FindSongsByAlbumIdUseCase(songsRepo),
   getSongByPath: () => new FindSongByPathUseCase(songsRepo),
+  getSongByAnyFilePath: () => new FindSongByAnyFilePathUseCase(songsRepo),
   createSong: () => new CreateSongUseCase(songsRepo),
   deleteSong: () => new DeleteSongUseCase(songsRepo),
   updateSong: () => new UpdateSongUseCase(songsRepo),
@@ -365,7 +370,17 @@ export const useCases = {
   updatePlayList: () => new UpdatePlayListUseCase(playlistRepo),
   deletePlayList: () => new DeletePlayListUseCase(playlistRepo),
   addSongToPlayList: () => new AddSongToPlayListUseCase(playlistRepo),
-  removeSongFromPlayList: () => new RemoveSongFromPlayListUseCase(playlistRepo),
+  removeSongFromPlayList: () => new RemoveSongFromPlayListUseCase(playlistRepo, songsRepo),
+  getPlayListsByLibrary: () => new FindPlayListsByLibraryUseCase(playlistRepo),
+  removeFolderPlayList: () => new RemoveFolderPlayListUseCase(playlistRepo, songsRepo),
+  scanPlayListFolders: () =>
+    new ScanPlayListFoldersUseCase(
+      fileSystemService,
+      librariesRepo,
+      playlistRepo,
+      songsRepo,
+      notificationService,
+    ),
 
   // ContinueWatching
   addVideoToContinueWatching: () => new AddContinueWatchingVideoUseCase(watchListRepo),

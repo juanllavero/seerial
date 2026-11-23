@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import { GenericRepositoryHelper } from '@/helpers/GenericRepositoryHelper';
@@ -30,9 +31,24 @@ export class SongsRepositoryImpl extends BaseRepository implements SongsReposito
     return this.helper.findByField('fileSrc', path);
   }
 
+  async findByAnyFilePath(path: string): Promise<Song | null> {
+    this.validateData(path, 'Path data');
+
+    for (const field of ['fileSrc', 'atmosFileSrc', 'vocalsFileSrc', 'instrumentalFileSrc']) {
+      const song = await this.helper.findByField(field, path);
+      if (song) return song;
+    }
+
+    return null;
+  }
+
   async findByAlbum(albumId: string): Promise<Song[]> {
     const validatedId = this.validateId(albumId, 'Album ID');
     return this.helper.findManyByField('albumId', validatedId);
+  }
+
+  async findWithoutAlbum(): Promise<Song[]> {
+    return this.helper.findManyByField('albumId', IsNull());
   }
 
   async create(song: Partial<Song>): Promise<Song | null> {

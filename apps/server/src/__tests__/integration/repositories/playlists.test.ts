@@ -58,16 +58,47 @@ async function createSongFixture() {
 }
 
 describe('PlayListRepositoryImpl', () => {
-  it('findAll and findById currently reject when relation mapping cannot be resolved', async () => {
+  it('findAll and findById return playlists with their songs', async () => {
     const created = await repo.create({
       userId: 'user-1',
       title: 'Lookup Playlist',
     } as never);
+    const song = await createSongFixture();
+    await repo.addSongToPlaylist(created.id, song.id);
 
-    await expect(repo.findAll()).rejects.toThrow('Failed to retrieve all PlayList');
-    await expect(repo.findById(created.id)).rejects.toThrow(
-      `Failed to retrieve PlayList with ID ${created.id}`,
-    );
+    const all = await repo.findAll();
+    const found = await repo.findById(created.id);
+
+    expect(all).toHaveLength(1);
+    expect(all[0].songs?.map((s) => s.id)).toEqual([song.id]);
+    expect(found?.title).toBe('Lookup Playlist');
+    expect(found?.songs?.map((s) => s.id)).toEqual([song.id]);
+    expect(found).not.toHaveProperty('items');
+    await expect(repo.findById('missing')).resolves.toBeNull();
+  });
+
+  it('finds folder playlists by folder and by library', async () => {
+    const library = await LibraryModel.save({
+      id: 'lib-folder',
+      name: 'Music Library',
+      type: LibraryTypes.MUSIC,
+      language: 'en',
+      folders: [],
+      order: 0,
+      hidden: false,
+    });
+    const created = await repo.create({
+      title: '2000s',
+      libraryId: library.id,
+      folder: '/music/Playlists/2000s',
+    } as never);
+
+    await expect(repo.findByFolder('/music/Playlists/2000s')).resolves.toMatchObject({
+      id: created.id,
+      userId: null,
+    });
+    await expect(repo.findByFolder('/music/Playlists/other')).resolves.toBeNull();
+    await expect(repo.findByLibrary(library.id)).resolves.toHaveLength(1);
   });
 
   it('creates a playlist row', async () => {

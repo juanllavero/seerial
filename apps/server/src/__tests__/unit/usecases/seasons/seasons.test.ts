@@ -10,14 +10,24 @@ import type { Season } from '@/api/v1/seasons/domain/Season';
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     deleteEpisode: jest.fn(),
-    deleteSeasonData: jest.fn(),
+  },
+  seriesRepo: {
+    findById: jest.fn(),
+  },
+  contentCleanupService: {
+    cleanSeasonMedia: jest.fn(),
   },
 }));
 
 const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/container') as {
   useCases: {
     deleteEpisode: jest.Mock;
-    deleteSeasonData: jest.Mock;
+  };
+  seriesRepo: {
+    findById: jest.Mock;
+  };
+  contentCleanupService: {
+    cleanSeasonMedia: jest.Mock;
   };
 };
 
@@ -49,9 +59,7 @@ describe('Season use cases', () => {
     mockContainer.useCases.deleteEpisode.mockReturnValue({
       execute: jest.fn().mockResolvedValue(undefined),
     });
-    mockContainer.useCases.deleteSeasonData.mockReturnValue({
-      execute: jest.fn().mockResolvedValue(undefined),
-    });
+    mockContainer.seriesRepo.findById.mockResolvedValue({ id: 'series-1', folder: '/shows/series-1' });
   });
 
   it('creates a season through the repository', async () => {
@@ -121,14 +129,10 @@ describe('Season use cases', () => {
     });
   });
 
-  it('deletes child episodes, season data, and the season row', async () => {
+  it('deletes child episodes, season media, and the season row', async () => {
     const deleteEpisodeExecute = jest.fn().mockResolvedValue(undefined);
-    const deleteSeasonDataExecute = jest.fn().mockResolvedValue(undefined);
     mockContainer.useCases.deleteEpisode.mockReturnValue({
       execute: deleteEpisodeExecute,
-    });
-    mockContainer.useCases.deleteSeasonData.mockReturnValue({
-      execute: deleteSeasonDataExecute,
     });
 
     const repo = buildSeasonRepo({
@@ -139,7 +143,27 @@ describe('Season use cases', () => {
     await new DeleteSeasonUseCase(repo).execute('season-1');
 
     expect(deleteEpisodeExecute).toHaveBeenCalledTimes(2);
-    expect(deleteSeasonDataExecute).toHaveBeenCalledWith('season-1');
+    expect(mockContainer.contentCleanupService.cleanSeasonMedia).toHaveBeenCalledWith(
+      '/shows/series-1',
+      1,
+    );
+    expect(repo.delete).toHaveBeenCalledWith('season-1');
+  });
+
+  it('skips season media cleanup when the series folder is unknown', async () => {
+    mockContainer.useCases.deleteEpisode.mockReturnValue({
+      execute: jest.fn().mockResolvedValue(undefined),
+    });
+    mockContainer.seriesRepo.findById.mockResolvedValue(null);
+
+    const repo = buildSeasonRepo({
+      findById: jest.fn().mockResolvedValue(buildSeason()),
+      delete: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await new DeleteSeasonUseCase(repo).execute('season-1');
+
+    expect(mockContainer.contentCleanupService.cleanSeasonMedia).not.toHaveBeenCalled();
     expect(repo.delete).toHaveBeenCalledWith('season-1');
   });
 });

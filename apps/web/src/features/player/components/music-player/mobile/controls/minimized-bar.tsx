@@ -1,6 +1,7 @@
 import { useMusicStore } from '@seerial/stores';
 import { shallow } from 'zustand/shallow';
 import { Button } from '@/shared/ui/button';
+import DolbyAtmosBadge from '@/shared/ui/dolby-atmos-badge';
 import { PauseIcon, PlayIcon, StopIcon } from '@/shared/ui/icon-library';
 import SmallSpinner from '@/shared/ui/small-spinner';
 
@@ -67,6 +68,7 @@ function MinimizedBar({
           <div className="text-sm">
             <div className="truncate text-lg font-black">{currentSong?.title}</div>
             <div className="truncate text-sm font-bold text-gray-200">{album?.title}</div>
+            {!!currentSong?.hasDolbyAtmos && <DolbyAtmosBadge className="mt-1" />}
           </div>
         </div>
 

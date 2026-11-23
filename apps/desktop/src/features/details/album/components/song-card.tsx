@@ -4,6 +4,7 @@ import { AnimatedSoundBars } from '@/features/music-player';
 import { NavigationButton } from '@/shared/components/navigation';
 import { Tertiary } from '@/shared/components/text';
 import FlexBox from '@/shared/components/ui/flex-box';
+import DolbyAtmosBadge from '@/shared/components/ui/dolby-atmos-badge';
 
 interface SongCardProps {
   song: Song;
@@ -59,9 +60,12 @@ function SongCard({
           </FlexBox>
           <Tertiary className="text-current! truncate max-w-[70dvh]">{song.title}</Tertiary>
         </FlexBox>
-        <Tertiary className="text-current!">
-          {song.duration ? formatTime(song.duration) : ''}
-        </Tertiary>
+        <FlexBox gap={1} items="center" className="shrink-0">
+          {!!song.hasDolbyAtmos && <DolbyAtmosBadge />}
+          <Tertiary className="text-current!">
+            {song.duration ? formatTime(song.duration) : ''}
+          </Tertiary>
+        </FlexBox>
       </FlexBox>
     </NavigationButton>
   );

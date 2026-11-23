@@ -1,7 +1,9 @@
+import type { Writable } from 'node:stream';
 import type { FileOrDir } from '../../domain/types/FilesTypes';
 
 export interface FileSystemStats {
   size: number;
+  mtimeMs: number;
   isFile: () => boolean;
   isDirectory: () => boolean;
 }
@@ -60,7 +62,7 @@ export interface FileSystemServicePort {
 
   // Streams
   createReadStream(filePath: string, options?: { start?: number; end?: number }): NodeJS.ReadableStream;
-  createWriteStream(filePath: string): NodeJS.WritableStream;
+  createWriteStream(filePath: string): Writable;
 
   // File writing
   writeFile(filePath: string, content: string, encoding?: string): Promise<void>;

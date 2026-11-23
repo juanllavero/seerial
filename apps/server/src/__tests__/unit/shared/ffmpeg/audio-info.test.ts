@@ -61,6 +61,7 @@ describe('getAudioInfo', () => {
       trackNumber: 7,
       composers: ['Composer A', 'Composer B'],
       artists: ['Artist A', 'Artist B'],
+      hasDolbyAtmos: false,
     });
   });
 
@@ -84,6 +85,7 @@ describe('getAudioInfo', () => {
       trackNumber: 0,
       composers: [],
       artists: [],
+      hasDolbyAtmos: false,
     });
   });
 

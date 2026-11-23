@@ -1,3 +1,4 @@
+import type { ReorderItemDTO } from '@/api/v1/collections/application/dtos/CollectionDTOs';
 import type { CollectionsRepositoryPort } from '@/api/v1/collections/application/ports/CollectionsRepositoryPort';
 import { AddAlbumToCollectionUseCase } from '@/api/v1/collections/application/usecases/AddAlbumToCollectionUseCase';
 import { AddLibraryToCollectionUseCase } from '@/api/v1/collections/application/usecases/AddLibraryUseCase';
@@ -32,6 +33,7 @@ function buildCollectionsRepo(
 ): CollectionsRepositoryPort {
   return {
     getAll: jest.fn(),
+    getAllSummary: jest.fn(),
     getById: jest.fn(),
     getByName: jest.fn(),
     add: jest.fn(),
@@ -41,6 +43,12 @@ function buildCollectionsRepo(
     addMovie: jest.fn(),
     addSeries: jest.fn(),
     addLibrary: jest.fn(),
+    removeAlbum: jest.fn(),
+    removeMovie: jest.fn(),
+    removeSeries: jest.fn(),
+    hasAlbum: jest.fn(),
+    hasMovie: jest.fn(),
+    hasSeries: jest.fn(),
     reorderContent: jest.fn(),
     ...overrides,
   };
@@ -126,7 +134,7 @@ describe('Collection use cases', () => {
 
   describe('ReorderCollectionItemsUseCase', () => {
     it('delegates item ordering to the repository', async () => {
-      const orderedItems = [{ id: 'movie-1', type: 'movie' }];
+      const orderedItems: ReorderItemDTO[] = [{ id: 'movie-1', type: 'movie' }];
       const repo = buildCollectionsRepo({
         reorderContent: jest.fn().mockResolvedValue(undefined),
       });

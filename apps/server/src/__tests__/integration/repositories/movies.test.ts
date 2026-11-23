@@ -3,6 +3,7 @@
 import 'reflect-metadata';
 import { LibraryModel } from '@/api/v1/libraries/infrastructure/persistence/models/LibraryModel';
 import { MoviesRepositoryImpl } from '@/api/v1/movies/infrastructure/persistence/repositories/MoviesRepositoryImpl';
+import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
 import { LibraryTypes } from '@/data/interfaces/Media';
 import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../helpers/test-db';
 
@@ -152,9 +153,6 @@ describe('MoviesRepositoryImpl', () => {
         name: 'Matrix',
       });
 
-      const { VideoModel } = await import(
-        '@/api/v1/videos/infrastructure/persistence/models/VideoModel'
-      );
       await VideoModel.save({
         id: `vid-${Math.random().toString(36).slice(2, 10)}`,
         movieId: movie.id,

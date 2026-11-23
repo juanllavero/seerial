@@ -108,7 +108,18 @@ describe('Episodes API', () => {
       const res = await request(app)
         .patch('/api/episodes/ep-1')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ title: 'Updated Pilot' });
+        .send({
+          name: 'Updated Pilot',
+          nameLock: false,
+          year: '2024',
+          yearLock: false,
+          overview: 'Updated overview',
+          overviewLock: false,
+          directedBy: [],
+          directedByLock: false,
+          writtenBy: [],
+          writtenByLock: false,
+        });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);

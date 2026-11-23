@@ -118,60 +118,6 @@ describe('SongsController', () => {
     expect(findLyricsForSong).toHaveBeenCalledWith('song-1');
   });
 
-  it('throws not found when song does not exist while adding lyrics', async () => {
-    container.useCases.getSongById.mockReturnValue(uc(null));
-
-    await expect(
-      new SongsController().addSongsLyrics({
-        songId: 'missing',
-        language: 'en',
-        content: '[00:00.00] Hi',
-      }),
-    ).rejects.toMatchObject({ statusCode: 404 });
-  });
-
-  it('adds song lyrics with language suffix for non-original language', async () => {
-    const song = { id: 'song-1', fileSrc: '/music/song.mp3' };
-    container.useCases.getSongById.mockReturnValue(uc(song));
-    container.fileSystemService.dirname.mockReturnValue('/music');
-    container.fileSystemService.extname.mockReturnValue('.mp3');
-    container.fileSystemService.basename.mockReturnValue('song');
-    container.fileSystemService.join.mockReturnValue('/music/song.en.lrc');
-    container.fileSystemService.writeFile.mockResolvedValue(undefined);
-
-    const response = await new SongsController().addSongsLyrics({
-      songId: 'song-1',
-      language: 'en',
-      content: '[00:00.00] Hello',
-    });
-
-    expect(response.data).toBe('song.en.lrc');
-    expect(container.fileSystemService.writeFile).toHaveBeenCalledWith(
-      '/music/song.en.lrc',
-      '[00:00.00] Hello',
-      'utf-8',
-    );
-  });
-
-  it('adds song lyrics without language suffix when language is "original"', async () => {
-    const song = { id: 'song-1', fileSrc: '/music/song.mp3' };
-    container.useCases.getSongById.mockReturnValue(uc(song));
-    container.fileSystemService.dirname.mockReturnValue('/music');
-    container.fileSystemService.extname.mockReturnValue('.mp3');
-    container.fileSystemService.basename.mockReturnValue('song');
-    container.fileSystemService.join.mockReturnValue('/music/song.lrc');
-    container.fileSystemService.writeFile.mockResolvedValue(undefined);
-
-    const response = await new SongsController().addSongsLyrics({
-      songId: 'song-1',
-      language: 'original',
-      content: '[00:00.00] Hola',
-    });
-
-    expect(response.data).toBe('song.lrc');
-    expect(container.fileSystemService.join).toHaveBeenCalledWith('/music', 'song.lrc');
-  });
-
   it('generates a signed song stream URL', async () => {
     const response = await new SongsController().getSongUrl({
       filePath: '/music/song.mp3',

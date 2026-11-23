@@ -138,8 +138,16 @@ export interface Movie {
 
 export interface PlayList {
   id: string;
+  /** Empty for playlists created from a library folder (shared by all users). */
+  userId?: string | null;
+  /** Set only for playlists created from a folder inside the library "Playlists" folder. */
+  libraryId?: string | null;
+  /** Source folder of a folder-based playlist. */
+  folder?: string | null;
   title: string;
   description?: string;
+  /** Songs of the playlist (local and referenced). Only present when the playlist is fetched with its songs. */
+  songs?: Song[];
 }
 
 export interface Season {
@@ -200,9 +208,11 @@ export interface Series {
 
 export interface Song {
   id?: string;
-  albumId: string;
+  /** Empty for songs that only belong to a folder-based playlist. */
+  albumId?: string | null;
   title: string;
   codec: string;
+  /** True when the song is Dolby Atmos, either the original file or its `.atmos` companion file. */
   hasDolbyAtmos: boolean;
   trackNumber: number;
   discNumber: number;
@@ -210,6 +220,17 @@ export interface Song {
   composers: string[];
   duration: number;
   fileSrc: string;
+  /**
+   * Dolby Atmos version of a song whose original file is not Atmos (`name.atmos.ext`).
+   * Null when the original is already Atmos or there is no valid Atmos companion file.
+   */
+  atmosFileSrc?: string | null;
+  /** Vocals stem (`name.vocals.ext`) used for the karaoke mix. */
+  vocalsFileSrc?: string | null;
+  /** Instrumental stem (`name.inst.ext`) used for the karaoke mix. */
+  instrumentalFileSrc?: string | null;
+  /** Modification time (ms) of the original file when it was last analyzed. */
+  fileModifiedAt?: number | null;
 }
 
 export interface LyricsLine {

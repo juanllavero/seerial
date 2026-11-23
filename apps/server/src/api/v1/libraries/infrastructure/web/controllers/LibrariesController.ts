@@ -122,6 +122,19 @@ export class LibrariesController extends Controller {
   }
 
   /**
+   * Reorder libraries.
+   * Declared before the `{id}` PATCH route so `/order` is not captured as an id.
+   */
+  @Patch('order')
+  @Security('adminAuth')
+  public async reorder(@Body() body: ReorderLibrariesDTO): Promise<ApiResponse<boolean>> {
+    const { orderedLibraryIds } = body;
+    const result = await useCases.reorderLibraries().execute(orderedLibraryIds);
+
+    return ApiResponse.success(result, messages.success.order);
+  }
+
+  /**
    * Update library details
    */
   @Patch('{id}')
@@ -144,18 +157,6 @@ export class LibrariesController extends Controller {
     await useCases.deleteLibrary().execute(id);
 
     return ApiResponse.success(null, messages.success.delete);
-  }
-
-  /**
-   * Reorder libraries
-   */
-  @Patch('order')
-  @Security('adminAuth')
-  public async reorder(@Body() body: ReorderLibrariesDTO): Promise<ApiResponse<boolean>> {
-    const { orderedLibraryIds } = body;
-    const result = await useCases.reorderLibraries().execute(orderedLibraryIds);
-
-    return ApiResponse.success(result, messages.success.order);
   }
 
   /**

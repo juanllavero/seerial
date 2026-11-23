@@ -161,6 +161,7 @@ export class CollectionsRepositoryImpl extends BaseRepository implements Collect
 
     const queuedByAlbum = new Map<string, SongModel[]>();
     for (const song of recentSongs) {
+      if (!song.albumId) continue;
       const queue = queuedByAlbum.get(song.albumId) ?? [];
       queue.push(song);
       queuedByAlbum.set(song.albumId, queue);

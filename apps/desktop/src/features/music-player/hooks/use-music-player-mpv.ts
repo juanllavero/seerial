@@ -1,4 +1,5 @@
 import { getSignedSongStreamUrl } from '@seerial/api';
+import { getSongPlaybackFilePath } from '@seerial/domain';
 import { useMusicStore, useServerStore } from '@seerial/stores';
 import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -33,6 +34,11 @@ interface KaraokeStemUrls {
   vocals: string;
 }
 
+interface PlaybackResumeState {
+  position: number;
+  shouldPlay: boolean;
+}
+
 interface UseMusicPlayerMpvOptions {
   onKaraokeUnavailable?: () => void;
 }
@@ -44,22 +50,15 @@ export interface UseMusicPlayerMpvResult {
   isKaraokeReady: boolean;
   shouldShowKaraokeButton: boolean;
   karaokeMix: number;
+  isAtmosActive: boolean;
+  isAtmosAvailable: boolean;
   togglePlayPause: () => Promise<void>;
   stopPlayback: () => void;
   handleKaraokeMixChange: (value: number) => Promise<void>;
+  toggleAtmos: () => Promise<void>;
   getActivePlaybackPosition: () => Promise<number>;
   getActivePlaybackDuration: () => Promise<number>;
   setActivePlaybackPosition: (position: number) => Promise<void>;
-}
-
-function replaceSongExtension(filePath: string, suffix: string): string {
-  const lastDotIndex = filePath.lastIndexOf('.');
-
-  if (lastDotIndex === -1) {
-    return `${filePath}${suffix}`;
-  }
-
-  return `${filePath.slice(0, lastDotIndex)}${suffix}`;
 }
 
 function clampKaraokeMix(value: number): number {
@@ -105,7 +104,8 @@ async function waitForAudioReady(timeoutMs: number): Promise<boolean> {
 }
 
 function useKaraokeAvailability(
-  songFileSrc: string | undefined,
+  instrumentalFileSrc: string | null | undefined,
+  vocalsFileSrc: string | null | undefined,
   serverUrl: string,
   isShown: boolean,
   onUnavailable?: () => void,
@@ -132,7 +132,7 @@ function useKaraokeAvailability(
   );
 
   const resolveKaraokeStems = useCallback(() => {
-    if (!songFileSrc || !serverUrl || !isShown) {
+    if (!instrumentalFileSrc || !vocalsFileSrc || !serverUrl || !isShown) {
       setKaraokeStemUrls(null);
       setIsKaraokePreparing(false);
       setIsKaraokeReady(false);
@@ -140,12 +140,10 @@ function useKaraokeAvailability(
     }
 
     const currentAttempt = ++karaokeAvailabilityAttemptRef.current;
-    const instrumentalPath = replaceSongExtension(songFileSrc, '.inst.flac');
-    const vocalsPath = replaceSongExtension(songFileSrc, '.vocals.flac');
 
     void Promise.allSettled([
-      getSignedSongStreamUrl({ filePath: instrumentalPath, expiresIn: '10m', isDesktop: true }),
-      getSignedSongStreamUrl({ filePath: vocalsPath, expiresIn: '10m', isDesktop: true }),
+      getSignedSongStreamUrl({ filePath: instrumentalFileSrc, expiresIn: '10m', isDesktop: true }),
+      getSignedSongStreamUrl({ filePath: vocalsFileSrc, expiresIn: '10m', isDesktop: true }),
     ])
       .then(([instrumentalResult, vocalsResult]) => {
         if (currentAttempt !== karaokeAvailabilityAttemptRef.current) {
@@ -182,7 +180,7 @@ function useKaraokeAvailability(
         setIsKaraokeReady(false);
         onUnavailable?.();
       });
-  }, [isShown, onUnavailable, serverUrl, songFileSrc]);
+  }, [instrumentalFileSrc, isShown, onUnavailable, serverUrl, vocalsFileSrc]);
 
   const handlePolledPreloadStatus = useCallback(
     (status: KaraokePreloadStatus): boolean => {
@@ -314,11 +312,13 @@ export function useMusicPlayerMpv({
     duration,
     isShown,
     playbackVersion,
+    isAtmosEnabled,
     setIsPlaying,
     setIsLoading,
     setCurrentTime,
     setDuration,
     setProgress,
+    setIsAtmosEnabled,
     resetPlayerState,
     handleNext,
   } = useMusicStore(
@@ -328,11 +328,13 @@ export function useMusicPlayerMpv({
       duration: state.duration,
       isShown: state.isShown,
       playbackVersion: state.playbackVersion,
+      isAtmosEnabled: state.isAtmosEnabled,
       setIsPlaying: state.setIsPlaying,
       setIsLoading: state.setIsLoading,
       setCurrentTime: state.setCurrentTime,
       setDuration: state.setDuration,
       setProgress: state.setProgress,
+      setIsAtmosEnabled: state.setIsAtmosEnabled,
       resetPlayerState: state.resetPlayerState,
       handleNext: state.handleNext,
     }),
@@ -341,6 +343,7 @@ export function useMusicPlayerMpv({
 
   const loadAttemptRef = useRef(0);
   const eofGuardRef = useRef(false);
+  const pendingResumeRef = useRef<PlaybackResumeState | null>(null);
   const [playbackBackend, setPlaybackBackend] = useState<PlaybackBackend>('mpv');
   const [karaokeMix, setKaraokeMix] = useState(0);
 
@@ -350,7 +353,13 @@ export function useMusicPlayerMpv({
     isKaraokeReady,
     shouldShowKaraokeButton,
     resetKaraokeAvailability,
-  } = useKaraokeAvailability(currentSong?.fileSrc, serverUrl, isShown, onKaraokeUnavailable);
+  } = useKaraokeAvailability(
+    currentSong?.instrumentalFileSrc,
+    currentSong?.vocalsFileSrc,
+    serverUrl,
+    isShown,
+    onKaraokeUnavailable,
+  );
 
   const getActivePlaybackStatus = useCallback(async (): Promise<PlaybackStatus> => {
     if (playbackBackend === 'karaoke') {
@@ -430,34 +439,64 @@ export function useMusicPlayerMpv({
     [handleNext, setDuration, updatePlaybackProgress],
   );
 
+  const loadMpvSource = useCallback(
+    async (
+      filePath: string,
+      attempt: number,
+      resume?: PlaybackResumeState,
+    ): Promise<boolean> => {
+      const signedUrl = await getSignedSongStreamUrl({
+        filePath,
+        expiresIn: '10m',
+        isDesktop: true,
+      });
+
+      if (!signedUrl || attempt !== loadAttemptRef.current) {
+        return false;
+      }
+
+      if (resume && !resume.shouldPlay) {
+        await invoke('pause');
+      }
+
+      await invoke('load_url', { url: `${serverUrl}${signedUrl}` });
+
+      const ready = await waitForAudioReady(LOAD_TIMEOUT_MS);
+      if (!ready || attempt !== loadAttemptRef.current) {
+        return false;
+      }
+
+      if (resume) {
+        await invoke('set_position', { position: resume.position });
+        setCurrentTime(resume.position);
+      }
+
+      if (resume && !resume.shouldPlay) {
+        setIsPlaying(false);
+        return true;
+      }
+
+      await invoke('play');
+      setIsPlaying(true);
+      return true;
+    },
+    [serverUrl, setCurrentTime, setIsPlaying],
+  );
+
   const loadCurrentSong = useCallback(async () => {
     if (!currentSong || !serverUrl || !isShown || playbackBackend !== 'mpv') {
       return;
     }
 
     const currentAttempt = ++loadAttemptRef.current;
+    const resume = pendingResumeRef.current ?? undefined;
+    pendingResumeRef.current = null;
+    // Read the preference from the store so toggling it never reloads the song on its own.
+    const filePath = getSongPlaybackFilePath(currentSong, useMusicStore.getState().isAtmosEnabled);
     setIsLoading(true);
 
     try {
-      const signedUrl = await getSignedSongStreamUrl({
-        filePath: currentSong.fileSrc,
-        expiresIn: '10m',
-        isDesktop: true,
-      });
-
-      if (!signedUrl || currentAttempt !== loadAttemptRef.current) {
-        return;
-      }
-
-      await invoke('load_url', { url: `${serverUrl}${signedUrl}` });
-
-      const ready = await waitForAudioReady(LOAD_TIMEOUT_MS);
-      if (!ready || currentAttempt !== loadAttemptRef.current) {
-        return;
-      }
-
-      await invoke('play');
-      setIsPlaying(true);
+      await loadMpvSource(filePath, currentAttempt, resume);
     } catch (error) {
       console.error(error);
       setIsPlaying(false);
@@ -466,7 +505,7 @@ export function useMusicPlayerMpv({
         setIsLoading(false);
       }
     }
-  }, [currentSong, isShown, playbackBackend, serverUrl, setIsLoading, setIsPlaying]);
+  }, [currentSong, isShown, loadMpvSource, playbackBackend, serverUrl, setIsLoading, setIsPlaying]);
 
   const activateKaraokePlayback = useCallback(
     async (nextMix: number) => {
@@ -527,6 +566,68 @@ export function useMusicPlayerMpv({
     [activateKaraokePlayback, playbackBackend],
   );
 
+  const toggleAtmos = useCallback(async () => {
+    if (!currentSong?.atmosFileSrc || !serverUrl || !isShown) {
+      return;
+    }
+
+    const isKaraokePlayback = playbackBackend === 'karaoke';
+    const nextEnabled = isKaraokePlayback || !isAtmosEnabled;
+    const currentAttempt = ++loadAttemptRef.current;
+    setIsLoading(true);
+
+    try {
+      const resume: PlaybackResumeState = {
+        position: await getActivePlaybackPosition(),
+        shouldPlay: isPlaying,
+      };
+      setIsAtmosEnabled(nextEnabled);
+
+      if (isKaraokePlayback) {
+        // Returning to the mpv backend reloads the song through loadCurrentSong, which resumes from here.
+        await invoke('stop_karaoke').catch(() => undefined);
+        pendingResumeRef.current = resume;
+        setKaraokeMix(0);
+        setPlaybackBackend('mpv');
+        return;
+      }
+
+      const loaded = await loadMpvSource(
+        getSongPlaybackFilePath(currentSong, nextEnabled),
+        currentAttempt,
+        resume,
+      ).catch((error) => {
+        console.error(error);
+        return false;
+      });
+
+      if (loaded || currentAttempt !== loadAttemptRef.current) {
+        return;
+      }
+
+      // The new source failed to load: restore the previous one at the same position.
+      setIsAtmosEnabled(!nextEnabled);
+      await loadMpvSource(getSongPlaybackFilePath(currentSong, !nextEnabled), currentAttempt, resume);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      if (currentAttempt === loadAttemptRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [
+    currentSong,
+    getActivePlaybackPosition,
+    isAtmosEnabled,
+    isPlaying,
+    isShown,
+    loadMpvSource,
+    playbackBackend,
+    serverUrl,
+    setIsAtmosEnabled,
+    setIsLoading,
+  ]);
+
   const togglePlayPause = useCallback(async () => {
     try {
       if (isPlaying) {
@@ -578,6 +679,7 @@ export function useMusicPlayerMpv({
 
     setPlaybackBackend('mpv');
     setKaraokeMix(0);
+    pendingResumeRef.current = null;
     resetKaraokeAvailability();
     void invoke('stop_karaoke').catch(() => undefined);
   }, [currentSong?.id, resetKaraokeAvailability]);
@@ -616,9 +718,13 @@ export function useMusicPlayerMpv({
     isKaraokeReady,
     shouldShowKaraokeButton,
     karaokeMix,
+    isAtmosActive:
+      isAtmosEnabled && !!currentSong?.atmosFileSrc && playbackBackend === 'mpv',
+    isAtmosAvailable: !!currentSong?.atmosFileSrc,
     togglePlayPause,
     stopPlayback,
     handleKaraokeMixChange,
+    toggleAtmos,
     getActivePlaybackPosition,
     getActivePlaybackDuration,
     setActivePlaybackPosition,

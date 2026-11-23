@@ -192,18 +192,18 @@ describe('Episode use cases', () => {
 
   describe('UpdateEpisodeUseCase', () => {
     it('updates an episode through the repository', async () => {
-      const episode = buildEpisode({ title: 'Updated Pilot' });
+      const episode = buildEpisode({ name: 'Updated Pilot' });
       const repo = buildEpisodeRepo({
         update: jest.fn().mockResolvedValue(episode),
       });
 
       const result = await new UpdateEpisodeUseCase(repo).execute('episode-1', {
-        title: 'Updated Pilot',
+        name: 'Updated Pilot',
       } as never);
 
       expect(result).toEqual(episode);
       expect(repo.update).toHaveBeenCalledWith('episode-1', {
-        title: 'Updated Pilot',
+        name: 'Updated Pilot',
       });
     });
   });

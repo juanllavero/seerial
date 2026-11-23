@@ -1,4 +1,4 @@
-import type { SubtitleTrack, Video } from "@seerial/domain";
+import type { Song, SubtitleTrack, Video } from "@seerial/domain";
 
 /**
  * Fetches data from a given URL and returns the parsed JSON response.
@@ -177,6 +177,18 @@ export const getSubtitleTrack = (prefSubsLan: string, subsMode: string, video: V
 
     return findSubtitleByLang(video.subtitleTracks, targetLang, getSpanishVariantPreference(appLanguage)) ?? defaultTrack;
 };
+
+/**
+ * Returns the file to play for a song. The Dolby Atmos companion is used only when it
+ * is preferred and registered for the song, otherwise the original file is played.
+ *
+ * @param song - The song to resolve the playback file for.
+ * @param preferAtmos - Whether the Dolby Atmos version is preferred.
+ */
+export const getSongPlaybackFilePath = (
+    song: Pick<Song, "fileSrc" | "atmosFileSrc">,
+    preferAtmos: boolean,
+): string => (preferAtmos && song.atmosFileSrc ? song.atmosFileSrc : song.fileSrc);
 
 /**
  * Sets a cookie with the given name, value, and expiration time in days.

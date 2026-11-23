@@ -12,7 +12,9 @@ import { getAudioInfo } from '@/api/v1/shared/infrastructure/adapters/ffmpeg/aud
 import { WriteQueue } from '@/api/v1/shared/infrastructure/services/WriteQueue';
 import type { SongsRepositoryPort } from '@/api/v1/songs/application/ports/SongsRepositoryPort';
 import logger from '@/utils/logger';
+import { isSongVariantFile } from '@/utils/songVariants';
 import { getFileName } from '@/utils/utils';
+import { type SongCompanions, SongFileSyncService } from '../services/SongFileSyncService';
 
 const musicLogger = logger.child({ category: 'Music Scan' });
 
@@ -23,6 +25,7 @@ interface AlbumFolder {
 
 export class ScanMusicUseCase {
   private readonly writeQueue = new WriteQueue();
+  private readonly songFileSync: SongFileSyncService;
 
   constructor(
     private readonly fileSystemService: FileSystemServicePort,
@@ -32,7 +35,9 @@ export class ScanMusicUseCase {
     private readonly artistsRepo: ArtistsRepositoryPort,
     private readonly collectionsRepo: CollectionsRepositoryPort,
     private readonly notificationService: NotificationServicePort,
-  ) { }
+  ) {
+    this.songFileSync = new SongFileSyncService(fileSystemService, songsRepo);
+  }
 
   /**
    * Main entry point.
@@ -96,7 +101,7 @@ export class ScanMusicUseCase {
       const itemPath = `${root}/${item.name}`;
       if ((await this.fileSystemService.isFolder(itemPath)) && !this.isExtrasFolder(itemPath)) {
         subFolders.push({ name: item.name, path: itemPath });
-      } else if (this.fileSystemService.isAudioFile(itemPath)) {
+      } else if (this.fileSystemService.isAudioFile(itemPath) && !isSongVariantFile(itemPath)) {
         directMusicFiles.push(itemPath);
       }
     }
@@ -218,12 +223,19 @@ export class ScanMusicUseCase {
     collection: Collection | null,
   ): Promise<void> {
     await this.writeQueue.enqueue(async () => {
+      const companions = await this.songFileSync.findCompanions(albumFolder.musicFiles);
+
       // Check if album for this folder was already scanned
       const existingAlbum = await this.albumsRepo.findByFolder(albumFolder.path);
       if (existingAlbum) {
-        musicLogger.debug({ path: albumFolder.path }, 'Album already scanned, skipping');
+        musicLogger.debug({ path: albumFolder.path }, 'Album already scanned, syncing its songs');
         if (collection) {
           await this.addAlbumToCollection(collection, existingAlbum.id);
+        }
+
+        // Adds new songs and refreshes Atmos/stem files of the existing ones
+        for (const musicFile of albumFolder.musicFiles) {
+          await this.processSong(library, musicFile, existingAlbum, companions.get(musicFile));
         }
         return;
       }
@@ -248,7 +260,7 @@ export class ScanMusicUseCase {
 
       // Process all songs in album using file metadata
       for (const musicFile of albumFolder.musicFiles) {
-        await this.processSong(library, musicFile, album);
+        await this.processSong(library, musicFile, album, companions.get(musicFile));
       }
     });
   }
@@ -312,29 +324,25 @@ export class ScanMusicUseCase {
   }
 
   /**
-   * Processes a single song file using file metadata
+   * Creates the song or refreshes its Atmos/stem data from its files
    */
-  private async processSong(library: Library, musicFile: string, album: Album): Promise<void> {
+  private async processSong(
+    library: Library,
+    musicFile: string,
+    album: Album,
+    companions?: SongCompanions,
+  ): Promise<void> {
     try {
-      const metadata = await getAudioInfo(musicFile);
-      if (!metadata) return;
-
-      // Check if already processed
-      if (library.analyzedFiles[musicFile]) {
-        return;
-      }
-
-      const song = await this.songsRepo.create({
+      const song = await this.songFileSync.sync(musicFile, companions, (metadata) => ({
         title: metadata.title || getFileName(musicFile),
         albumId: album.id,
         trackNumber: metadata.trackNumber || 0,
         discNumber: metadata.discNumber || 1,
         composers: metadata.composers || [],
         artists: metadata.artists || [],
-        fileSrc: musicFile,
         duration: metadata.duration ? metadata.duration * 60 : 0,
         codec: metadata.codec || '',
-      });
+      }));
 
       if (!song) {
         musicLogger.error({ musicFile }, 'Failed to create song');
@@ -342,7 +350,7 @@ export class ScanMusicUseCase {
       }
 
       // Update library cache
-      if (song.id) {
+      if (song.id && library.analyzedFiles[musicFile] !== song.id) {
         library.analyzedFiles = {
           ...library.analyzedFiles,
           [musicFile]: song.id,

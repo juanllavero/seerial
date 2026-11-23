@@ -6,6 +6,7 @@ import { LibraryModel } from '@/api/v1/libraries/infrastructure/persistence/mode
 import { MovieModel } from '@/api/v1/movies/infrastructure/persistence/models/MovieModel';
 import { SeasonModel } from '@/api/v1/seasons/infrastructure/persistence/models/SeasonModel';
 import { SeriesModel } from '@/api/v1/series/infrastructure/persistence/models/SeriesModel';
+import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
 import { VideosRepositoryImpl } from '@/api/v1/videos/infrastructure/persistence/repositories/VideosRepositoryImpl';
 import { LibraryTypes } from '@/data/interfaces/Media';
 import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../helpers/test-db';
@@ -539,7 +540,8 @@ describe('VideosRepositoryImpl', () => {
       });
 
       expect(created).not.toBeNull();
-      expect(created!.id).toBe(movie.id);
+      const stored = await VideoModel.findOneBy({ id: created!.id });
+      expect(stored?.extraId).toBe(movie.id);
     });
 
     it('creates a video with episode relation through addAsEpisode', async () => {

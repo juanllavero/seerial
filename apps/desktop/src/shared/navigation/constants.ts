@@ -34,6 +34,7 @@ export const NavigationFocusKeys = {
     rewindButton: 'player-rewind-button',
     forwardButton: 'player-forward-button',
     karaokeButton: 'player-karaoke-button',
+    atmosButton: 'player-atmos-button',
     karaokeSlider: 'player-karaoke-slider',
     lyricsButton: 'player-lyrics-button',
     lyricsOptionsButton: 'player-lyrics-options-button',

@@ -59,6 +59,7 @@ export const es = {
     addLyrics: 'Añadir Letras',
     queue: 'Cola',
     addToQueue: 'Añadir a la cola',
+    dolbyAtmos: 'Dolby Atmos',
     removeFromQueue: 'Quitar de la cola',
     repeat: 'Repetir',
     shuffle: 'Aleatorio',
@@ -138,6 +139,13 @@ export const es = {
     addButton: 'Añadir',
     saveButton: 'Guardar',
     cancelButton: 'Cancelar',
+    deletePlaylist: 'Eliminar lista de reproducción',
+    deletePlaylistMessage: '¿Seguro que quieres eliminar esta lista de reproducción?',
+    localSourceDeleteErrorTitle: 'No se puede eliminar desde Seerial',
+    localSourceDeleteErrorSong:
+      'Esta canción está guardada en una de tus carpetas de listas de reproducción, así que Seerial no puede eliminarla. Para quitarla, borra el archivo de esa carpeta en tu equipo. La biblioteca se actualizará en el próximo escaneo.',
+    localSourceDeleteErrorPlaylist:
+      'Esta lista de reproducción se creó a partir de una carpeta de tu equipo, así que Seerial no puede eliminarla. Para quitarla, borra o mueve esa carpeta en tu equipo. La biblioteca se actualizará en el próximo escaneo.',
     generalButton: 'General',
     ok: 'De acuerdo',
     switchToDesktop: 'Cambiar al Modo Escritorio',

@@ -1876,7 +1876,9 @@
 						"type": "string"
 					},
 					"albumId": {
-						"type": "string"
+						"type": "string",
+						"nullable": true,
+						"description": "Empty for songs that only belong to a folder-based playlist."
 					},
 					"title": {
 						"type": "string"
@@ -1916,7 +1918,6 @@
 					}
 				},
 				"required": [
-					"albumId",
 					"title",
 					"codec",
 					"hasDolbyAtmos",
@@ -3756,46 +3757,6 @@
 				"type": "object",
 				"additionalProperties": false
 			},
-			"UpdateLibraryDTO": {
-				"properties": {
-					"name": {
-						"type": "string"
-					},
-					"language": {
-						"type": "string"
-					},
-					"type": {
-						"$ref": "#/components/schemas/LibraryType"
-					},
-					"order": {
-						"type": "number",
-						"format": "double"
-					},
-					"hidden": {
-						"type": "boolean"
-					},
-					"folders": {
-						"items": {
-							"type": "string"
-						},
-						"type": "array"
-					},
-					"preferAudioLan": {
-						"type": "string"
-					},
-					"preferSubLan": {
-						"type": "string"
-					},
-					"subsMode": {
-						"type": "string"
-					},
-					"backgroundSrc": {
-						"type": "string"
-					}
-				},
-				"type": "object",
-				"additionalProperties": false
-			},
 			"ApiResponse_boolean_": {
 				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
 				"properties": {
@@ -3834,6 +3795,46 @@
 				"required": [
 					"orderedLibraryIds"
 				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UpdateLibraryDTO": {
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"language": {
+						"type": "string"
+					},
+					"type": {
+						"$ref": "#/components/schemas/LibraryType"
+					},
+					"order": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"folders": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"preferAudioLan": {
+						"type": "string"
+					},
+					"preferSubLan": {
+						"type": "string"
+					},
+					"subsMode": {
+						"type": "string"
+					},
+					"backgroundSrc": {
+						"type": "string"
+					}
+				},
 				"type": "object",
 				"additionalProperties": false
 			},
@@ -4163,11 +4164,33 @@
 					"id": {
 						"type": "string"
 					},
+					"userId": {
+						"type": "string",
+						"nullable": true,
+						"description": "Empty for playlists created from a library folder (shared by all users)."
+					},
+					"libraryId": {
+						"type": "string",
+						"nullable": true,
+						"description": "Set only for playlists created from a folder inside the library \"Playlists\" folder."
+					},
+					"folder": {
+						"type": "string",
+						"nullable": true,
+						"description": "Source folder of a folder-based playlist."
+					},
 					"title": {
 						"type": "string"
 					},
 					"description": {
 						"type": "string"
+					},
+					"songs": {
+						"items": {
+							"$ref": "#/components/schemas/Song"
+						},
+						"type": "array",
+						"description": "Songs of the playlist (local and referenced). Only present when the playlist is fetched with its songs."
 					}
 				},
 				"required": [
@@ -8187,7 +8210,7 @@
 						}
 					}
 				},
-				"description": "Reorder libraries",
+				"description": "Reorder libraries.\nDeclared before the `{id}` PATCH route so `/order` is not captured as an id.",
 				"tags": [
 					"Libraries"
 				],

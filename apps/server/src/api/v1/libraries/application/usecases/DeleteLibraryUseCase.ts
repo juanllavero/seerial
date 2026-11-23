@@ -41,6 +41,11 @@ export class DeleteLibraryUseCase {
       await useCases.deleteAlbum().execute(album.id || '');
     }
 
+    const playlists = await useCases.getPlayListsByLibrary().execute(id);
+    for (const playlist of playlists) {
+      await useCases.removeFolderPlayList().execute(playlist);
+    }
+
     await this.librariesRepo.delete(id);
   }
 }

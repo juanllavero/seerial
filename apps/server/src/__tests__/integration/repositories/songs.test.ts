@@ -48,6 +48,42 @@ async function createAlbum() {
 }
 
 describe('SongsRepositoryImpl', () => {
+  it('creates songs without album (playlist folders) and stores Atmos and stem files', async () => {
+    const created = await repo.create({
+      fileSrc: '/music/Playlists/2000s/song.m4a',
+      title: 'Local song',
+      hasDolbyAtmos: true,
+      atmosFileSrc: '/music/Playlists/2000s/song.atmos.m4a',
+      vocalsFileSrc: '/music/Playlists/2000s/song.vocals.flac',
+      instrumentalFileSrc: null,
+      fileModifiedAt: 1_700_000_000_000,
+    });
+
+    expect(created!.albumId ?? null).toBeNull();
+    await expect(repo.findWithoutAlbum()).resolves.toHaveLength(1);
+
+    const found = await repo.findByPath('/music/Playlists/2000s/song.m4a');
+    expect(found).toMatchObject({
+      hasDolbyAtmos: true,
+      atmosFileSrc: '/music/Playlists/2000s/song.atmos.m4a',
+      vocalsFileSrc: '/music/Playlists/2000s/song.vocals.flac',
+      instrumentalFileSrc: null,
+      fileModifiedAt: 1_700_000_000_000,
+    });
+
+    for (const companion of ['song.atmos.m4a', 'song.vocals.flac']) {
+      const owner = await repo.findByAnyFilePath(`/music/Playlists/2000s/${companion}`);
+      expect(owner?.id).toBe(created!.id);
+    }
+    await expect(repo.findByAnyFilePath('/music/other.m4a')).resolves.toBeNull();
+
+    const cleared = await repo.update(created!.id as string, {
+      hasDolbyAtmos: false,
+      atmosFileSrc: null,
+    });
+    expect(cleared).toMatchObject({ hasDolbyAtmos: false, atmosFileSrc: null });
+  });
+
   it('creates and finds song by id/path', async () => {
     const album = await createAlbum();
 

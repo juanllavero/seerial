@@ -162,7 +162,12 @@ describe('MoviesController', () => {
   });
 
   it('returns movie data, search results, imdb score and remaining videos', async () => {
-    const movie = { id: 'movie-1', name: 'Interstellar', videos: [] };
+    const movie = {
+      id: 'movie-1',
+      name: 'Interstellar',
+      folder: '/nonexistent/interstellar',
+      videos: [],
+    };
     container.useCases.getMoviebyId.mockReturnValue(createUseCase(movie));
     container.externalSearchService.searchMovies.mockResolvedValue([{ id: 1 }]);
     container.externalSearchService.getImdbScore.mockResolvedValue(8.7);

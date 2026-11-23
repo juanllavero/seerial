@@ -159,6 +159,23 @@ The server supports both indexing and playback pipelines.
 - Metadata enrichment is performed via provider ports (TMDB and related services).
 - Notifications are emitted as mutations while scan progresses.
 
+#### Song companion files (music libraries)
+
+- `name.vocals.ext`, `name.inst.ext` and `name.atmos.ext` (any audio extension, case-insensitive, same folder as `name.*`) are never scanned as songs, neither in albums nor in playlist folders. A companion without a matching song is ignored.
+- `SongFileSyncService` creates/refreshes songs and registers their companions: `vocalsFileSrc`, `instrumentalFileSrc` and `atmosFileSrc`. It runs for every song on each scan, including albums that were already scanned, so adding or removing a companion file (or a new song) is picked up automatically.
+- `Song.hasDolbyAtmos` is true when the original file is Dolby Atmos (E-AC-3 JOC / TrueHD, detected from the `ffmpeg -i` stream summary in `audioInfo.ts`; it needs an ffmpeg build that reports the Atmos profile), or when the original is not Atmos but a companion `.atmos` file really is. If the original is Atmos, the `.atmos` file is ignored (`atmosFileSrc` is null). An `.atmos` file that is not Atmos is ignored.
+- `Song.fileModifiedAt` stores the modification time of the original file; the file is analyzed again only when it changes (or for songs scanned before it was tracked), which detects an original that becomes, or stops being, Atmos.
+- When a stem separation job finishes, the generated stems are registered in the song immediately.
+
+#### Playlist folders (music libraries)
+
+
+- A folder named `Playlists` (case-insensitive) directly inside a library root is not scanned as albums. `ScanPlayListFoldersUseCase` registers each of its first-level sub-folders that contains audio files (searched recursively) as a playlist named after the folder.
+- Folder playlists are shared by the whole library: `userId` is empty, `libraryId` and `folder` are set.
+- Their songs are stored without an album (`Song.albumId` is optional), linked through `PlayListItem`, and registered in the library `analyzedFiles` like any other song. Songs referenced from other locations can be added to the same playlist through the playlists API.
+- On each scan, deleted files are removed by the regular missing-file cleanup, and playlists whose folder no longer exists are removed (together with their local songs) only if the library root is accessible. Referenced songs are never deleted.
+- Folder playlists and their local songs cannot be deleted through the API: `DELETE /playlists/{id}`, `DELETE /playlists/{id}/songs/{songId}` (for a local song) and `DELETE /songs/{id}` (for a song without album) answer `409 Conflict` with `data.code = LOCAL_SOURCE_DELETE_FORBIDDEN` (`LocalSourceDeletionException`). The web client shows an explanatory modal; the content must be removed from the file system. Internal cleanup bypasses this guard with `deleteSong().execute(id, { force: true })`.
+
 ### Streaming
 
 Video streaming exposes two modes:

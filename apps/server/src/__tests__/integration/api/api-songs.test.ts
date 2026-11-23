@@ -128,16 +128,6 @@ describe('Songs API', () => {
     expect(res.body.data).toContain('/songs/stream?token=');
   });
 
-  it('POST /api/songs/lyrics returns 200 for admin', async () => {
-    const res = await request(app)
-      .post('/api/songs/lyrics')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ songId: 'song-1', language: 'en', content: 'Hello world' });
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-  });
-
   it('POST /api/songs/:id/separate-stems returns 202 for admin', async () => {
     const res = await request(app)
       .post('/api/songs/song-1/separate-stems')

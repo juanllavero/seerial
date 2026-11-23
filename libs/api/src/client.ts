@@ -80,6 +80,20 @@ export function getApiErrorMessage(error: unknown, fallback = 'Request failed'):
     return fallback
 }
 
+export function getApiErrorCode(error: unknown): string | null {
+    if (!axios.isAxiosError(error)) {
+        return null
+    }
+
+    const payload = error.response?.data
+
+    if (isApiEnvelope(payload) && isObject(payload.data) && typeof payload.data.code === 'string') {
+        return payload.data.code
+    }
+
+    return null
+}
+
 export function unwrapApiPayload<TResponse>(payload: unknown): TResponse {
     if (!isApiEnvelope(payload)) {
         return payload as TResponse

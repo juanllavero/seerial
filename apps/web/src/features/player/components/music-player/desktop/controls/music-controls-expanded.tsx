@@ -2,6 +2,7 @@ import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useIsTablet } from '@/shared/hooks/use-tablet';
 import { Button } from '@/shared/ui/button';
 import CustomSlider from '@/shared/ui/custom-slider';
+import DolbyAtmosBadge from '@/shared/ui/dolby-atmos-badge';
 import {
   NextTrackIcon,
   PauseIcon,
@@ -159,7 +160,10 @@ function MusicControlsExpanded({ title, subtitle }: MusicControlsExpandedProps) 
 
         <div className={`flex flex-1 flex-col items-start space-x-4`}>
           <span className="line-clamp-2 font-semibold text-white">{title}</span>
-          <div className="line-clamp-1 text-sm text-white/70">{subtitle}</div>
+          <div className="flex items-center gap-2">
+            <div className="line-clamp-1 text-sm text-white/70">{subtitle}</div>
+            {!!currentSong?.hasDolbyAtmos && <DolbyAtmosBadge />}
+          </div>
         </div>
       </div>
 

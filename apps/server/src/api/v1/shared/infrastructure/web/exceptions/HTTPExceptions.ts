@@ -1,3 +1,4 @@
+import { API_ERROR_CODES } from '@seerial/domain';
 import { HTTPCodes } from '../../../domain/types/HTTPCodes';
 
 /**
@@ -72,6 +73,17 @@ export class ForbiddenException extends HttpException {
 export class ConflictException extends HttpException {
   constructor(message: string = 'Conflict') {
     super(HTTPCodes.CONFLICT, message);
+  }
+}
+
+/**
+ * Exception for attempts to delete content whose origin is a local folder or file.
+ * Such content can only be removed from the file system.
+ */
+export class LocalSourceDeletionException extends HttpException {
+  constructor(message: string) {
+    super(HTTPCodes.CONFLICT, message, { code: API_ERROR_CODES.LOCAL_SOURCE_DELETE_FORBIDDEN });
+    Object.setPrototypeOf(this, LocalSourceDeletionException.prototype);
   }
 }
 

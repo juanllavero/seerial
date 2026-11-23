@@ -57,6 +57,10 @@ export function useMpvPlayer() {
 
 Business rules (can this item be played? what is the resume position?) remain in `@seerial/domain`. The hook only bridges React to Tauri IPC.
 
+### Music player: Dolby Atmos toggle and karaoke
+
+The music player controls show a Dolby Atmos button only when the current song has an Atmos companion file (`song.atmosFileSrc`). Pressing it switches the MPV source between the original file and the companion, keeping the playback position and the paused/playing state. The preference (`isAtmosEnabled`) is remembered in the shared music store (persisted in `localStorage`), so following songs start in Atmos when a companion exists; songs without one play normally and keep the preference for the next ones. Atmos and karaoke are mutually exclusive: enabling Atmos stops karaoke and resets the mix to 0, and moving the karaoke mix away from 0 turns Atmos off. Karaoke uses the registered `instrumentalFileSrc` and `vocalsFileSrc` stems of the song and is unavailable when either is missing. Songs flagged with `hasDolbyAtmos` display a Dolby Atmos badge in album rows, the queue and the player.
+
 ---
 
 ## 3. React Source Structure

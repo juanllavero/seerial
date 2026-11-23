@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import fs from 'node:fs';
+import path from 'node:path';
 
 const spawnMock = jest.fn();
 const spawnSyncMock = jest.fn();
@@ -12,6 +12,8 @@ jest.mock('node:child_process', () => ({
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   fileSystemService: {
     resourcesPath: '/resources',
+    createFolder: jest.fn(),
+    existsSync: jest.fn(),
     isFile: jest.fn(),
     deleteFile: jest.fn(),
   },
@@ -27,9 +29,9 @@ const container = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/c
 describe('AudioProcessingServiceImpl stem separation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(fs, 'existsSync').mockImplementation((filePath: fs.PathLike) => {
-      return filePath === '/resources/cache/audio';
-    });
+    container.fileSystemService.existsSync.mockImplementation(
+      (filePath: string) => filePath === '/resources/cache/audio',
+    );
   });
 
   afterEach(() => {
@@ -72,15 +74,15 @@ describe('AudioProcessingServiceImpl stem separation', () => {
     processEmitter.stdout.emit('data', Buffer.from('15.5% loading model'));
     processEmitter.stderr.emit('data', Buffer.from('warning line'));
     processEmitter.emit('close', 0);
+    await new Promise((resolve) => setImmediate(resolve));
 
-    expect(job.instrumentalPath).toBe('/music/songExample.inst.flac');
-    expect(job.vocalsPath).toBe('/music/songExample.vocals.flac');
-    expect(container.fileSystemService.deleteFile).toHaveBeenCalledWith(
-      '/music/songExample.inst.flac',
-    );
-    expect(container.fileSystemService.deleteFile).toHaveBeenCalledWith(
-      '/music/songExample.vocals.flac',
-    );
+    const instrumentalPath = path.join('/music', 'songExample.inst.flac');
+    const vocalsPath = path.join('/music', 'songExample.vocals.flac');
+
+    expect(job.instrumentalPath).toBe(instrumentalPath);
+    expect(job.vocalsPath).toBe(vocalsPath);
+    expect(container.fileSystemService.deleteFile).toHaveBeenCalledWith(instrumentalPath);
+    expect(container.fileSystemService.deleteFile).toHaveBeenCalledWith(vocalsPath);
     expect(spawnMock).toHaveBeenCalledWith(
       'audio-separator',
       expect.arrayContaining([

@@ -5,6 +5,7 @@ import type { Request, Response } from 'express';
 import {
     fileSystemService,
     notificationService,
+    useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { executeFfmpeg } from '@/api/v1/shared/infrastructure/adapters/ffmpeg/nativeFfmpeg';
 import {
@@ -272,6 +273,7 @@ export class AudioProcessingServiceImpl implements AudioProcessingServicePort {
         (await fileSystemService.isFile(job.instrumentalPath)) &&
         (await fileSystemService.isFile(job.vocalsPath))
       ) {
+        await this.registerStemFiles(job);
         this.broadcastStemUpdate(job, {
           status: 'completed',
           message: 'Stem separation completed.',
@@ -295,6 +297,23 @@ export class AudioProcessingServiceImpl implements AudioProcessingServicePort {
 
       this.activeStemJobs.delete(job.songId);
     });
+  }
+
+  /**
+   * Registers the generated stems in the song so they are available without waiting for a library scan.
+   */
+  private async registerStemFiles(job: StemSeparationJob): Promise<void> {
+    try {
+      await useCases.updateSong().execute(job.songId, {
+        vocalsFileSrc: job.vocalsPath,
+        instrumentalFileSrc: job.instrumentalPath,
+      });
+    } catch (error) {
+      audioProcessingLogger.warn(
+        { error, songId: job.songId },
+        'Failed to register stem files in the song',
+      );
+    }
   }
 
   private handleStemProcessChunk(

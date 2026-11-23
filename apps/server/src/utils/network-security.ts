@@ -1,3 +1,4 @@
+import type { LookupAddress } from 'node:dns';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 
@@ -75,7 +76,7 @@ export async function isSafePublicHttpUrl(value: string): Promise<boolean> {
     }
 
     // Resolve DNS and ensure all resolved addresses are public.
-    let addresses: dns.LookupAddress[] = [];
+    let addresses: LookupAddress[] = [];
     try {
         addresses = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
     } catch {

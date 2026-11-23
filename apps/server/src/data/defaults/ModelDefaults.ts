@@ -51,7 +51,6 @@ export const defaults = {
   },
   SongModel: {
     fileSrc: '',
-    albumId: '',
     title: '',
     duration: 0,
     trackNumber: 0,

@@ -8,18 +8,22 @@ import type { Series } from '@/api/v1/series/domain/Series';
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     deleteSeason: jest.fn(),
-    deleteSeriesData: jest.fn(),
     getLibrary: jest.fn(),
     removeAnalyzedFolder: jest.fn(),
+  },
+  contentCleanupService: {
+    cleanSeriesMedia: jest.fn(),
   },
 }));
 
 const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/container') as {
   useCases: {
     deleteSeason: jest.Mock;
-    deleteSeriesData: jest.Mock;
     getLibrary: jest.Mock;
     removeAnalyzedFolder: jest.Mock;
+  };
+  contentCleanupService: {
+    cleanSeriesMedia: jest.Mock;
   };
 };
 
@@ -48,9 +52,6 @@ describe('Series use cases', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockContainer.useCases.deleteSeason.mockReturnValue({
-      execute: jest.fn().mockResolvedValue(undefined),
-    });
-    mockContainer.useCases.deleteSeriesData.mockReturnValue({
       execute: jest.fn().mockResolvedValue(undefined),
     });
     mockContainer.useCases.getLibrary.mockReturnValue({
@@ -107,17 +108,13 @@ describe('Series use cases', () => {
     });
   });
 
-  it('deletes seasons, series data, analyzed folder, and the series row when library exists', async () => {
+  it('deletes seasons, series media, analyzed folder, and the series row when library exists', async () => {
     const deleteSeasonExecute = jest.fn().mockResolvedValue(undefined);
-    const deleteSeriesDataExecute = jest.fn().mockResolvedValue(undefined);
     const getLibraryExecute = jest.fn().mockResolvedValue({ id: 'library-1' });
     const removeAnalyzedFolderExecute = jest.fn().mockResolvedValue(undefined);
 
     mockContainer.useCases.deleteSeason.mockReturnValue({
       execute: deleteSeasonExecute,
-    });
-    mockContainer.useCases.deleteSeriesData.mockReturnValue({
-      execute: deleteSeriesDataExecute,
     });
     mockContainer.useCases.getLibrary.mockReturnValue({
       execute: getLibraryExecute,
@@ -134,7 +131,9 @@ describe('Series use cases', () => {
     await new DeleteSeriesUseCase(repo).execute('series-1');
 
     expect(deleteSeasonExecute).toHaveBeenCalledTimes(2);
-    expect(deleteSeriesDataExecute).toHaveBeenCalledWith('series-1');
+    expect(mockContainer.contentCleanupService.cleanSeriesMedia).toHaveBeenCalledWith(
+      '/shows/series-1',
+    );
     expect(removeAnalyzedFolderExecute).toHaveBeenCalledWith('library-1', '/shows/series-1');
     expect(repo.delete).toHaveBeenCalledWith('series-1');
   });

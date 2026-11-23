@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getApiErrorCode, getApiErrorMessage } from '../client'
 import { useApiMutation, useApiQuery } from './common'
 
 interface CrudGetOptions {
@@ -95,27 +96,34 @@ export const useUpdate = <T>(): UseUpdateReturn<T> => {
     }
 }
 
+export type DeleteResult = { ok: true } | { ok: false; message: string; code: string | null }
+
 interface UseDeleteReturn {
     isLoading: boolean
     error: string | null
     deleteRequest: (url: string) => Promise<boolean>
+    /** Same as `deleteRequest`, but reports why the request failed. */
+    deleteRequestWithResult: (url: string) => Promise<DeleteResult>
 }
 
 export const useDelete = (): UseDeleteReturn => {
     const mutation = useApiMutation<unknown, string>(['crud', 'delete'], '', 'DELETE', (url) => ({ url }))
 
-    const deleteRequest = async (url: string): Promise<boolean> => {
+    const deleteRequestWithResult = async (url: string): Promise<DeleteResult> => {
         try {
             await mutation.mutateAsync(url)
-            return true
-        } catch {
-            return false
+            return { ok: true }
+        } catch (error) {
+            return { ok: false, message: getApiErrorMessage(error), code: getApiErrorCode(error) }
         }
     }
+
+    const deleteRequest = async (url: string): Promise<boolean> => (await deleteRequestWithResult(url)).ok
 
     return {
         isLoading: mutation.isPending,
         error: mutation.error,
         deleteRequest,
+        deleteRequestWithResult,
     }
 }

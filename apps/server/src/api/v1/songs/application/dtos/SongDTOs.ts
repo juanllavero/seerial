@@ -2,6 +2,9 @@ export interface UpdateSongDTO {
   title?: string;
   codec?: string;
   hasDolbyAtmos?: boolean;
+  atmosFileSrc?: string | null;
+  vocalsFileSrc?: string | null;
+  instrumentalFileSrc?: string | null;
   trackNumber?: number;
   discNumber?: number;
   artists?: string[];

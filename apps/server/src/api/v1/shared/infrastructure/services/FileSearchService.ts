@@ -118,7 +118,8 @@ async function removeMissingMusicFile(filePath: string): Promise<void> {
   if (!song) return;
 
   const albumId = song.albumId;
-  await useCases.deleteSong().execute(song.id ?? '');
+  await useCases.deleteSong().execute(song.id ?? '', { force: true });
+  if (!albumId) return;
 
   const album = await useCases.getAlbumById().execute(albumId);
   const songs = await useCases.getSongsByAlbum().execute(albumId);

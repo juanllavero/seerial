@@ -7,6 +7,7 @@ import { FindPlayListByIdUseCase } from '@/api/v1/playlists/application/usecases
 import { RemoveSongFromPlayListUseCase } from '@/api/v1/playlists/application/usecases/RemoveSongFromPlayListUseCase';
 import { UpdatePlayListUseCase } from '@/api/v1/playlists/application/usecases/UpdatePlayListUseCase';
 import type { PlayList } from '@/api/v1/playlists/domain/PlayList';
+import type { SongsRepositoryPort } from '@/api/v1/songs/application/ports/SongsRepositoryPort';
 
 function buildPlayList(overrides: Partial<PlayList> = {}): PlayList {
   return {
@@ -23,6 +24,8 @@ function buildPlayListRepo(
   return {
     findAll: jest.fn(),
     findById: jest.fn(),
+    findByFolder: jest.fn(),
+    findByLibrary: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -137,7 +140,10 @@ describe('Playlist use cases', () => {
         removeSongFromPlaylist: jest.fn().mockResolvedValue(undefined),
       });
 
-      await new RemoveSongFromPlayListUseCase(repo).execute('playlist-1', 'song-1');
+      await new RemoveSongFromPlayListUseCase(repo, {} as SongsRepositoryPort).execute(
+        'playlist-1',
+        'song-1',
+      );
 
       expect(repo.removeSongFromPlaylist).toHaveBeenCalledWith('playlist-1', 'song-1');
     });

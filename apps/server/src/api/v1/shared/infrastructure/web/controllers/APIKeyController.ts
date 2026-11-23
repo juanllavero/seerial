@@ -24,11 +24,11 @@ export class APIKeyController extends Controller {
   public async configureApiKey(@Body() body: APIKeyDTO): Promise<ApiResponse<APIKeyResponse>> {
     const { apiKey } = body;
 
-    const properties = propertiesReader(fileSystemService.propertiesFilePath) || undefined;
+    const properties = propertiesReader({ sourceFile: fileSystemService.propertiesFilePath });
 
     // Save API key in properties file
     properties.set('TMDB_API_KEY', apiKey);
-    properties.save(fileSystemService.propertiesFilePath);
+    await properties.save(fileSystemService.propertiesFilePath);
 
     if (!apiKey) {
       return ApiResponse.error(messages.errors.update, {

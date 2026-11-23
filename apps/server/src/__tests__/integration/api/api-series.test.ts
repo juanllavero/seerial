@@ -10,6 +10,7 @@ import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../he
 const mockSeries = {
   id: 'series-1',
   name: 'Test Show',
+  folder: '/media/shows/test-show',
   description: 'A test series',
   year: 2022,
   rating: 8.0,

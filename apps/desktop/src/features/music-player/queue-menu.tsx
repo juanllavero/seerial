@@ -13,6 +13,7 @@ import {
 } from '@/shared/components/navigation';
 import { Subtitle } from '@/shared/components/text';
 import FlexBox from '@/shared/components/ui/flex-box';
+import DolbyAtmosBadge from '@/shared/components/ui/dolby-atmos-badge';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
 
 interface QueueMenuProps {
@@ -184,7 +185,9 @@ function QueueMenu({ isOpen, onClose }: QueueMenuProps) {
                 className="w-full justify-start rounded-2xl!"
                 selected={song.id === currentSong?.id}
                 onClick={() => selectSongFromQueue(index)}
-              />
+              >
+                {!!song.hasDolbyAtmos && <DolbyAtmosBadge className="ml-auto" />}
+              </NavigationButton>
             ))}
           </NavigationScrollView>
         </m.div>

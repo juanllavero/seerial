@@ -295,9 +295,12 @@ function GlobalMusicPlayer() {
     isKaraokeReady,
     shouldShowKaraokeButton,
     karaokeMix,
+    isAtmosActive,
+    isAtmosAvailable,
     togglePlayPause,
     stopPlayback,
     handleKaraokeMixChange,
+    toggleAtmos,
     getActivePlaybackPosition,
     getActivePlaybackDuration,
     setActivePlaybackPosition,
@@ -470,6 +473,8 @@ function GlobalMusicPlayer() {
                   karaokeMix={karaokeMix}
                   setShowKaraokeMixer={setShowKaraokeMixer}
                   handleKaraokeMixChange={handleKaraokeMixChange}
+                  atmosState={{ isAtmosActive, isAtmosAvailable }}
+                  toggleAtmos={toggleAtmos}
                   isQueueMenuOpen={isQueueMenuOpen}
                   setIsQueueMenuOpen={setIsQueueMenuOpen}
                   songQueue={songQueue}

@@ -1,6 +1,26 @@
 import type { AudioInfo } from '@seerial/domain';
 import logger from '@/utils/logger';
-import { executeFfprobe } from './nativeFfmpeg';
+import { executeFfprobe, readFfmpegStreamSummary } from './nativeFfmpeg';
+
+// Codecs that can carry Dolby Atmos (E-AC-3 JOC and TrueHD)
+const ATMOS_CAPABLE_CODECS = ['eac3', 'truehd'];
+
+/**
+ * Returns true when the stream summary printed by ffmpeg (6.1+) reports Dolby Atmos,
+ * shown in the codec profile as "Dolby Digital Plus + Dolby Atmos" or "Dolby TrueHD + Dolby Atmos".
+ */
+export function summaryHasDolbyAtmos(summary: string): boolean {
+  return summary.toLowerCase().includes('dolby atmos');
+}
+
+async function checkForAtmos(audioPath: string): Promise<boolean> {
+  try {
+    return summaryHasDolbyAtmos(await readFfmpegStreamSummary(audioPath));
+  } catch (err) {
+    logger.warn({ err, audioPath }, 'Failed to check Dolby Atmos');
+    return false;
+  }
+}
 
 export async function getAudioInfo(audioPath: string): Promise<AudioInfo | undefined> {
   if (!audioPath || audioPath === '') {
@@ -24,6 +44,7 @@ export async function getAudioInfo(audioPath: string): Promise<AudioInfo | undef
     }>;
 
     const codec = streams.find((s) => s.codec_type === 'audio')?.codec_name || 'unknown';
+    const hasDolbyAtmos = ATMOS_CAPABLE_CODECS.includes(codec) && (await checkForAtmos(audioPath));
     const duration = format.duration ? format.duration / 60 : 0;
     const artist = tags.album_artist || tags.artist || tags.ARTIST || '';
     const album = tags.album || tags.ALBUM || '';
@@ -56,6 +77,7 @@ export async function getAudioInfo(audioPath: string): Promise<AudioInfo | undef
       trackNumber,
       composers,
       artists,
+      hasDolbyAtmos,
     };
   } catch (err) {
     logger.error({ err, message: 'Failed to get media info' });

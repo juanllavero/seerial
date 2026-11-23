@@ -77,7 +77,7 @@ function getFirstRelatedSongFocusId(
   }
 
   const albumIds = new Set(albums.map((album) => album.id));
-  const firstSongWithAlbum = songs.find((song) => albumIds.has(song.albumId));
+  const firstSongWithAlbum = songs.find((song) => !!song.albumId && albumIds.has(song.albumId));
 
   return firstSongWithAlbum ? `related-song-${firstSongWithAlbum.id}` : undefined;
 }

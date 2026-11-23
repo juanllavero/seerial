@@ -134,11 +134,21 @@ describe('LibrariesRepositoryImpl', () => {
         folder: '/music/collection-root/collected-album',
       });
 
+      const secondCollectionAlbum = await AlbumModel.save({
+        id: 'album-collected-2',
+        libraryId: library!.id,
+        order: 3,
+        title: 'Second Collected Album',
+        year: '2003',
+        coverSrc: '/covers/collected-2.jpg',
+        folder: '/music/collection-root/collected-album-2',
+      });
+
       const collection = await CollectionModel.save({
         id: 'collection-music',
         title: 'Music Collection',
         description: 'A grouped set of albums',
-        musicPosterSrc: '/covers/collection.jpg',
+        musicPosterSrc: 'https://example.com/collection.jpg',
       });
 
       await LibraryCollectionModel.save({
@@ -146,7 +156,12 @@ describe('LibrariesRepositoryImpl', () => {
         collectionId: collection.id,
         customOrder: 0,
       });
+      // Collections with a single item in the library are treated as standalone items
       await AlbumModel.update({ id: collectionAlbum.id }, { collectionId: collection.id, collectionOrder: 0 });
+      await AlbumModel.update(
+        { id: secondCollectionAlbum.id },
+        { collectionId: collection.id, collectionOrder: 1 },
+      );
 
       const content = await repo.getContent(library!.id, 'user-1');
 
@@ -155,8 +170,8 @@ describe('LibrariesRepositoryImpl', () => {
       expect(content[0]).toMatchObject({
         id: collection.id,
         type: 'collection',
-        coverSrc: '/covers/collection.jpg',
-        numberOfItems: 1,
+        coverSrc: 'https://example.com/collection.jpg',
+        numberOfItems: 2,
       });
       expect(content[1]).toMatchObject({
         id: standaloneAlbum.id,

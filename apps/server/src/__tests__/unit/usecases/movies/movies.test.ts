@@ -11,7 +11,9 @@ import type { Movie } from '@/api/v1/movies/domain/Movie';
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     deleteVideo: jest.fn(),
-    deleteMovieData: jest.fn(),
+  },
+  contentCleanupService: {
+    cleanMovieMedia: jest.fn(),
   },
 }));
 
@@ -22,7 +24,9 @@ jest.mock('@/api/v1/shared/infrastructure/services/FileSearchService', () => ({
 const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/container') as {
   useCases: {
     deleteVideo: jest.Mock;
-    deleteMovieData: jest.Mock;
+  };
+  contentCleanupService: {
+    cleanMovieMedia: jest.Mock;
   };
 };
 
@@ -58,6 +62,7 @@ function buildLibrariesRepo(
   return {
     getAll: jest.fn(),
     getContent: jest.fn(),
+    getCollectionContent: jest.fn(),
     getById: jest.fn(),
     getByAlbumId: jest.fn(),
     getByMovieId: jest.fn(),
@@ -81,9 +86,6 @@ describe('Movie use cases', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockContainer.useCases.deleteVideo.mockReturnValue({
-      execute: jest.fn().mockResolvedValue(undefined),
-    });
-    mockContainer.useCases.deleteMovieData.mockReturnValue({
       execute: jest.fn().mockResolvedValue(undefined),
     });
   });
@@ -155,16 +157,12 @@ describe('Movie use cases', () => {
       ).rejects.toMatchObject({ statusCode: 404 });
     });
 
-    it('deletes child videos, movie data, analyzed folder, and the movie row', async () => {
+    it('deletes child videos, movie media, analyzed folder, and the movie row', async () => {
       const movie = buildMovie();
       const deleteVideoExecute = jest.fn().mockResolvedValue(undefined);
-      const deleteMovieDataExecute = jest.fn().mockResolvedValue(undefined);
 
       mockContainer.useCases.deleteVideo.mockReturnValue({
         execute: deleteVideoExecute,
-      });
-      mockContainer.useCases.deleteMovieData.mockReturnValue({
-        execute: deleteMovieDataExecute,
       });
 
       const moviesRepo = buildMoviesRepo({
@@ -181,7 +179,9 @@ describe('Movie use cases', () => {
       expect(deleteVideoExecute).toHaveBeenCalledTimes(2);
       expect(deleteVideoExecute).toHaveBeenNthCalledWith(1, 'video-1');
       expect(deleteVideoExecute).toHaveBeenNthCalledWith(2, 'video-2');
-      expect(deleteMovieDataExecute).toHaveBeenCalledWith(movie.id);
+      expect(mockContainer.contentCleanupService.cleanMovieMedia).toHaveBeenCalledWith(
+        movie.folder,
+      );
       expect(librariesRepo.removeAnalyzedFolder).toHaveBeenCalledWith(
         movie.libraryId,
         movie.folder,
@@ -191,11 +191,6 @@ describe('Movie use cases', () => {
 
     it('skips analyzed-folder cleanup when the library cannot be found', async () => {
       const movie = buildMovie({ videos: [] as never });
-      const deleteMovieDataExecute = jest.fn().mockResolvedValue(undefined);
-
-      mockContainer.useCases.deleteMovieData.mockReturnValue({
-        execute: deleteMovieDataExecute,
-      });
 
       const moviesRepo = buildMoviesRepo({
         findById: jest.fn().mockResolvedValue(movie),
@@ -208,7 +203,9 @@ describe('Movie use cases', () => {
 
       await new DeleteMovieUseCase(librariesRepo, moviesRepo).execute(movie.id);
 
-      expect(deleteMovieDataExecute).toHaveBeenCalledWith(movie.id);
+      expect(mockContainer.contentCleanupService.cleanMovieMedia).toHaveBeenCalledWith(
+        movie.folder,
+      );
       expect(librariesRepo.removeAnalyzedFolder).not.toHaveBeenCalled();
       expect(moviesRepo.delete).toHaveBeenCalledWith(movie.id);
     });

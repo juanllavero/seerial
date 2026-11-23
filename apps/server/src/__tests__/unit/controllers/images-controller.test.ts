@@ -5,6 +5,7 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   fileSystemService: {
     createFolder: jest.fn(),
     writeImage: jest.fn(),
+    isFile: jest.fn(),
     getExternalPath: jest.fn((p: string) => `/external/${p}`),
     join: jest.fn((...parts: string[]) => parts.join('/')),
   },
@@ -14,6 +15,9 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     streamRemoteImage: jest.fn(),
     getImageColorPalette: jest.fn(),
     createTransparentImage: jest.fn(),
+  },
+  useCases: {
+    getLibraries: jest.fn(),
   },
 }));
 
@@ -33,6 +37,10 @@ const sanitization = jest.requireMock(
 describe('ImagesController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    container.fileSystemService.isFile.mockResolvedValue(false);
+    container.useCases.getLibraries.mockReturnValue({
+      execute: jest.fn().mockResolvedValue([]),
+    });
     container.imageProcessingService.getDirectoryListing.mockResolvedValue([{ name: 'a.jpg' }]);
     container.imageProcessingService.getImageColorPalette.mockResolvedValue({
       primary: '#000000',
@@ -44,7 +52,8 @@ describe('ImagesController', () => {
     const controller = new ImagesController();
     const image = {
       originalname: 'cover.jpg',
-      buffer: Buffer.from('data'),
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]),
     };
 
     const response = await controller.uploadImage('/tmp/uploads', image as never);
@@ -63,9 +72,21 @@ describe('ImagesController', () => {
     await expect(
       new ImagesController().uploadImage('/tmp/uploads', {
         originalname: '../bad.jpg',
-        buffer: Buffer.from('data'),
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]),
       } as never),
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('rejects upload when the file content does not match the declared mime type', async () => {
+    await expect(
+      new ImagesController().uploadImage('/tmp/uploads', {
+        originalname: 'cover.jpg',
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('not an image'),
+      } as never),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(container.fileSystemService.writeImage).not.toHaveBeenCalled();
   });
 
   it('returns directory listing for sanitized path', async () => {

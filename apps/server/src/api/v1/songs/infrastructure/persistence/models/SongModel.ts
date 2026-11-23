@@ -20,8 +20,8 @@ export class SongModel extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   fileSrc!: string;
 
-  @Column({ type: 'varchar', nullable: false })
-  albumId!: string;
+  @Column({ type: 'varchar', nullable: true })
+  albumId!: string | null;
 
   @Column({ type: 'varchar', nullable: false, default: '' })
   title!: string;
@@ -42,6 +42,21 @@ export class SongModel extends BaseEntity {
   @Column({ type: 'boolean', nullable: true })
   hasDolbyAtmos!: boolean;
 
+  // Dolby Atmos version of the song (name.atmos.ext), only when the original is not Atmos
+  @Column({ type: 'varchar', nullable: true })
+  atmosFileSrc!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  vocalsFileSrc!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  instrumentalFileSrc!: string | null;
+
+  // Modification time (ms) of the original file the last time it was analyzed.
+  // Null for songs scanned before it was tracked, which forces a re-analysis.
+  @Column({ type: 'integer', nullable: true })
+  fileModifiedAt!: number | null;
+
   @Column({ type: 'varchar', nullable: false, default: '' })
   codec!: string;
 
@@ -51,9 +66,9 @@ export class SongModel extends BaseEntity {
   @Column({ type: 'simple-json', nullable: false, default: '[]' })
   artists!: string[];
 
-  @ManyToOne(() => AlbumModel, { onDelete: 'CASCADE' })
+  @ManyToOne(() => AlbumModel, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'album_id' })
-  album!: AlbumModel;
+  album!: AlbumModel | null;
 
   @OneToMany(
     () => PlayListItemModel,

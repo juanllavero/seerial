@@ -71,6 +71,12 @@ export class SongsController extends Controller {
         if (knownSong?.fileSrc) {
           return knownSong.fileSrc;
         }
+
+        // Dolby Atmos versions and karaoke stems are not songs, but belong to one
+        const getSongByAnyFilePath = (useCases as { getSongByAnyFilePath?: () => { execute: (filePath: string) => Promise<unknown> } }).getSongByAnyFilePath;
+        if (typeof getSongByAnyFilePath === 'function' && (await getSongByAnyFilePath().execute(normalizedPath))) {
+          return normalizedPath;
+        }
       } else {
         // Compatibility fallback for test/mocked environments missing this use case.
         return normalizedPath;

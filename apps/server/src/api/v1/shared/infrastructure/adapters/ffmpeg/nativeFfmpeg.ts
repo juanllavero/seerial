@@ -462,6 +462,43 @@ export function executeFfprobeRaw(args: string[], timeoutMs: number = 10000): Pr
 }
 
 /**
+ * Runs `ffmpeg -i <file>` without output and returns the stream summary ffmpeg prints on stderr.
+ * ffmpeg exits with an error code in this mode by design, so the exit code is ignored.
+ */
+export function readFfmpegStreamSummary(
+  filePath: string,
+  timeoutMs: number = 10000,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let stderr = '';
+
+    const ffmpegProcess = spawn(getFfmpegExecutableForSpawn(), ['-hide_banner', '-nostdin', '-i', filePath], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    const timeout = setTimeout(() => {
+      ffmpegProcess.kill('SIGKILL');
+      reject(new Error('ffmpeg timed out'));
+    }, timeoutMs);
+    timeout.unref?.();
+
+    ffmpegProcess.stderr?.on('data', (data) => {
+      if (stderr.length < MAX_BUFFER_SIZE) stderr += data.toString('utf8');
+    });
+
+    ffmpegProcess.on('close', () => {
+      clearTimeout(timeout);
+      resolve(stderr);
+    });
+
+    ffmpegProcess.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(new Error(`ffmpeg spawn error: ${err.message}`));
+    });
+  });
+}
+
+/**
  * Execute ffmpeg command and pipe output to a stream for real-time streaming
  * Returns an object with the process, cancel function, and stderr accumulator
  */

@@ -21,6 +21,7 @@ function DialogManager() {
     'deleteEpisode',
     'deleteAlbum',
     'deleteSong',
+    'deletePlaylist',
     'deleteCollection',
     'downloadMedia',
     'identification',

@@ -1,12 +1,17 @@
-import fs from 'node:fs';
-
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   fileSystemService: {
     getExternalPath: jest.fn((p: string) => `C:/tmp/${p}`),
+    existsSync: jest.fn(() => true),
+    createFolder: jest.fn(),
   },
 }));
 
+const { fileSystemService } = jest.requireMock(
+  '@/api/v1/shared/infrastructure/adapters/di/container',
+);
+
 const initialize = jest.fn();
+const connect = jest.fn();
 const query = jest.fn();
 const synchronize = jest.fn();
 const runMigrations = jest.fn();
@@ -41,6 +46,7 @@ import { DatabaseManager } from '@/api/v1/shared/infrastructure/persistence/Data
 describe('DatabaseManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    fileSystemService.existsSync.mockReturnValue(true);
     DatabaseManager.dataSource = null;
   });
 
@@ -62,8 +68,7 @@ describe('DatabaseManager', () => {
 
   it('initializes database and runs pragmas', async () => {
     const release = jest.fn();
-    createQueryRunner.mockReturnValue({ query, release });
-    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    createQueryRunner.mockReturnValue({ connect, query, release });
 
     await DatabaseManager.initializeDB();
 
@@ -75,21 +80,17 @@ describe('DatabaseManager', () => {
 
   it('creates db directory when missing', async () => {
     const release = jest.fn();
-    createQueryRunner.mockReturnValue({ query, release });
-    const existsSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-    const mkdirSpy = jest.spyOn(fs, 'mkdirSync').mockImplementation(() => undefined as never);
+    createQueryRunner.mockReturnValue({ connect, query, release });
+    fileSystemService.existsSync.mockReturnValue(false);
 
     await DatabaseManager.initializeDB();
 
-    expect(mkdirSpy).toHaveBeenCalled();
-    existsSpy.mockRestore();
-    mkdirSpy.mockRestore();
+    expect(fileSystemService.createFolder).toHaveBeenCalled();
   });
 
   it('runs health checks and helper wrappers', async () => {
     const release = jest.fn();
-    createQueryRunner.mockReturnValue({ query, release });
-    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    createQueryRunner.mockReturnValue({ connect, query, release });
     await DatabaseManager.initializeDB();
 
     query.mockResolvedValueOnce([{ ok: 1 }]);
@@ -116,14 +117,11 @@ describe('DatabaseManager', () => {
   });
 
   it('wraps initialization errors with a friendly message', async () => {
-    const existsSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
     initialize.mockRejectedValueOnce(new Error('init failed'));
 
     await expect(DatabaseManager.initializeDB()).rejects.toThrow(
       'Database initialization failed: init failed',
     );
-
-    existsSpy.mockRestore();
   });
 
   it('returns false on health check when dataSource reports not initialized', async () => {
@@ -140,8 +138,7 @@ describe('DatabaseManager', () => {
 
   it('propagates query and migration wrapper errors', async () => {
     const release = jest.fn();
-    createQueryRunner.mockReturnValue({ query, release });
-    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    createQueryRunner.mockReturnValue({ connect, query, release });
     await DatabaseManager.initializeDB();
 
     query.mockRejectedValueOnce(new Error('query failed'));

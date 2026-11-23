@@ -23,6 +23,7 @@ function buildAlbumsRepo(overrides: Partial<AlbumsRepositoryPort> = {}): AlbumsR
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    findByFolder: jest.fn(),
     addArtistToAlbum: jest.fn(),
     ...overrides,
   };

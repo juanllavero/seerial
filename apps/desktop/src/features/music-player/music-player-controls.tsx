@@ -18,6 +18,7 @@ import TimelineSlider from '@/features/video-player/components/controls/timeline
 import Loading from '@/shared/components/loading';
 import { NavigationButton } from '@/shared/components/navigation';
 import FlexBox from '@/shared/components/ui/flex-box';
+import { DolbyAtmosLogoIcon } from '@/shared/components/ui/icon-library';
 import { Slider } from '@/shared/components/ui/slider';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
 import QueueMenu from './queue-menu';
@@ -79,6 +80,11 @@ interface MusicPlayerControlsProps {
   karaokeMix: number;
   setShowKaraokeMixer: Dispatch<SetStateAction<boolean>>;
   handleKaraokeMixChange: (value: number) => Promise<void>;
+  atmosState: {
+    isAtmosActive: boolean;
+    isAtmosAvailable: boolean;
+  };
+  toggleAtmos: () => Promise<void>;
   isQueueMenuOpen: boolean;
   setIsQueueMenuOpen: Dispatch<SetStateAction<boolean>>;
   songQueue: Song[];
@@ -160,6 +166,8 @@ function MusicPlayerControlsContent({
   setActivePlaybackPosition,
   queueState,
   karaokeUi,
+  atmosUi,
+  toggleAtmos,
   t,
   karaokeMix,
   handleKaraokeMixChange,
@@ -200,6 +208,11 @@ function MusicPlayerControlsContent({
     isKaraokeReady: boolean;
     isKaraokePreparing: boolean;
   };
+  atmosUi: {
+    isAtmosActive: boolean;
+    isAtmosAvailable: boolean;
+  };
+  toggleAtmos: () => Promise<void>;
   t: (key: string) => string;
   karaokeMix: number;
   handleKaraokeMixChange: (value: number) => Promise<void>;
@@ -235,6 +248,7 @@ function MusicPlayerControlsContent({
     isKaraokeReady,
     isKaraokePreparing,
   } = karaokeUi;
+  const { isAtmosActive, isAtmosAvailable } = atmosUi;
   const {
     isLyricsButtonDisabled,
     showLyrics,
@@ -331,6 +345,21 @@ function MusicPlayerControlsContent({
             </div>
 
             <div className="flex gap-2">
+              {!!isAtmosAvailable && (
+                <NavigationButton
+                  customKey={NavigationFocusKeys.player.atmosButton}
+                  title={isAtmosActive ? t('dolbyAtmosOn') : t('dolbyAtmosOff')}
+                  hideText
+                  selected={isAtmosActive}
+                  disabled={isLoading}
+                  onClick={() => {
+                    void toggleAtmos();
+                  }}
+                >
+                  <DolbyAtmosLogoIcon className="size-[2.2dvh]" />
+                </NavigationButton>
+              )}
+
               {!!shouldShowKaraokeButton && (
                 <NavigationButton
                   customKey={NavigationFocusKeys.player.karaokeButton}
@@ -457,6 +486,8 @@ function MusicPlayerControls({
   karaokeMix,
   setShowKaraokeMixer,
   handleKaraokeMixChange,
+  atmosState,
+  toggleAtmos,
   isQueueMenuOpen,
   setIsQueueMenuOpen,
   songQueue,
@@ -657,6 +688,8 @@ function MusicPlayerControls({
         t={t}
         karaokeMix={karaokeMix}
         handleKaraokeMixChange={handleKaraokeMixChange}
+        atmosUi={atmosState}
+        toggleAtmos={toggleAtmos}
         currentSong={currentSong}
         songQueue={songQueue}
         handlePlayPrevious={handlePlayPrevious}
