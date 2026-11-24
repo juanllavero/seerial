@@ -138,11 +138,15 @@ const Image: React.FC<ImageProps> = ({
 }) => {
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
   const isRemoteUrl = !!url?.startsWith('http');
-  const localImagePath = url && !isRemoteUrl ? url : undefined;
+  // Assets bundled with the client (e.g. /img/fileNotFound.jpg) are not server files
+  const isPublicAsset = !!url?.startsWith('/img/');
+  const localImagePath = url && !isRemoteUrl && !isPublicAsset ? url : undefined;
   const directImageSrc = url
     ? isRemoteUrl
       ? optimizeTmdbUrl(url, tmdbSize)
-      : undefined
+      : isPublicAsset
+        ? url
+        : undefined
     : (src ?? fallbackSrc);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

@@ -3,8 +3,7 @@ import { API } from '../endpoints'
 import { type ApiMutationResult, type ApiQueryResult, asBody, asVoid, type MutationHookOptions, type QueryHookOptions, useApiMutation, useApiQuery } from './common'
 
 export interface GetLibraryContentParams {
-    type?: string
-    flat?: string
+    /** Only the server's `watched` filter exists; other query parameters are ignored. */
     watched?: boolean
     [key: string]: unknown
 }
@@ -158,7 +157,7 @@ export const useReorderCollectionContent = <TResponse = unknown, TBody = unknown
     useApiMutation<TResponse, TBody>(
         ['collections', 'reorderContent', collectionId],
         API.collections.reorderContent(collectionId),
-        'PATCH',
+        'POST',
         asBody,
         options,
     )

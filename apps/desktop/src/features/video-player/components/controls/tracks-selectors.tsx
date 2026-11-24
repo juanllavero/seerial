@@ -1,5 +1,5 @@
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
-import { useUpdateVideo } from '@seerial/api';
+import { useSetVideoTrackSelection } from '@seerial/api';
 import type {
   AudioTrack,
   MediaInfoData,
@@ -261,7 +261,8 @@ function TracksSelectors({
   const { t, i18n } = useTranslation();
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
   const mpv = useMpvPlayer();
-  const { mutate: updateVideo } = useUpdateVideo<
+  // The track choice belongs to the user: it never changes what other users get
+  const { mutate: updateVideo } = useSetVideoTrackSelection<
     void,
     { selectedAudioTrack?: number; selectedSubtitleTrack?: number }
   >(video.id);

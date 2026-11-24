@@ -14,6 +14,7 @@ import {
   Tags,
 } from 'tsoa';
 import { HTTPCodes } from '@/api/v1/shared/domain/types/HTTPCodes';
+import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { episodesRepo, useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { BadRequestException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
@@ -38,6 +39,12 @@ export class EpisodesController extends Controller {
   ): Promise<ApiResponse<Episode | null>> {
     await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'episode', id);
     const episode = await episodesRepo.findById(id);
+    if (episode) {
+      await UserVideoPreferencesService.overlay(
+        AccessControlService.requireUser(req).id,
+        episode,
+      );
+    }
     return ApiResponse.success(episode, messages.success.fetch);
   }
 

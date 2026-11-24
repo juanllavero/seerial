@@ -1,12 +1,16 @@
 import { getSignedSongStreamUrl } from '@seerial/api';
-import { getSongPlaybackFilePath } from '@seerial/domain';
+import { getSongPlaybackFilePath, RepeateMode } from '@seerial/domain';
 import { useMusicStore, useServerStore } from '@seerial/stores';
 import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { shallow } from 'zustand/shallow';
+import { isGenuineEnd } from '@/shared/utils/playback-end';
 
 const READY_POLL_INTERVAL_MS = 250;
 const LOAD_TIMEOUT_MS = 5000;
+/** Songs that end before their real end this many times in a row stop the queue instead of skipping on. */
+const MAX_CONSECUTIVE_PREMATURE_ENDS = 3;
+const SONG_STARTED_SECONDS = 3;
 const KARAOKE_MIX_MIN = -10;
 const KARAOKE_MIX_MAX = 10;
 
@@ -343,6 +347,9 @@ export function useMusicPlayerMpv({
 
   const loadAttemptRef = useRef(0);
   const eofGuardRef = useRef(false);
+  // Last position seen while the song was really playing, and how many songs in a row ended early
+  const lastPlayingPositionRef = useRef(0);
+  const prematureEndsRef = useRef(0);
   const pendingResumeRef = useRef<PlaybackResumeState | null>(null);
   const [playbackBackend, setPlaybackBackend] = useState<PlaybackBackend>('mpv');
   const [karaokeMix, setKaraokeMix] = useState(0);
@@ -416,27 +423,78 @@ export function useMusicPlayerMpv({
     [currentSong?.duration, duration, setCurrentTime, setProgress],
   );
 
+  /** Moves on after EOF, unless the source keeps failing before its real end. */
+  const handleSongEnded = useCallback(
+    (songDuration: number | undefined) => {
+      eofGuardRef.current = true;
+      window.setTimeout(() => {
+        eofGuardRef.current = false;
+      }, 200);
+
+      // EOF far from the end means the source failed (no audio device, cut stream, bad file)
+      if (!isGenuineEnd(lastPlayingPositionRef.current, songDuration ?? duration)) {
+        prematureEndsRef.current += 1;
+
+        if (prematureEndsRef.current >= MAX_CONSECUTIVE_PREMATURE_ENDS) {
+          // Skipping through the whole queue in silence helps nobody: stay here, paused
+          setIsPlaying(false);
+          return;
+        }
+      }
+
+      if (useMusicStore.getState().repeateMode === RepeateMode.REPEAT_ONE) {
+        // mpv sits at EOF (keep-open): rewind and play the same song again
+        lastPlayingPositionRef.current = 0;
+        void invoke('set_position', { position: 0 })
+          .then(() => invoke('play'))
+          .catch(console.error);
+        return;
+      }
+
+      lastPlayingPositionRef.current = 0;
+      handleNext();
+    },
+    [duration, handleNext, setIsPlaying],
+  );
+
+  const trackSongPosition = useCallback(
+    (status: PlaybackStatus) => {
+      if (typeof status.position !== 'number' || !Number.isFinite(status.position)) {
+        return;
+      }
+
+      updatePlaybackProgress(status.position);
+
+      if (status.eofReached) {
+        return;
+      }
+
+      lastPlayingPositionRef.current = status.position;
+      if (status.position > SONG_STARTED_SECONDS) {
+        prematureEndsRef.current = 0;
+      }
+    },
+    [updatePlaybackProgress],
+  );
+
   const processPlaybackStatus = useCallback(
     (status: PlaybackStatus) => {
-      if (typeof status.position === 'number' && Number.isFinite(status.position)) {
-        updatePlaybackProgress(status.position);
+      // While a source is loading the status still belongs to the previous one (possibly at EOF)
+      if (useMusicStore.getState().isLoading) {
+        return;
       }
+
+      trackSongPosition(status);
 
       if (typeof status.duration === 'number' && Number.isFinite(status.duration)) {
         setDuration(status.duration);
       }
 
-      if (!status.eofReached || eofGuardRef.current) {
-        return;
+      if (status.eofReached && !eofGuardRef.current) {
+        handleSongEnded(status.duration);
       }
-
-      eofGuardRef.current = true;
-      handleNext();
-      window.setTimeout(() => {
-        eofGuardRef.current = false;
-      }, 200);
     },
-    [handleNext, setDuration, updatePlaybackProgress],
+    [handleSongEnded, setDuration, trackSongPosition],
   );
 
   const loadMpvSource = useCallback(
@@ -680,6 +738,7 @@ export function useMusicPlayerMpv({
     setPlaybackBackend('mpv');
     setKaraokeMix(0);
     pendingResumeRef.current = null;
+    lastPlayingPositionRef.current = 0;
     resetKaraokeAvailability();
     void invoke('stop_karaoke').catch(() => undefined);
   }, [currentSong?.id, resetKaraokeAvailability]);

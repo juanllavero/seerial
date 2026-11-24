@@ -68,6 +68,14 @@ export interface VideoTrack {
     profile: string;
     refFrames: string;
     colorRange: string;
+    /** Transfer characteristic reported by ffprobe (smpte2084 = PQ/HDR10, arib-std-b67 = HLG). */
+    colorTransfer?: string;
+    /** HDR flavour deduced from the color information: 'HDR10', 'HLG' or empty for SDR. */
+    hdrFormat?: string;
+    /** True when the picture carries a Dolby Vision configuration record. */
+    hasDolbyVision?: boolean;
+    /** True when the picture carries HDR10+ dynamic metadata (SMPTE 2094-40). */
+    hasHdr10Plus?: boolean;
 }
 
 export interface AudioTrack {
@@ -84,6 +92,10 @@ export interface AudioTrack {
     bitDepth: string;
     profile: string;
     samplingRate: string;
+    /** True when this track carries Dolby Atmos (E-AC-3 JOC or TrueHD Atmos). */
+    hasDolbyAtmos?: boolean;
+    /** True when this DTS-HD MA track carries the DTS:X object layer. */
+    hasDtsX?: boolean;
 }
 
 export interface SubtitleTrack {

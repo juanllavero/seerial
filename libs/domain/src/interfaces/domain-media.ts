@@ -154,6 +154,8 @@ export interface PlayList {
   description?: string;
   /** False: songs are listed alphabetically. True: the admin reordered them manually. */
   customOrder?: boolean;
+  /** Up to 4 album covers of its songs (for the playlist card). Only present with the songs. */
+  images?: string[];
   /** Songs of the playlist (local and referenced). Only present when the playlist is fetched with its songs. */
   songs?: Song[];
 }

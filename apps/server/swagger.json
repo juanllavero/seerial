@@ -1496,6 +1496,22 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"SetVideoTrackSelectionDTO": {
+				"properties": {
+					"selectedAudioTrack": {
+						"type": "number",
+						"format": "double",
+						"description": "Index of the audio track."
+					},
+					"selectedSubtitleTrack": {
+						"type": "number",
+						"format": "double",
+						"description": "Index of the subtitle track, or -1 for no subtitles."
+					}
+				},
+				"type": "object",
+				"additionalProperties": false
+			},
 			"UpdateVideoDTO": {
 				"properties": {
 					"title": {
@@ -3249,7 +3265,8 @@
 					"series",
 					"movie",
 					"album",
-					"collection"
+					"collection",
+					"playlist"
 				]
 			},
 			"LibraryItem": {
@@ -4267,6 +4284,13 @@
 					"customOrder": {
 						"type": "boolean",
 						"description": "False: songs are listed alphabetically. True: the admin reordered them manually."
+					},
+					"images": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "Up to 4 album covers of its songs (for the playlist card). Only present with the songs."
 					},
 					"songs": {
 						"items": {
@@ -5795,6 +5819,52 @@
 				]
 			}
 		},
+		"/videos/{id}/track-selection": {
+			"patch": {
+				"operationId": "SetTrackSelection",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_null_"
+								}
+							}
+						}
+					}
+				},
+				"description": "Save the audio/subtitle track the current user picked for a video.\nOnly affects that user; the default selection of the video is not changed.",
+				"tags": [
+					"Videos"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SetVideoTrackSelectionDTO"
+							}
+						}
+					}
+				}
+			}
+		},
 		"/videos/{id}/media-info": {
 			"get": {
 				"operationId": "UpdateMediaInfo",
@@ -5816,7 +5886,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [

@@ -1,6 +1,6 @@
 import { getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
-import { useGetLibraries } from '@seerial/api';
-import { type Library, LibraryTypes } from '@seerial/domain';
+import { useGetLibraries, useGetPlaylists } from '@seerial/api';
+import { type Library, LibraryTypes, type PlayList } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
 import { AnimatePresence, domAnimation, LazyMotion, m } from 'framer-motion';
 import { ChevronUp, Settings } from 'lucide-react';
@@ -25,6 +25,9 @@ function getActiveButtonKeyForPath(pathname: string): string {
   if (segment === LibraryTypes.MOVIES) return NavigationFocusKeys.topBar.movies;
   if (segment === LibraryTypes.SHOWS) return NavigationFocusKeys.topBar.shows;
   if (segment === LibraryTypes.MUSIC) return NavigationFocusKeys.topBar.music;
+  if (pathname === '/playlists' || pathname.startsWith('/details/playlist/')) {
+    return NavigationFocusKeys.topBar.playlists;
+  }
   if (pathname === '/search') return NavigationFocusKeys.topBar.search;
   if (pathname === '/see') return NavigationFocusKeys.topBar.toSee;
 
@@ -59,6 +62,14 @@ function TopBar() {
     refetchOnWindowFocus: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
+
+  // Playlists the user can read (own grants + those of the libraries they can access)
+  const { data: playlists } = useGetPlaylists<PlayList[]>({
+    enabled: serverUrl !== '',
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const showPlaylists = (playlists?.length ?? 0) > 0;
 
   function getLibrariesByType(type: LibraryTypes) {
     return libraries?.filter((library) => library.type === type) ?? [];
@@ -265,6 +276,17 @@ function TopBar() {
                   onFocus={() => handleLibraryTypeFocus(LibraryTypes.MUSIC)}
                   onClick={() => handleLibraryTypePress(LibraryTypes.MUSIC)}
                   text="Music"
+                  variant="ghost"
+                />
+                <NavigationButton
+                  customKey={NavigationFocusKeys.topBar.playlists}
+                  disabled={!showPlaylists}
+                  selected={
+                    pathname === '/playlists' || pathname.startsWith('/details/playlist/')
+                  }
+                  onFocus={handleNonLibraryFocus}
+                  onClick={() => navigate('/playlists')}
+                  text="Playlists"
                   variant="ghost"
                 />
                 <NavigationButton

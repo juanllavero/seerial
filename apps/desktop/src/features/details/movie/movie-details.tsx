@@ -11,7 +11,9 @@ import {
   formatDate,
   formatTimeForView,
   getAudioTrack,
+  getMediaFormatBadges,
   getSubtitleTrack,
+  needsMediaFormatAnalysis,
   type LibraryType,
   type Movie,
   type Video,
@@ -90,7 +92,10 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
   }, [movie, isUpdatingWatchState, isWatched, queryClient, setMovieWatchState]);
 
   useEffect(() => {
-    if (!selectedVideo?.id || (selectedVideo.audioTracks && selectedVideo.audioTracks.length > 0))
+    // Analyse the video when it has no tracks yet, or when it was analysed before Dolby Atmos
+    // detection existed (its tracks carry no Atmos information)
+    const hasTracks = !!selectedVideo?.audioTracks && selectedVideo.audioTracks.length > 0;
+    if (!selectedVideo?.id || (hasTracks && !needsMediaFormatAnalysis(selectedVideo.audioTracks, selectedVideo.videoTracks)))
       return;
     if (resolvedVideoData.has(selectedVideo.id)) return;
 
@@ -109,10 +114,21 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
     [selectedVideo, resolvedVideoData],
   );
 
-  const movieAudioInfo = useMemo(() => {
+  // Audio track that will play for this user (their own pick or the library preference)
+  const selectedAudioTrack = useMemo(() => {
     if (!effectiveVideo || !library) return undefined;
-    return getAudioTrack(library.preferAudioLan ?? '', effectiveVideo)?.displayTitle;
+    return getAudioTrack(library.preferAudioLan ?? '', effectiveVideo) ?? undefined;
   }, [effectiveVideo, library]);
+
+  const movieAudioInfo = selectedAudioTrack?.displayTitle;
+
+  const mediaFormatBadges = useMemo(
+    () =>
+      effectiveVideo && library
+        ? getMediaFormatBadges(effectiveVideo.videoTracks, selectedAudioTrack)
+        : [],
+    [effectiveVideo, library, selectedAudioTrack],
+  );
 
   const movieSubtitleInfo = useMemo(() => {
     if (!effectiveVideo || !library) return undefined;
@@ -162,6 +178,7 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
           audioInfo={movieAudioInfo}
           subtitleInfo={movieSubtitleInfo}
           videoInfo={effectiveVideo?.videoTracks?.[0]?.displayTitle}
+          mediaFormatBadges={mediaFormatBadges}
           handlePlay={handlePlay}
           handleMarkWatched={handleMarkWatched}
           displayOptions={{

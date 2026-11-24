@@ -12,7 +12,7 @@ import type { PlayList } from '../../../domain/PlayList';
 import { PlayListItemModel } from '../models/PlayListItemModel';
 import { PlayListModel } from '../models/PlayListModel';
 
-const SONG_RELATIONS = ['items', 'items.song'];
+const SONG_RELATIONS = ['items', 'items.song', 'items.song.album'];
 
 /**
  * Exposes the songs of a playlist (loaded through its items) as a flat `songs` list.
@@ -36,11 +36,27 @@ class PlayListHelper extends GenericRepositoryHelper<PlayListModel, PlayList> {
 
     if (!items) return playList;
 
+    const sorted = PlayListHelper.sortItems(items, model.customOrder);
+
+    // Up to 4 different album covers, in playlist order, for the playlist card
+    const images: string[] = [];
+    for (const item of sorted) {
+      const cover = item.song?.album?.coverSrc;
+      if (cover && !images.includes(cover)) images.push(cover);
+      if (images.length === 4) break;
+    }
+
     return {
       ...playList,
-      songs: PlayListHelper.sortItems(items, model.customOrder)
-        .map((item) => item.song as unknown as Song)
-        .filter(Boolean),
+      images,
+      songs: sorted
+        .map((item) => {
+          if (!item.song) return null;
+          // The album is only loaded to get the cover: do not send it with every song
+          const { album: _album, ...song } = item.song;
+          return song as unknown as Song;
+        })
+        .filter((song): song is Song => song !== null),
     };
   }
 }

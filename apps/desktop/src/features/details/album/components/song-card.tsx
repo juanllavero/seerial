@@ -11,6 +11,8 @@ interface SongCardProps {
   currentSongId?: string;
   focusedSongId?: string;
   isPlaying: boolean;
+  /** Number shown instead of the track number (position inside a playlist). */
+  displayNumber?: number;
   onClick: () => void;
   onFocus: () => void;
   onNavigateToRelated?: () => void;
@@ -21,6 +23,7 @@ function SongCard({
   currentSongId,
   focusedSongId,
   isPlaying,
+  displayNumber,
   onClick,
   onFocus,
   onNavigateToRelated,
@@ -55,7 +58,7 @@ function SongCard({
                 translate={false}
               />
             ) : (
-              <Tertiary className="text-current!">{song.trackNumber}</Tertiary>
+              <Tertiary className="text-current!">{displayNumber ?? song.trackNumber}</Tertiary>
             )}
           </FlexBox>
           <Tertiary className="text-current! truncate max-w-[70dvh]">{song.title}</Tertiary>

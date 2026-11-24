@@ -1,4 +1,4 @@
-import type { CastData, DetailsData } from '@seerial/domain';
+import type { CastData, DetailsData, MediaFormatBadge } from '@seerial/domain';
 
 interface DetailsInfoDisplayOptions {
   isWatched?: boolean;
@@ -23,6 +23,8 @@ export interface DetailsInfoProps {
   handleMarkWatched?: () => void;
   handleToggleHideThumbnails?: () => void;
   videoInfo?: string;
+  /** Format logos (HDR, DTS-HD, Dolby Atmos) shown in the info row under the title. */
+  mediaFormatBadges?: MediaFormatBadge[];
   audioInfo?: string;
   subtitleInfo?: string;
   displayOptions?: DetailsInfoDisplayOptions;

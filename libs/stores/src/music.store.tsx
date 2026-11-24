@@ -21,10 +21,41 @@ function saveAtmosPreference(isEnabled: boolean) {
   }
 }
 
+/**
+ * Picks the next song of a shuffled queue: a random one that has not been played in this shuffle cycle.
+ * When every song has been played the cycle restarts only if `wrap` is true (otherwise: no next song).
+ */
+function pickShuffledSong(
+  queue: Song[],
+  currentSongId: string | undefined,
+  playedIds: string[],
+  wrap: boolean,
+): { song: Song; playedIds: string[] } | null {
+  const played = new Set(playedIds);
+  if (currentSongId) played.add(currentSongId);
+
+  let candidates = queue.filter((song) => !song.id || !played.has(song.id));
+  let nextPlayedIds = [...played];
+
+  if (candidates.length === 0) {
+    if (!wrap) return null;
+    // New cycle: everything but the song that is playing right now
+    candidates = queue.filter((song) => song.id !== currentSongId);
+    nextPlayedIds = currentSongId ? [currentSongId] : [];
+  }
+
+  if (candidates.length === 0) return null;
+
+  const song = candidates[Math.floor(Math.random() * candidates.length)];
+  return { song, playedIds: nextPlayedIds };
+}
+
 interface MusicState {
   currentSong: Song | null;
   album: Album | null;
   songQueue: Song[];
+  /** Songs already played in the current shuffle cycle. */
+  shufflePlayedIds: string[];
   showLyrics: boolean;
   showQueue: boolean;
   isPlaying: boolean;
@@ -82,6 +113,8 @@ interface MusicState {
   handleChangeRepeatState: (e: React.MouseEvent) => void;
   handlePrevious: () => void;
   handleNext: () => void;
+  /** Manual "next": shuffle-aware, and a no-op at the end of the queue unless shuffling. */
+  skipToNext: () => void;
   handleSongSelect: (index: number) => void;
   initializeAudioRef: (ref: React.RefObject<HTMLAudioElement | null>) => void;
   getAudioSrc: () => string;
@@ -91,6 +124,7 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
   currentSong: null,
   album: null,
   songQueue: [],
+  shufflePlayedIds: [],
   showLyrics: false,
   showQueue: false,
   isPlaying: false,
@@ -126,6 +160,7 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
       currentSong: song,
       album,
       songQueue: queue,
+      shufflePlayedIds: [],
       progress: 0,
       duration: song.duration ?? 0,
       currentTime: 0,
@@ -182,7 +217,7 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
   setShowLyrics: (showLyrics) => set({ showLyrics }),
   setShowQueue: (showQueue) => set({ showQueue }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
-  setIsShuffling: (isShuffling) => set({ isShuffling }),
+  setIsShuffling: (isShuffling) => set({ isShuffling, shufflePlayedIds: [] }),
   setIsAtmosEnabled: (isAtmosEnabled) => {
     saveAtmosPreference(isAtmosEnabled);
     set({ isAtmosEnabled });
@@ -266,7 +301,32 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
   },
 
   handleNext: () => {
-    const { currentSong, songQueue, repeateMode, selectSong } = get();
+    const {
+      currentSong,
+      songQueue,
+      repeateMode,
+      isShuffling,
+      shufflePlayedIds,
+      selectSong,
+    } = get();
+
+    if (isShuffling && songQueue.length > 1) {
+      const next = pickShuffledSong(
+        songQueue,
+        currentSong?.id,
+        shufflePlayedIds,
+        repeateMode === RepeateMode.REPEAT_ALL,
+      );
+
+      if (next) {
+        set({ shufflePlayedIds: next.playedIds });
+        selectSong(next.song);
+      } else {
+        get().resetPlayerState();
+      }
+      return;
+    }
+
     const currentIndex = songQueue.findIndex((song) => song.id === currentSong?.id);
     if (currentIndex < songQueue.length - 1) {
       selectSong(songQueue[currentIndex + 1]);
@@ -274,6 +334,26 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
       selectSong(songQueue[0]);
     } else {
       get().resetPlayerState();
+    }
+  },
+
+  skipToNext: () => {
+    const { currentSong, songQueue, isShuffling, shufflePlayedIds, selectSong } = get();
+    if (!currentSong) return;
+
+    if (isShuffling && songQueue.length > 1) {
+      const next = pickShuffledSong(songQueue, currentSong.id, shufflePlayedIds, true);
+      if (next) {
+        set({ shufflePlayedIds: next.playedIds });
+        selectSong(next.song);
+      }
+      return;
+    }
+
+    // Matched by id: the queue may hold other instances of the playing song
+    const currentIndex = songQueue.findIndex((song) => song.id === currentSong.id);
+    if (currentIndex !== -1 && currentIndex < songQueue.length - 1) {
+      selectSong(songQueue[currentIndex + 1]);
     }
   },
 

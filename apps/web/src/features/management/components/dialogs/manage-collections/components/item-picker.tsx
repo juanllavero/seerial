@@ -31,7 +31,6 @@ export function MultiLibraryItemPicker({
 
   const { data: libraryContent, isLoading } = useGetLibraryContent<LibraryItem[]>(activeLibraryId, {
     enabled: !!activeLibraryId,
-    params: { type: activeLibrary?.type ?? '' },
     staleTime: 30000,
   });
 

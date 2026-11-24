@@ -1,4 +1,4 @@
-import type { DetailsData } from '@seerial/domain';
+import type { DetailsData, MediaFormatBadge } from '@seerial/domain';
 import { useState } from 'react';
 import { NavigationButton } from '@/shared/components/navigation';
 import FlexBox from '@/shared/components/ui/flex-box';
@@ -6,12 +6,14 @@ import { NavigationFocusKeys } from '@/shared/navigation/constants';
 import Tertiary from '../text/tertiary';
 import DetailsRating from './details-rating';
 import DetailsWatchProgressBadge from './details-watch-progress-badge';
+import MediaFormatLogos from './media-format-logos';
 
 interface DetailsSummaryProps {
   details: DetailsData | undefined;
   infoItems?: string[];
   durationInfo?: number;
   timeWatchedInfo?: number;
+  mediaFormatBadges?: MediaFormatBadge[];
   customDescription?: string;
   clickableDescription?: boolean;
   onDescriptionClick?: () => void;
@@ -22,6 +24,7 @@ function DetailsSummary({
   infoItems,
   durationInfo,
   timeWatchedInfo,
+  mediaFormatBadges,
   customDescription,
   clickableDescription = false,
   onDescriptionClick,
@@ -48,6 +51,10 @@ function DetailsSummary({
           )}
         </FlexBox>
       ) : null}
+
+      {!!mediaFormatBadges && mediaFormatBadges.length > 0 && (
+        <MediaFormatLogos badges={mediaFormatBadges} className="py-[0.4dvh]" />
+      )}
 
       <DetailsRating details={details} />
 

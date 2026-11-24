@@ -52,7 +52,7 @@ const SongInfo = () => {
       >
         {artistsText} - {album?.title}
       </span>
-      {!!currentSong.hasDolbyAtmos && <DolbyAtmosBadge className="mt-[0.6dvh] text-white/80" />}
+      {!!currentSong.hasDolbyAtmos && <DolbyAtmosBadge className="mt-[0.8dvh] text-white/90" height="2.8dvh" />}
     </FlexBox>
   );
 };

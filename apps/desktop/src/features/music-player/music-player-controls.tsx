@@ -1,3 +1,4 @@
+import { useMusicStore } from '@seerial/stores';
 import { setFocus, useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import type { Song } from '@seerial/domain';
 import { useLocalStorage } from '@seerial/hooks';
@@ -575,33 +576,28 @@ function MusicPlayerControls({
     }, 30);
   }, [isKaraokeAvailable, isKaraokeReady, setShowKaraokeMixer, showKaraokeMixer]);
 
+  const skipToNext = useMusicStore((state) => state.skipToNext);
+
   const handlePlayNextSong = useCallback(() => {
-    if (!currentSong) {
-      return;
-    }
-
-    if (songQueue.length <= songQueue.indexOf(currentSong) + 1) {
-      return;
-    }
-
-    const nextSong = songQueue[songQueue.indexOf(currentSong) + 1];
-    selectSong(nextSong);
-  }, [songQueue, selectSong, currentSong]);
+    // Shuffle-aware and matched by song id (the queue may hold other instances of the playing song)
+    skipToNext();
+  }, [skipToNext]);
 
   const handlePlayPrevious = useCallback(() => {
     if (!currentSong) {
       return;
     }
 
-    const currentSongIndex = songQueue.indexOf(currentSong);
+    const currentSongIndex = songQueue.findIndex((song) => song.id === currentSong.id);
     if (currentSongIndex <= 0) {
+      // First song (or not in the queue): restart it. Moving mpv matters, not just the UI clock.
       setCurrentTime(0);
+      void setActivePlaybackPosition(0).catch(console.error);
       return;
     }
 
-    const previousSong = songQueue[currentSongIndex - 1];
-    selectSong(previousSong);
-  }, [songQueue, selectSong, currentSong, setCurrentTime]);
+    selectSong(songQueue[currentSongIndex - 1]);
+  }, [songQueue, selectSong, currentSong, setCurrentTime, setActivePlaybackPosition]);
 
   useEffect(() => {
     scheduleControlsAutoHide();

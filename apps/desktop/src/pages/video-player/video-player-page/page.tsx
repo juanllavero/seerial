@@ -9,6 +9,8 @@ import { memo, useCallback, useEffect, useReducer, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { VideoPlayer } from '@/features/video-player';
 import { useMpvPlayer } from '@/features/video-player/hooks/use-mpv-player';
+import { isGenuineEnd } from '@/shared/utils/playback-end';
+import { resolveResumePosition } from '@/features/video-player/utils/resume-position';
 import AppAlertDialog from '@/shared/components/app-alert-dialog';
 import {
     resetAppShellBackground,
@@ -20,6 +22,8 @@ import { useAppSettingsMpv } from '../../../features/video-player/hooks/use-app-
 
 const LOAD_TIMEOUT_MS = 15000;
 const PLAYER_HEALTH_POLL_INTERVAL_MS = 1000;
+const MAX_PREMATURE_EOF_RETRIES = 3;
+const RECOVERY_PROGRESS_SECONDS = 15;
 
 type PlayerErrorMode = 'load' | 'playback';
 
@@ -86,14 +90,17 @@ function useVideoPlayerPageController({
   const currentVideoRef = useRef<Video | null>(null);
   const currentUserIdRef = useRef<string | undefined>(undefined);
   const lastSeekedAtRef = useRef(0);
+  const prematureEofRetriesRef = useRef(0);
+  // Last position seen while the video was actually playing (never the EOF jump of a failed seek)
+  const lastPlayingPositionRef = useRef(0);
+  const lastRecoveryPositionRef = useRef(0);
 
   const { mutate: updateWatchState } = useUpdateVideoWatchState();
 
   const getInitialPlaybackPosition = useCallback(
     (videoToPlay: Video) => {
       const watchList = videoToPlay.watchLists?.find((list) => list.userId === currentUserId);
-      const timeWatched = watchList?.timeWatched ?? 0;
-      return timeWatched > 0 ? timeWatched : 0;
+      return resolveResumePosition(watchList?.timeWatched, videoToPlay.runtime);
     },
     [currentUserId],
   );
@@ -104,6 +111,8 @@ function useVideoPlayerPageController({
         filePath: videoToPlay.fileSrc,
         expiresIn: '2m',
       });
+      // The server answers with an empty URL when the file is unknown or not accessible
+      if (!url) throw new Error('The server did not provide a stream URL for this video');
       return `${serverUrl}${url}`;
     },
     [serverUrl],
@@ -124,7 +133,11 @@ function useVideoPlayerPageController({
           await mpv.setPosition(resumeAt);
         }
 
+        // A previous EOF/error leaves mpv paused (keep-open): a (re)load must always start playing
+        await mpv.play();
+
         lastKnownPositionRef.current = resumeAt;
+        lastPlayingPositionRef.current = resumeAt;
         setPlayerViewState({
           videoLoaded: true,
           isPlayerLoading: false,
@@ -143,7 +156,7 @@ function useVideoPlayerPageController({
         }
       }
     },
-    [getSignedStreamUrl, mpv.loadUrl, mpv.waitForReady, mpv.setPosition],
+    [getSignedStreamUrl, mpv.loadUrl, mpv.waitForReady, mpv.setPosition, mpv.play],
   );
 
   useEffect(() => {
@@ -232,6 +245,44 @@ function useVideoPlayerPageController({
     }
   }, [loadVideo, video]);
 
+  /** Returns true when mpv hit EOF before the real end and the situation was handled here. */
+  const handlePrematureEof = useCallback(async (eofReached: boolean, duration: number | null | undefined) => {
+    // The stream was cut before the end (connection lost, server down): this is not a finished video
+    if (!eofReached || isGenuineEnd(lastPlayingPositionRef.current, duration)) {
+      return false;
+    }
+
+    if (prematureEofRetriesRef.current >= MAX_PREMATURE_EOF_RETRIES) {
+      setPlayerViewState({
+        errorMode: 'playback',
+        isPlaybackBuffering: false,
+        isErrorDialogOpen: true,
+      });
+      return true;
+    }
+
+    prematureEofRetriesRef.current += 1;
+    lastRecoveryPositionRef.current = lastKnownPositionRef.current;
+    setPlayerViewState({ isPlaybackBuffering: false });
+    await attemptPlaybackRecovery();
+    return true;
+  }, [attemptPlaybackRecovery]);
+
+  /** Remembers where playback really is (never the EOF jump of a failed seek) and re-arms the retries. */
+  const trackPlaybackPosition = useCallback((position: number | null | undefined, eof: boolean) => {
+    if (eof || typeof position !== 'number' || !Number.isFinite(position) || position < 0) {
+      return;
+    }
+
+    lastKnownPositionRef.current = position;
+    lastPlayingPositionRef.current = position;
+
+    // Real progress after the last recovery means the stream is healthy again
+    if (position > lastRecoveryPositionRef.current + RECOVERY_PROGRESS_SECONDS) {
+      prematureEofRetriesRef.current = 0;
+    }
+  }, []);
+
   const pollPlaybackHealth = useCallback(async () => {
     if (healthCheckInFlightRef.current || playbackRecoveryInFlightRef.current) {
       return;
@@ -241,14 +292,10 @@ function useVideoPlayerPageController({
 
     try {
       const playbackStatus = await mpv.getPlaybackStatus();
-      const currentPosition = playbackStatus.position;
+      trackPlaybackPosition(playbackStatus.position, playbackStatus.eofReached);
 
-      if (
-        typeof currentPosition === 'number' &&
-        Number.isFinite(currentPosition) &&
-        currentPosition >= 0
-      ) {
-        lastKnownPositionRef.current = currentPosition;
+      if (await handlePrematureEof(playbackStatus.eofReached, playbackStatus.duration)) {
+        return;
       }
 
       if (playbackStatus.idleActive && !playbackStatus.eofReached) {
@@ -271,7 +318,7 @@ function useVideoPlayerPageController({
     } finally {
       healthCheckInFlightRef.current = false;
     }
-  }, [attemptPlaybackRecovery, mpv.getPlaybackStatus]);
+  }, [attemptPlaybackRecovery, handlePrematureEof, trackPlaybackPosition, mpv.getPlaybackStatus]);
 
   useEffect(() => {
     if (!videoLoaded || isErrorDialogOpen) {
@@ -296,7 +343,11 @@ function useVideoPlayerPageController({
       try {
         const playbackStatus = await mpv.getPlaybackStatus();
 
-        if (playbackStatus.eofReached && !videoEndedTrackedRef.current) {
+        if (
+          playbackStatus.eofReached &&
+          isGenuineEnd(lastPlayingPositionRef.current, playbackStatus.duration) &&
+          !videoEndedTrackedRef.current
+        ) {
           videoEndedTrackedRef.current = true;
           updateWatchState({
             videoId: video.id,
@@ -389,6 +440,7 @@ function useVideoPlayerPageController({
 
     lastSeekedAtRef.current = Date.now();
     lastKnownPositionRef.current = position;
+    lastPlayingPositionRef.current = position;
   }, []);
 
   return {
@@ -415,7 +467,11 @@ function VideoPlayerPage() {
 
   useAppSettingsMpv();
 
-  const { data: video, isLoading: loadingVideo } = useGetVideo<Video>(videoId ?? '', {
+  const {
+    data: video,
+    isLoading: loadingVideo,
+    isError: videoFailedToLoad,
+  } = useGetVideo<Video>(videoId ?? '', {
     enabled: !!videoId && serverUrl !== '',
   });
   const {
@@ -436,6 +492,19 @@ function VideoPlayerPage() {
     currentUserId,
     navigate,
   });
+
+  if (!video && videoFailedToLoad) {
+    // Unknown id, no access or server error: never leave the user on an endless spinner
+    return (
+      <AppAlertDialog
+        open
+        subtitle="Unable to start playback"
+        title="Video not available"
+        description="This video could not be found or you do not have access to it."
+        primaryAction={{ label: 'Go back', onPress: () => navigate(-1) }}
+      />
+    );
+  }
 
   if (isPageLoading) {
     return <Loading />;

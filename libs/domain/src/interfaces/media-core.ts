@@ -75,7 +75,7 @@ export interface ContinueWatchingVideoDTO {
 }
 
 
-export type ItemType = "series" | "movie" | "album" | "collection";
+export type ItemType = "series" | "movie" | "album" | "collection" | "playlist";
 
 export type LibraryType = "Shows" | "Movies" | "Music";
 

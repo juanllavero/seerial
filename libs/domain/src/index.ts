@@ -10,3 +10,4 @@ export * from "./interfaces/utils";
 export * from "./mappers/user";
 export * from "./utils/constants";
 export * from "./utils/utils";
+export * from "./utils/media-badges";

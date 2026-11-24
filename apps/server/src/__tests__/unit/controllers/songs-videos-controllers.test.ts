@@ -310,7 +310,7 @@ describe('VideosController', () => {
   it('updates video media info', async () => {
     container.useCases.updateMediaInfo.mockReturnValue(uc(undefined));
 
-    const response = await new VideosController().updateMediaInfo('vid-1');
+    const response = await new VideosController().updateMediaInfo('vid-1', adminReq);
 
     expect(response.message).toBe(messages.success.update);
     expect(response.data).toBeNull();

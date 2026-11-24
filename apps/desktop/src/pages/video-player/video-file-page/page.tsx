@@ -108,6 +108,8 @@ function VideoPlayerFilePage() {
           filePath,
           expiresIn: '2m',
         });
+        // The server answers with an empty URL when the file is unknown or not accessible
+        if (!url) throw new Error('The server did not provide a stream URL for this file');
         const [_, ready] = await Promise.all([
           mpv.loadUrl(`${serverUrl}${url}`),
           mpv.waitForReady(LOAD_TIMEOUT_MS),
@@ -119,6 +121,9 @@ function VideoPlayerFilePage() {
         if (resumeAt > 0) {
           await mpv.setPosition(resumeAt);
         }
+
+        // A previous EOF/error leaves mpv paused (keep-open): a (re)load must always start playing
+        await mpv.play();
 
         lastKnownPositionRef.current = resumeAt;
         dispatchPlayerViewState({
@@ -139,7 +144,7 @@ function VideoPlayerFilePage() {
         }
       }
     },
-    [filePath, serverUrl, mpv.loadUrl, mpv.setPosition, mpv.waitForReady],
+    [filePath, serverUrl, mpv.loadUrl, mpv.setPosition, mpv.waitForReady, mpv.play],
   );
 
   useEffect(() => {

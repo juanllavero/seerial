@@ -40,6 +40,8 @@ const buildImageColorsParams = (
   imageSrc?: string,
 ): { url?: string; localPath?: string } | undefined => {
   if (!imageSrc || imageSrc === '') return undefined;
+  // Assets bundled with the client are not server files (no palette to extract)
+  if (imageSrc.startsWith('/img/')) return undefined;
   if (imageSrc.startsWith('http')) return { url: imageSrc };
   if (imageSrc.startsWith('local')) return { localPath: imageSrc.replace('local', '') };
   return { localPath: imageSrc };

@@ -4,9 +4,11 @@ import { DolbyAtmosIcon } from './icon-library';
 
 interface DolbyAtmosBadgeProps {
   className?: string;
+  /** Logo height. Set inline: a utility class ended up at half its value in the rendered UI. */
+  height?: string;
 }
 
-function DolbyAtmosBadge({ className = '' }: DolbyAtmosBadgeProps) {
+function DolbyAtmosBadge({ className = '', height = '2.2dvh' }: DolbyAtmosBadgeProps) {
   const { t } = useTranslation();
 
   return (
@@ -14,7 +16,8 @@ function DolbyAtmosBadge({ className = '' }: DolbyAtmosBadgeProps) {
       role="img"
       aria-hidden={false}
       aria-label={t('dolbyAtmos')}
-      className={`h-[1.5dvh] w-auto shrink-0 ${className}`}
+      className={`shrink-0 ${className}`}
+      style={{ height, width: 'auto' }}
     />
   );
 }

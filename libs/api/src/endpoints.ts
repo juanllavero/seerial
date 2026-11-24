@@ -29,6 +29,7 @@ export const API = {
         getMediaInfo: (id: string) => `/videos/${id}/media-info`,
         updateMediaInfo: (id: string) => `/videos/${id}/media-info`,
         setWatchState: (id: string) => `/videos/${id}/watch-state`,
+        trackSelection: (id: string) => `/videos/${id}/track-selection`,
         chapterThumbnails: (id: string) => `/videos/${id}/chapter-thumbnails`,
         thumbnail: '/videos/thumbnail',
         subtitles: '/videos/subtitles',
@@ -150,10 +151,8 @@ export const API = {
         removeAlbum: (id: string, albumId: string) => `/collections/${id}/albums/${albumId}`,
     },
     artists: {
-        create: '/artists',
         getById: (id: string) => `/artists/${id}`,
         update: (id: string) => `/artists/${id}`,
-        delete: (id: string) => `/artists/${id}`,
     },
     albums: {
         get: (id: string) => `/albums/${id}`,

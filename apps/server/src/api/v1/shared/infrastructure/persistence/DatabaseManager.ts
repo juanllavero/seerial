@@ -17,6 +17,7 @@ import { fileSystemService } from '@/api/v1/shared/infrastructure/adapters/di/co
 import { SongModel } from '@/api/v1/songs/infrastructure/persistence/models/SongModel';
 import { UserLibraryModel } from '@/api/v1/users/infrastructure/persistence/models/UserLibraryModel';
 import { UserPlayListModel } from '@/api/v1/users/infrastructure/persistence/models/UserPlayListModel';
+import { UserVideoPreferenceModel } from '@/api/v1/users/infrastructure/persistence/models/UserVideoPreferenceModel';
 import { UserModel } from '@/api/v1/users/infrastructure/persistence/models/UserModel';
 import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
 import { WatchListModel } from '@/api/v1/watch-lists/infrastructure/persistence/models/WatchListModel';
@@ -85,6 +86,7 @@ export class DatabaseManager {
           UserModel,
           UserLibraryModel,
           UserPlayListModel,
+          UserVideoPreferenceModel,
         ],
         logging: false,
         // logger: {

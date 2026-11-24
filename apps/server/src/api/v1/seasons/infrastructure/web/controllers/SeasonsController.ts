@@ -13,6 +13,7 @@ import {
   Security,
   Tags,
 } from 'tsoa';
+import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import {
@@ -48,6 +49,7 @@ export class SeasonsController extends Controller {
       throw new NotFoundException(messages.errors.notFound.season);
     }
 
+    await UserVideoPreferencesService.overlay(getUserId(req), result);
     return ApiResponse.success(result, messages.success.fetch);
   }
 

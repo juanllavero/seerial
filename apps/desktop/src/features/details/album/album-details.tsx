@@ -24,6 +24,8 @@ interface AlbumDetailsProps {
   collectionId?: string;
   libraryType?: LibraryType;
   fallbackBackgroundSrc?: string;
+  /** Show the songs in the order the server sent them (playlists) instead of by disc/track. */
+  keepSongOrder?: boolean;
 }
 
 function AlbumDetails({
@@ -34,6 +36,7 @@ function AlbumDetails({
   collectionId,
   libraryType,
   fallbackBackgroundSrc,
+  keepSongOrder,
 }: AlbumDetailsProps) {
   const navigate = useNavigate();
   const setGradientImageSrc = useGradientStore((state) => state.setGradientImageSrc);
@@ -85,6 +88,7 @@ function AlbumDetails({
         cardRoundness={cardRoundness}
         isErrorDialogOpen={isErrorDialogOpen}
         navigate={navigate}
+        keepSongOrder={keepSongOrder}
       />
     </DetailsWithRelatedContent>
   );
@@ -98,6 +102,7 @@ interface AlbumDetailsContentProps {
   cardRoundness: string;
   isErrorDialogOpen: boolean;
   navigate: ReturnType<typeof useNavigate>;
+  keepSongOrder?: boolean;
 }
 
 function AlbumDetailsContent({
@@ -108,6 +113,7 @@ function AlbumDetailsContent({
   cardRoundness,
   isErrorDialogOpen,
   navigate,
+  keepSongOrder,
 }: AlbumDetailsContentProps) {
   const { navigateToRelated, hasRelatedContent } = useRelatedContent();
   const miniPlayerActive = useMusicStore((state) => state.isShown && !state.isExpanded);
@@ -134,7 +140,8 @@ function AlbumDetailsContent({
         >
           <DetailsInfo
             details={details}
-            infoItems={[formatDate(details?.year ?? album?.year ?? '')]}
+            // No year (e.g. playlists, albums without tags): nothing to format
+            infoItems={details?.year || album?.year ? [formatDate(details?.year ?? album?.year ?? '')] : []}
             displayOptions={{
               hideButtons: true,
             }}
@@ -175,6 +182,7 @@ function AlbumDetailsContent({
             <SongsList
               album={album}
               songs={album.songs ?? []}
+              keepOrder={keepSongOrder}
               focusedSongId={focusedSongId}
               onSongFocus={setFocusedSongId}
               onNavigateToRelated={hasRelatedContent ? navigateToRelated : undefined}

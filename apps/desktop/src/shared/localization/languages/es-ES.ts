@@ -192,6 +192,7 @@ export const es = {
     lyricsOff: 'Desactivado',
     karaokeMix: 'Mezcla karaoke',
     dolbyAtmos: 'Dolby Atmos',
+    mediaFormats: 'Formatos de vídeo y audio',
     dolbyAtmosOn: 'Dolby Atmos: activado',
     dolbyAtmosOff: 'Dolby Atmos: desactivado',
     lyricsNotFound: 'No se han encontrado letras sincronizadas para esta canción',

@@ -11,11 +11,13 @@ import { PlayListModel } from '@/api/v1/playlists/infrastructure/persistence/mod
 import { PlayListRepositoryImpl } from '@/api/v1/playlists/infrastructure/persistence/repositories/PlayListRepositoryImpl';
 import { SeasonModel } from '@/api/v1/seasons/infrastructure/persistence/models/SeasonModel';
 import { SeriesModel } from '@/api/v1/series/infrastructure/persistence/models/SeriesModel';
+import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { DatabaseManager } from '@/api/v1/shared/infrastructure/persistence/DatabaseManager';
 import { SongModel } from '@/api/v1/songs/infrastructure/persistence/models/SongModel';
 import type { UserDTO } from '@/api/v1/users/application/dtos/UserDTOs';
 import { UserModel } from '@/api/v1/users/infrastructure/persistence/models/UserModel';
+import { UserVideoPreferenceModel } from '@/api/v1/users/infrastructure/persistence/models/UserVideoPreferenceModel';
 import { UserPlayListModel } from '@/api/v1/users/infrastructure/persistence/models/UserPlayListModel';
 import { UsersRepositoryImpl } from '@/api/v1/users/infrastructure/persistence/repositories/UsersRepositoryImpl';
 import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
@@ -260,6 +262,69 @@ describe('UsersRepositoryImpl administrator safeguards', () => {
   });
 });
 
+describe('Per-user track selection', () => {
+  async function setupVideo() {
+    await createLibrary('lib-a');
+    await MovieModel.save({ id: 'movie-a', libraryId: 'lib-a', name: 'A' });
+    await VideoModel.save({ id: 'video-a', movieId: 'movie-a', fileSrc: '/v/a.mkv' } as never);
+    const alice = await usersRepo.create({ username: 'alice' });
+    const bob = await usersRepo.create({ username: 'bob' });
+    return { alice, bob };
+  }
+  const movieWith = () => ({
+    id: 'movie-a',
+    videos: [{ id: 'video-a', audioTracks: [{}, {}, {}], subtitleTracks: [{}, {}], selectedAudioTrack: 0 }],
+    extras: [],
+  });
+
+  it('overlays only the selection of the user who made it', async () => {
+    const { alice, bob } = await setupVideo();
+    await UserVideoPreferencesService.save(alice.id, 'video-a', {
+      selectedAudioTrack: 2,
+      selectedSubtitleTrack: -1,
+    });
+
+    const forAlice = await UserVideoPreferencesService.overlay(alice.id, movieWith());
+    const forBob = await UserVideoPreferencesService.overlay(bob.id, movieWith());
+
+    expect(forAlice.videos[0].selectedAudioTrack).toBe(2);
+    expect((forAlice.videos[0] as { selectedSubtitleTrack?: number }).selectedSubtitleTrack).toBe(-1);
+    // Bob keeps the default of the video
+    expect(forBob.videos[0].selectedAudioTrack).toBe(0);
+    expect((forBob.videos[0] as { selectedSubtitleTrack?: number }).selectedSubtitleTrack).toBeUndefined();
+  });
+
+  it('keeps the other field when only one track is saved', async () => {
+    const { alice } = await setupVideo();
+    await UserVideoPreferencesService.save(alice.id, 'video-a', { selectedAudioTrack: 1 });
+    await UserVideoPreferencesService.save(alice.id, 'video-a', { selectedSubtitleTrack: 0 });
+
+    const result = await UserVideoPreferencesService.overlay(alice.id, movieWith());
+    expect(result.videos[0].selectedAudioTrack).toBe(1);
+    expect((result.videos[0] as { selectedSubtitleTrack?: number }).selectedSubtitleTrack).toBe(0);
+    expect(await UserVideoPreferenceModel.count()).toBe(1);
+  });
+
+  it('finds videos nested at any depth (series > seasons > episodes)', async () => {
+    const { alice } = await setupVideo();
+    await UserVideoPreferencesService.save(alice.id, 'video-a', { selectedAudioTrack: 2 });
+    const series = { id: 's', seasons: [{ id: 'se', episodes: [{ id: 'e', video: { id: 'video-a', audioTracks: [{}] } }] }] };
+
+    await UserVideoPreferencesService.overlay(alice.id, series);
+
+    expect((series.seasons[0].episodes[0].video as { selectedAudioTrack?: number }).selectedAudioTrack).toBe(2);
+  });
+
+  it('is removed together with the user or the video', async () => {
+    const { alice } = await setupVideo();
+    await UserVideoPreferencesService.save(alice.id, 'video-a', { selectedAudioTrack: 1 });
+
+    await usersRepo.delete(alice.id);
+
+    expect(await UserVideoPreferenceModel.count()).toBe(0);
+  });
+});
+
 describe('Playlist ordering', () => {
   async function setup() {
     const playList = await playListRepo.create({ title: 'Mix' } as never);
@@ -302,6 +367,28 @@ describe('Playlist ordering', () => {
 
     const found = await playListRepo.findById(playList.id);
     expect(found?.songs?.map((s) => s.id)).toEqual(['s-c', 's-a', 's-b']);
+  });
+
+  it('exposes up to 4 distinct album covers without embedding the albums', async () => {
+    await createLibrary('lib-m', LibraryTypes.MUSIC);
+    const playList = await playListRepo.create({ title: 'Covers' } as never);
+    for (let i = 0; i < 6; i++) {
+      await AlbumModel.save({
+        id: `alb-${i}`,
+        libraryId: 'lib-m',
+        title: `Album ${i}`,
+        folder: `/m/${i}`,
+        coverSrc: i === 1 ? '' : `/covers/${i % 5}.jpg`,
+      } as never);
+      await createSong(`cs-${i}`, `Song ${i}`, `alb-${i}`);
+      await playListRepo.addSongToPlaylist(playList.id, `cs-${i}`);
+    }
+
+    const found = await playListRepo.findById(playList.id);
+
+    expect(found?.images).toEqual(['/covers/0.jpg', '/covers/2.jpg', '/covers/3.jpg', '/covers/4.jpg']);
+    expect(found?.songs).toHaveLength(6);
+    expect(found?.songs?.[0]).not.toHaveProperty('album');
   });
 
   it('answers 404 for unknown songs and playlists', async () => {

@@ -13,6 +13,8 @@ interface SongsListProps {
   focusedSongId?: string;
   onSongFocus?: (songId: string) => void;
   onNavigateToRelated?: () => void;
+  /** Keep the given order and number the rows 1..n (playlists), ignoring disc and track numbers. */
+  keepOrder?: boolean;
 }
 
 function getSafeDiscNumber(song: Song): number {
@@ -29,6 +31,7 @@ function SongsList({
   focusedSongId,
   onSongFocus,
   onNavigateToRelated,
+  keepOrder,
 }: SongsListProps) {
   const { t } = useTranslation();
   const { currentSong, isPlaying, setPlaybackContext } = useMusicStore(
@@ -42,12 +45,14 @@ function SongsList({
 
   const sortedSongs = useMemo(
     () =>
-      songs.toSorted(
+      keepOrder
+        ? songs
+        : songs.toSorted(
         (a, b) =>
           getSafeTrackNumber(a) - getSafeTrackNumber(b) ||
           a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
       ),
-    [songs],
+    [songs, keepOrder],
   );
 
   const discNumbers = useMemo(
@@ -58,17 +63,19 @@ function SongsList({
 
   const queue = useMemo(
     () =>
-      songs.toSorted(
+      keepOrder
+        ? songs
+        : songs.toSorted(
         (a, b) =>
           getSafeDiscNumber(a) - getSafeDiscNumber(b) ||
           getSafeTrackNumber(a) - getSafeTrackNumber(b) ||
           a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
       ),
-    [songs],
+    [songs, keepOrder],
   );
 
   const showTracksHeader =
-    discNumbers.length === 0 || (discNumbers.length === 1 && discNumbers[0] === 1);
+    keepOrder || discNumbers.length === 0 || (discNumbers.length === 1 && discNumbers[0] === 1);
 
   if (songs.length === 0) {
     return null;
@@ -80,11 +87,12 @@ function SongsList({
         <>
           <ListTitle className="pl-0! py-[3dvh]">{t('tracks')}</ListTitle>
           <FlexBox direction="column" gap={0.6} width="100%">
-            {sortedSongs.map((song) => {
+            {sortedSongs.map((song, index) => {
               return (
                 <SongCard
                   key={song.id ?? `${song.title}-${song.fileSrc}`}
                   song={song}
+                  displayNumber={keepOrder ? index + 1 : undefined}
                   currentSongId={currentSong?.id}
                   focusedSongId={focusedSongId}
                   isPlaying={isPlaying}

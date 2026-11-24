@@ -45,7 +45,6 @@ function LibraryPage() {
 
   const { data: libraryContent, isLoading } = useGetLibraryContent<LibraryItem[]>(libraryId ?? '', {
     enabled: !!libraryId && !!type && serverUrl !== '',
-    params: type ? { type } : undefined,
   });
 
   const libraryContentIds = useMemo(

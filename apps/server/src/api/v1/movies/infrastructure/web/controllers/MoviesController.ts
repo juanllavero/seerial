@@ -19,6 +19,7 @@ import {
   externalSearchService,
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { MediaService } from '@/api/v1/shared/infrastructure/services/MediaService';
 import { NotFoundException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
@@ -167,11 +168,14 @@ export class MoviesController extends Controller {
 
     const localImages = await findImagesInFolder(path.join(movie.folder, 'media'));
 
-    return ApiResponse.success({
+    const result = {
       ...movie,
       coverSrc: localImages.posterPath ?? movie.coverSrc,
       backgroundSrc: localImages.backgroundPath ?? movie.backgroundSrc,
-    }, messages.success.fetch);
+    };
+    // Each user sees the audio/subtitle tracks they picked
+    await UserVideoPreferencesService.overlay((req as AuthenticatedRequest).user?.id as string, result);
+    return ApiResponse.success(result, messages.success.fetch);
   }
 
   /**

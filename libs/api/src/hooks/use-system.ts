@@ -45,23 +45,6 @@ export const useGetFileFolder = <TResponse = unknown>(
     options?: QueryHookOptions<TResponse>,
 ): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['files', 'folder'], API.files.folder, options)
 
-export const useDownloadVideo = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['downloads', 'video'], API.downloads.video, options)
-
-export const useDownloadMusic = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['downloads', 'music'], API.downloads.music, options)
-
-export const useDownloadImage = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['downloads', 'image'], API.downloads.image, options)
-
-export const useGetApiKeyConfiguration = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> =>
-    useApiQuery<TResponse>(['configuration', 'apiKey'], API.configuration.apiKey, options)
-
 export const useGetServerStatus = <TResponse = unknown>(
     options?: QueryHookOptions<TResponse>,
 ): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['servers', 'status'], API.servers.status, options)
@@ -86,12 +69,6 @@ export const useUpdateServerConfig = <TResponse = unknown, TBody = unknown>(
     options?: MutationHookOptions<TResponse, TBody>,
 ): ApiMutationResult<TResponse, TBody> =>
     useApiMutation<TResponse, TBody>(['servers', 'config'], API.servers.config, 'PATCH', asBody, options)
-
-export const useUpdateServerConfigByKey = <TResponse = unknown, TBody = unknown>(
-    key: string,
-    options?: MutationHookOptions<TResponse, TBody>,
-): ApiMutationResult<TResponse, TBody> =>
-    useApiMutation<TResponse, TBody>(['servers', 'configKey', key], API.servers.configKey(key), 'PATCH', asBody, options)
 
 export const useGetImageDirectoryListing = <TResponse = unknown>(
     options?: QueryHookOptions<TResponse>,
@@ -201,7 +178,23 @@ export const useUploadImage = <TResponse = unknown, TBody = unknown>(
 ): ApiMutationResult<TResponse, TBody> =>
     useApiMutation<TResponse, TBody>(['images', 'upload'], API.images.upload, 'POST', asBody, options)
 
-export const useApplyImageTransparency = <TResponse = unknown, TBody = unknown>(
+
+export const useDownloadVideo = <TResponse = unknown, TBody = unknown>(
     options?: MutationHookOptions<TResponse, TBody>,
 ): ApiMutationResult<TResponse, TBody> =>
-    useApiMutation<TResponse, TBody>(['images', 'transparent'], API.images.transparent, 'POST', asBody, options)
+    useApiMutation<TResponse, TBody>(['downloads', 'video'], API.downloads.video, 'POST', asBody, options)
+
+export const useDownloadMusic = <TResponse = unknown, TBody = unknown>(
+    options?: MutationHookOptions<TResponse, TBody>,
+): ApiMutationResult<TResponse, TBody> =>
+    useApiMutation<TResponse, TBody>(['downloads', 'music'], API.downloads.music, 'POST', asBody, options)
+
+export const useDownloadImage = <TResponse = unknown, TBody = unknown>(
+    options?: MutationHookOptions<TResponse, TBody>,
+): ApiMutationResult<TResponse, TBody> =>
+    useApiMutation<TResponse, TBody>(['downloads', 'image'], API.downloads.image, 'POST', asBody, options)
+
+export const useConfigureApiKey = <TResponse = unknown, TBody = unknown>(
+    options?: MutationHookOptions<TResponse, TBody>,
+): ApiMutationResult<TResponse, TBody> =>
+    useApiMutation<TResponse, TBody>(['configuration', 'apiKey'], API.configuration.apiKey, 'POST', asBody, options)

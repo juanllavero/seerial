@@ -27,6 +27,7 @@ import { globalErrorHandler } from './api/v1/shared/infrastructure/web/exception
 import { requestsIDsMiddleware } from './middleware/request.id.middleware';
 import { sanitizationMiddleware } from './middleware/sanitization.middleware';
 import { tokenRefreshMiddleware } from './middleware/token-refresh.middleware';
+import { watchListPrivacyMiddleware } from './middleware/watchlist-privacy.middleware';
 import { RegisterRoutes } from './routes/routes';
 import { createTray } from './utils/appTray';
 
@@ -255,6 +256,7 @@ if (hasSingleInstanceLock) {
 
     // Register generated tsoa routes
     appServer.use(tokenRefreshMiddleware);
+    appServer.use(watchListPrivacyMiddleware);
     RegisterRoutes(appServer);
 
     // Serve static web files

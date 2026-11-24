@@ -37,7 +37,8 @@ export class VideosRepositoryImpl extends BaseRepository implements VideoReposit
 
   async findById(id: string): Promise<Video | null> {
     const validatedId = this.validateId(id, 'Video ID');
-    return this.helper.findById(validatedId);
+    // Players resume from the progress stored here (the API only sends the caller's own entry)
+    return this.helper.findById(validatedId, { relations: ['watchLists'] });
   }
 
   async create(video: Video): Promise<Video> {

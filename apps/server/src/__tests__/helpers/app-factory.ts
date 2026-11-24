@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { globalErrorHandler } from '@/api/v1/shared/infrastructure/web/exceptions/GlobalErrorHandler';
+import { watchListPrivacyMiddleware } from '@/middleware/watchlist-privacy.middleware';
 import { RegisterRoutes } from '@/routes/routes';
 
 export function createTestApp(): Express {
@@ -10,6 +11,7 @@ export function createTestApp(): Express {
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use(cookieParser());
 
+  app.use(watchListPrivacyMiddleware);
   RegisterRoutes(app);
 
   // 404 handler for unmatched routes

@@ -7,10 +7,14 @@ export const useResolveImageUrl = (url?: string, isInView: boolean = true) => {
   const objectUrlRef = useRef<string | null>(null);
 
   const isRemoteUrl = !!url?.startsWith('http');
-  const localImagePath = url && !isRemoteUrl ? url : undefined;
+  // Assets bundled with the client (e.g. /img/fileNotFound.jpg) are not server files
+  const isPublicAsset = !!url?.startsWith('/img/');
+  const localImagePath = url && !isRemoteUrl && !isPublicAsset ? url : undefined;
 
   // Initialize with the URL if it's remote, otherwise undefined until we get the blob
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(isRemoteUrl ? url : undefined);
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(
+    isRemoteUrl || isPublicAsset ? url : undefined,
+  );
 
   const { data: localImageBlob, error: localImageError } = useGetLocalImage({
     enabled: isInView && !!localImagePath && !!serverUrl,
@@ -26,8 +30,8 @@ export const useResolveImageUrl = (url?: string, isInView: boolean = true) => {
 
     let nextResolvedUrl: string | undefined;
 
-    if (isRemoteUrl || !url) {
-      nextResolvedUrl = isRemoteUrl ? url : undefined;
+    if (isRemoteUrl || isPublicAsset || !url) {
+      nextResolvedUrl = isRemoteUrl || isPublicAsset ? url : undefined;
     } else if (localImageBlob) {
       const objectUrl = URL.createObjectURL(localImageBlob);
       objectUrlRef.current = objectUrl;
@@ -42,11 +46,11 @@ export const useResolveImageUrl = (url?: string, isInView: boolean = true) => {
         objectUrlRef.current = null;
       }
     };
-  }, [localImageBlob, isRemoteUrl, url]);
+  }, [localImageBlob, isRemoteUrl, isPublicAsset, url]);
 
   return {
     resolvedUrl,
     localImageError,
-    isLocalImage: !isRemoteUrl && !!url,
+    isLocalImage: !isRemoteUrl && !isPublicAsset && !!url,
   };
 };

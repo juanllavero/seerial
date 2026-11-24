@@ -8,9 +8,13 @@ import type {
   VideoTrack,
 } from '@seerial/domain';
 import logger from '@/utils/logger';
-import { executeFfprobe, executeFfprobeRaw } from './nativeFfmpeg';
+import { executeFfprobe, executeFfprobeRaw, readFfmpegStreamSummary } from './nativeFfmpeg';
 import {
   formatTime,
+  hasHdr10PlusMetadata,
+  parseDolbyAtmosStreamIndexes,
+  parseDolbyVisionStreamIndexes,
+  parseDtsXStreamIndexes,
   processAudioData,
   processSubtitleData,
   processVideoData,
@@ -116,6 +120,8 @@ export async function getMediaInfo(
       }
     }
 
+    await markFormatTracks(videoPath, videoTracks, audioTracks);
+
     const chapters = extractChapters ? await getChapters(videoPath) : [];
 
     return {
@@ -129,6 +135,71 @@ export async function getMediaInfo(
   } catch (err) {
     logger.error(err, 'Failed to get media info');
     throw err; // Re-lanzar para manejo externo si es necesario
+  }
+}
+
+// Audio codecs that can carry Dolby Atmos (E-AC-3 JOC and TrueHD)
+const ATMOS_CAPABLE_CODECS = ['EAC3', 'TRUEHD'];
+
+/**
+ * Sets the format flags the logos depend on. ffprobe 4 cannot tell Atmos or DTS:X apart and does
+ * not report Dolby Vision, so the ffmpeg 6.1 stream summary is read once; HDR10+ lives in the frames
+ * and is only looked up on the HDR (PQ) picture.
+ */
+async function markFormatTracks(
+  videoPath: string,
+  videoTracks: VideoTrack[],
+  audioTracks: AudioTrack[],
+): Promise<void> {
+  for (const track of audioTracks) {
+    track.hasDolbyAtmos = false;
+    track.hasDtsX = false;
+  }
+  for (const track of videoTracks) {
+    track.hasDolbyVision = false;
+    track.hasHdr10Plus = false;
+  }
+
+  try {
+    const summary = await readFfmpegStreamSummary(videoPath);
+    const atmosStreams = parseDolbyAtmosStreamIndexes(summary);
+    const dtsXStreams = parseDtsXStreamIndexes(summary);
+    const dolbyVisionStreams = parseDolbyVisionStreamIndexes(summary);
+    for (const track of audioTracks) {
+      track.hasDolbyAtmos = ATMOS_CAPABLE_CODECS.includes(track.codec) && atmosStreams.has(track.id);
+      track.hasDtsX = track.codec === 'DTS' && dtsXStreams.has(track.id);
+    }
+    for (const track of videoTracks) {
+      track.hasDolbyVision = dolbyVisionStreams.has(track.id);
+    }
+  } catch (err) {
+    logger.warn({ err, videoPath }, 'Failed to read the audio/video formats of the file');
+  }
+
+  const main = videoTracks.find((track) => track.colorTransfer === 'smpte2084');
+  if (!main) return;
+
+  try {
+    const frames = await executeFfprobeRaw(
+      [
+        '-v',
+        'error',
+        '-select_streams',
+        `0:${main.id}`,
+        '-read_intervals',
+        '%+#2',
+        '-show_entries',
+        'frame=side_data_list',
+        '-of',
+        'json',
+        '-i',
+        videoPath,
+      ],
+      20000,
+    );
+    main.hasHdr10Plus = hasHdr10PlusMetadata(frames);
+  } catch (err) {
+    logger.warn({ err, videoPath }, 'Failed to check HDR10+ in video');
   }
 }
 

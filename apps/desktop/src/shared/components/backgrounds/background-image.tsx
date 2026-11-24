@@ -73,7 +73,9 @@ function backgroundImageReducer(
 function BackgroundImage({ imageSrc, index = 1 }: BackgroundImageProps) {
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
   const isRemoteUrl = !!imageSrc?.startsWith('http');
-  const localImagePath = imageSrc && !isRemoteUrl ? imageSrc : undefined;
+  // Assets bundled with the client (e.g. /img/...) are not server files
+  const isPublicAsset = !!imageSrc?.startsWith('/img/');
+  const localImagePath = imageSrc && !isRemoteUrl && !isPublicAsset ? imageSrc : undefined;
   const objectUrlRef = useRef<string | null>(null);
 
   const { data: localImageBlob } = useGetLocalImage({
@@ -97,8 +99,8 @@ function BackgroundImage({ imageSrc, index = 1 }: BackgroundImageProps) {
 
     let nextResolvedSrc: string | undefined;
 
-    if (isRemoteUrl || !imageSrc) {
-      nextResolvedSrc = isRemoteUrl ? imageSrc : undefined;
+    if (isRemoteUrl || isPublicAsset || !imageSrc) {
+      nextResolvedSrc = isRemoteUrl || isPublicAsset ? imageSrc : undefined;
     } else if (localImageBlob) {
       const objectUrl = URL.createObjectURL(localImageBlob);
       objectUrlRef.current = objectUrl;
@@ -113,7 +115,7 @@ function BackgroundImage({ imageSrc, index = 1 }: BackgroundImageProps) {
         objectUrlRef.current = null;
       }
     };
-  }, [imageSrc, isRemoteUrl, localImageBlob]);
+  }, [imageSrc, isRemoteUrl, isPublicAsset, localImageBlob]);
 
   const handleNextLoaded = () => {
     dispatchBackgroundState({ type: 'reveal-next' });

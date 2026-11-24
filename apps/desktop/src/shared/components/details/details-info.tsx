@@ -33,6 +33,7 @@ function DetailsInfo({
   handleMarkWatched,
   handleToggleHideThumbnails,
   videoInfo,
+  mediaFormatBadges,
   audioInfo,
   subtitleInfo,
   displayOptions,
@@ -203,6 +204,7 @@ function DetailsInfo({
         infoItems={infoItems}
         durationInfo={durationInfo}
         timeWatchedInfo={timeWatchedInfo}
+        mediaFormatBadges={mediaFormatBadges}
         customDescription={customDescription}
         clickableDescription={!hideButtons}
         onDescriptionClick={openExpandedDescription}

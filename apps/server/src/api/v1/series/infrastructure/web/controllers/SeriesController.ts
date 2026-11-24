@@ -19,6 +19,7 @@ import {
   externalSearchService,
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { MediaService } from '@/api/v1/shared/infrastructure/services/MediaService';
 import {
@@ -226,10 +227,10 @@ export class SeriesController extends Controller {
 
     const localImages = await findImagesInFolder(path.join(series.folder, 'media'));
 
-    return ApiResponse.success({
-      ...series,
-      coverSrc: localImages.posterPath ?? series.coverSrc,
-    }, messages.success.fetch);
+    const result = { ...series, coverSrc: localImages.posterPath ?? series.coverSrc };
+    // Each user sees the audio/subtitle tracks they picked
+    await UserVideoPreferencesService.overlay(getUserId(req), result);
+    return ApiResponse.success(result, messages.success.fetch);
   }
 
   /**

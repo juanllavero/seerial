@@ -1,4 +1,11 @@
-import { API, api, apiClient, createServerClient, setApiBaseUrl } from '@seerial/api';
+import {
+  API,
+  api,
+  apiClient,
+  createServerClient,
+  seerialQueryClient,
+  setApiBaseUrl,
+} from '@seerial/api';
 import type { BasicUser, PersistedServer } from '@seerial/domain';
 import { createWithEqualityFn } from 'zustand/traditional';
 
@@ -87,6 +94,16 @@ export const useServerStore = createWithEqualityFn<AuthState>((set) => ({
   },
 
   setCurrentUser: (user) => {
+    // Another person is (or is no longer) using the app: nothing cached for the previous user may
+    // survive, neither the query cache (libraries, content...) nor a refreshed token kept in
+    // localStorage, which takes precedence over the cookie of the new login.
+    seerialQueryClient.clear();
+    try {
+      localStorage.removeItem('auth:token');
+    } catch {
+      /* ignore */
+    }
+
     if (user) {
       save(KEYS.USER, user);
     } else {
@@ -99,6 +116,7 @@ export const useServerStore = createWithEqualityFn<AuthState>((set) => ({
   },
 
   clearAuth: () => {
+    seerialQueryClient.clear();
     remove(KEYS.USER);
     // Clear token cookie and any localStorage token fallback
     try {

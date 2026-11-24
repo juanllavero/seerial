@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+import { serveFileWithRanges } from '@/api/v1/shared/infrastructure/web/http/RangeFileResponder';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import path from 'node:path';
 import { fileSystemService } from '@/api/v1/shared/infrastructure/adapters/di/container';
@@ -142,40 +144,17 @@ export class VideoProcessingServiceImpl implements VideoProcessingServicePort {
       if (!stat) {
         throw new NotFoundException(messages.errors.notFound.video);
       }
-      const fileSize = stat.size;
-      const range = req.headers.range;
+      const ext = path.extname(sanitizedVideoPath).toLowerCase();
 
-      if (range) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-        if (start >= fileSize) {
-          res.status(416).send(`Requested range not satisfiable\n${start} >= ${fileSize}`);
-          return;
-        }
-
-        const chunkSize = end - start + 1;
-        const file = fileSystemService.createReadStream(sanitizedVideoPath, { start, end });
-        const ext = path.extname(sanitizedVideoPath).toLowerCase();
-        const contentType = this.getVideoContentType(ext);
-
-        res.writeHead(206, {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunkSize,
-          'Content-Type': contentType,
-          'Cross-Origin-Resource-Policy': 'cross-origin',
-        });
-        file.pipe(res);
-      } else {
-        res.writeHead(200, {
-          'Content-Length': fileSize,
-          'Content-Type': 'video/mp4',
-          'Cross-Origin-Resource-Policy': 'cross-origin',
-        });
-        fileSystemService.createReadStream(sanitizedVideoPath).pipe(res);
-      }
+      serveFileWithRanges({
+        req,
+        res,
+        size: stat.size,
+        contentType: this.getVideoContentType(ext),
+        headers: { 'Cross-Origin-Resource-Policy': 'cross-origin' },
+        open: (range) =>
+          fileSystemService.createReadStream(sanitizedVideoPath, range) as Readable,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : `Invalid video path: ${videoPath}`;
       throw new BadRequestException(message);

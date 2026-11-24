@@ -1,5 +1,6 @@
 import { getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { API, apiClient, useReorderLibraryItems } from '@seerial/api';
+import { useIsAdmin } from '@seerial/hooks';
 import { LibraryContentItemType, type LibraryItem, LibraryTypes } from '@seerial/domain';
 import { useDataStore, useGradientStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
@@ -147,6 +148,8 @@ function LibraryContent({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Reordering changes the order for everybody: only administrators can persist it
+  const isAdmin = useIsAdmin();
   const setGradientImageSrc = useGradientStore((state) => state.setGradientImageSrc);
 
   useEffect(() => {
@@ -387,12 +390,16 @@ function LibraryContent({
             isMusicLibrary
               ? []
               : [
-                  {
-                    label: t('reorderMode'),
-                    action: () => {
-                      dispatch({ type: 'enter-reorder-mode', itemId: contextMenuItem.id });
-                    },
-                  },
+                  ...(isAdmin
+                    ? [
+                        {
+                          label: t('reorderMode'),
+                          action: () => {
+                            dispatch({ type: 'enter-reorder-mode', itemId: contextMenuItem.id });
+                          },
+                        },
+                      ]
+                    : []),
                   {
                     label: t('markAsWatched'),
                     action: () => handleMarkWatched(contextMenuItem, true),

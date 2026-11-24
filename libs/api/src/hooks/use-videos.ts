@@ -24,14 +24,6 @@ export const useGetVideoMediaInfo = <TResponse = unknown>(
 ): ApiQueryResult<TResponse> =>
     useApiQuery<TResponse>(['videos', 'getMediaInfo', videoId], API.videos.getMediaInfo(videoId), options)
 
-export const useGetVideoThumbnail = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['videos', 'thumbnail'], API.videos.thumbnail, options)
-
-export const useGetVideoSubtitles = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> => useApiQuery<TResponse>(['videos', 'subtitles'], API.videos.subtitles, options)
-
 export const useGetVideoChapterThumbnails = <TResponse = unknown>(
     videoId: string,
     options?: QueryHookOptions<TResponse>,
@@ -66,6 +58,19 @@ export const useUpdateVideoMediaInfo = <TResponse = unknown>(
         options,
     )
 
+/** Saves the audio/subtitle track the current user picked (only affects that user). */
+export const useSetVideoTrackSelection = <TResponse = unknown, TBody = unknown>(
+    videoId: string,
+    options?: MutationHookOptions<TResponse, TBody>,
+): ApiMutationResult<TResponse, TBody> =>
+    useApiMutation<TResponse, TBody>(
+        ['videos', 'trackSelection', videoId],
+        API.videos.trackSelection(videoId),
+        'PATCH',
+        asBody,
+        options,
+    )
+
 export const useSetVideoWatchState = <TResponse = unknown, TBody = unknown>(
     videoId: string,
     options?: MutationHookOptions<TResponse, TBody>,
@@ -78,22 +83,3 @@ export const useSetVideoWatchState = <TResponse = unknown, TBody = unknown>(
         options,
     )
 
-export const useGetVideoTranscodedUrl = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> =>
-    useApiQuery<TResponse>(['videoStreaming', 'transcodedUrl'], API.videoStreaming.transcodedUrl, options)
-
-export const useGetVideoPassthroughUrl = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> =>
-    useApiQuery<TResponse>(['videoStreaming', 'passthroughUrl'], API.videoStreaming.passthroughUrl, options)
-
-export const useGetVideoTranscodedStream = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> =>
-    useApiQuery<TResponse>(['videoStreaming', 'transcoded'], API.videoStreaming.transcoded, options)
-
-export const useGetVideoPassthroughStream = <TResponse = unknown>(
-    options?: QueryHookOptions<TResponse>,
-): ApiQueryResult<TResponse> =>
-    useApiQuery<TResponse>(['videoStreaming', 'passthrough'], API.videoStreaming.passthrough, options)

@@ -49,7 +49,7 @@ function useInView(ref: React.RefObject<HTMLDivElement | null>): boolean {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function toLocalPath(url: string | undefined): string | undefined {
-  return url && !url.startsWith('http') ? url : undefined;
+  return url && !url.startsWith('http') && !url.startsWith('/img/') ? url : undefined;
 }
 
 type UrlsRef = React.RefObject<(string | undefined)[]>;

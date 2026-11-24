@@ -25,8 +25,10 @@ function Home() {
 
   //Get Continue Watching items
   const { data: continueWatching, isLoading } = useGetContinueWatching<ContinueWatchingVideoDTO[]>({
+    // The server knows the user from the session token
     enabled: !!selectedServer && !!serverUrl && !!currentUser?.id,
-    params: currentUser?.id ? { userId: currentUser.id } : undefined,
+    // Cached per user so another profile never sees this list
+    queryKey: ['continueWatching', 'getVideos', currentUser?.id],
   });
 
   useEffect(() => {

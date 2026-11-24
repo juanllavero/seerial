@@ -2,18 +2,21 @@ const mockLoggerError = jest.fn();
 const mockLoggerInfo = jest.fn();
 const mockExecuteFfprobe = jest.fn();
 const mockExecuteFfprobeRaw = jest.fn();
+const mockReadFfmpegStreamSummary = jest.fn();
 
 jest.mock('@/utils/logger', () => ({
   __esModule: true,
   default: {
     error: mockLoggerError,
     info: mockLoggerInfo,
+    warn: jest.fn(),
   },
 }));
 
 jest.mock('@/api/v1/shared/infrastructure/adapters/ffmpeg/nativeFfmpeg', () => ({
   executeFfprobe: (...args: unknown[]) => mockExecuteFfprobe(...args),
   executeFfprobeRaw: (...args: unknown[]) => mockExecuteFfprobeRaw(...args),
+  readFfmpegStreamSummary: (...args: unknown[]) => mockReadFfmpegStreamSummary(...args),
 }));
 
 import {
@@ -25,6 +28,7 @@ import {
 describe('mediaInfo adapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockReadFfmpegStreamSummary.mockResolvedValue('');
   });
 
   it('returns 0 from getOnlyRuntime when the path is invalid', async () => {

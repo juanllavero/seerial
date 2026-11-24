@@ -22,6 +22,9 @@ interface MenuActions {
   toggleSeriesWatched: (seriesId: string, watched: boolean, userId: string) => void;
 }
 
+/** Library item types the web client knows how to open (playlists are desktop only). */
+type WebItemType = Exclude<LibraryItem['type'], 'playlist'>;
+
 type OpenDialog = <T extends DialogName>(name: T, payload: DialogPayloads[T]) => void;
 type Translate = (key: string) => string;
 
@@ -52,8 +55,9 @@ export function createMediaCardAction(
   actions: SelectionActions,
   libraryId: string,
 ) {
+  // Playlists only exist in the desktop client
   const navigationByType: Record<
-    LibraryItem['type'],
+    WebItemType,
     { select: (id: string) => void; path: string }
   > = {
     collection: {
@@ -74,7 +78,7 @@ export function createMediaCardAction(
     },
   };
 
-  const navigation = navigationByType[item.type];
+  const navigation = navigationByType[item.type as WebItemType];
 
   return () => {
     navigation.select(item.id);
@@ -165,12 +169,12 @@ export function createMediaCardMenuContent({ item, t, userId, openDialog, action
 }
 
 export function openMediaCardEditDialog(item: LibraryItem, openDialog: OpenDialog) {
-  const dialogByType: Record<LibraryItem['type'], 'collection' | 'series' | 'movie' | 'album'> = {
+  const dialogByType: Record<WebItemType, 'collection' | 'series' | 'movie' | 'album'> = {
     collection: 'collection',
     series: 'series',
     movie: 'movie',
     album: 'album',
   };
 
-  openDialog(dialogByType[item.type], { id: item.id });
+  openDialog(dialogByType[item.type as WebItemType], { id: item.id });
 }

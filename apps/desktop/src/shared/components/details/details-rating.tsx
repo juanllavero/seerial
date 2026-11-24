@@ -1,6 +1,7 @@
 import type { DetailsData } from '@seerial/domain';
 import FlexBox from '@/shared/components/ui/flex-box';
 import Tertiary from '../text/tertiary';
+import { ImdbLogo } from './media-format-logos';
 
 interface DetailsRatingProps {
   details: DetailsData | undefined;
@@ -11,7 +12,9 @@ function DetailsRating({ details }: DetailsRatingProps) {
     return (
       <FlexBox className="flex-row space-x-3">
         <Tertiary>{details.imdbScore.toFixed(2)}</Tertiary>
-        <img src="/img/logos/imdb.png" alt="IMDb Logo" className="self-center max-h-[2vh]" />
+        <div className="self-center flex">
+          <ImdbLogo />
+        </div>
       </FlexBox>
     );
   }

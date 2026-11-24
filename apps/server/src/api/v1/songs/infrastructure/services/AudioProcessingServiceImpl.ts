@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+import { serveFileWithRanges } from '@/api/v1/shared/infrastructure/web/http/RangeFileResponder';
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import path from 'node:path';
@@ -140,29 +142,13 @@ export class AudioProcessingServiceImpl implements AudioProcessingServicePort {
     if (!stat) {
       throw new NotFoundException(messages.errors.notFound.file);
     }
-    const fileSize = stat.size;
-    const range = req.headers.range;
-    const contentType = this.getAudioContentType(filePath);
-
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunkSize = end - start + 1;
-      const file = fileSystemService.createReadStream(filePath, { start, end });
-      const head = {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize,
-        'Content-Type': contentType,
-      };
-      res.writeHead(206, head);
-      file.pipe(res);
-    } else {
-      const head = { 'Content-Length': fileSize, 'Content-Type': contentType };
-      res.writeHead(200, head);
-      fileSystemService.createReadStream(filePath).pipe(res);
-    }
+    serveFileWithRanges({
+      req,
+      res,
+      size: stat.size,
+      contentType: this.getAudioContentType(filePath),
+      open: (range) => fileSystemService.createReadStream(filePath, range) as Readable,
+    });
   }
 
   async queueStemSeparation(songId: string, audioPath: string): Promise<StemSeparationJob> {

@@ -190,6 +190,7 @@ export const en = {
     lyricsOff: 'Off',
     karaokeMix: 'Karaoke mix',
     dolbyAtmos: 'Dolby Atmos',
+    mediaFormats: 'Video and audio formats',
     dolbyAtmosOn: 'Dolby Atmos: on',
     dolbyAtmosOff: 'Dolby Atmos: off',
     lyricsNotFound: 'No synchronized lyrics found for this song',

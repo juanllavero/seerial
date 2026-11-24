@@ -1,4 +1,4 @@
-import { API, useCreate } from '@seerial/api'
+import { API, apiClient } from '@seerial/api'
 import type { LibraryItem } from '@seerial/domain'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -8,7 +8,6 @@ export function useReorderableList(
   mutate: () => void,
 ) {
   const [items, setItems] = useState<LibraryItem[]>([])
-  const { create } = useCreate<unknown>()
   const [itemsBox] = useState<{ current: LibraryItem[] }>(() => ({ current: [] }))
   const [dataBox] = useState<{ current: LibraryItem[] | undefined }>(() => ({ current: undefined }))
   const [mutateBox] = useState<{ current: () => void | Promise<void> }>(() => ({ current: mutate }))
@@ -59,8 +58,8 @@ export function useReorderableList(
     }))
 
     try {
-      await create(API.libraries.reorderItems(libraryId), {
-        libraryId,
+      // PATCH /libraries/:id/order; unlike the CRUD helpers, apiClient rejects on errors
+      await apiClient.patch(API.libraries.reorderItems(libraryId), {
         orderedItems: orderedItemsForApi,
       })
     } catch (_error) {
@@ -70,7 +69,7 @@ export function useReorderableList(
     } finally {
       await mutateBox.current()
     }
-  }, [create, dataBox, itemsBox, libraryId, mutateBox])
+  }, [dataBox, itemsBox, libraryId, mutateBox])
 
   return { items, handleDragEnd }
 }

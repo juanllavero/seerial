@@ -23,11 +23,16 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
+import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
 import { getUserId } from '@/utils/auth';
-import type { SetVideoWatchStateDTO, UpdateVideoDTO } from '../../../application/dtos/VideoDTOs';
+import type {
+  SetVideoTrackSelectionDTO,
+  SetVideoWatchStateDTO,
+  UpdateVideoDTO,
+} from '../../../application/dtos/VideoDTOs';
 
 type TsoaContext = { response: ExpressResponse };
 type AuthenticatedRequest = ExpressRequest & { user?: { id?: string } };
@@ -84,6 +89,8 @@ export class VideosController extends Controller {
       throw new NotFoundException(messages.errors.notFound.video);
     }
 
+    // Each user sees the audio/subtitle tracks they picked
+    await UserVideoPreferencesService.overlay(getUserId(req), result);
     return ApiResponse.success(result, messages.success.fetch);
   }
 
@@ -103,6 +110,7 @@ export class VideosController extends Controller {
       throw new NotFoundException(messages.errors.notFound.video);
     }
 
+    await UserVideoPreferencesService.overlay(getUserId(req), result);
     return ApiResponse.success(result, messages.success.fetch);
   }
 
@@ -123,6 +131,40 @@ export class VideosController extends Controller {
     }
 
     return ApiResponse.success(result, messages.success.fetch);
+  }
+
+  /**
+   * Save the audio/subtitle track the current user picked for a video.
+   * Only affects that user; the default selection of the video is not changed.
+   */
+  @Patch('{id}/track-selection')
+  @Security('cookieAuth')
+  public async setTrackSelection(
+    @Path() id: string,
+    @Body() body: SetVideoTrackSelectionDTO,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<null>> {
+    const user = AccessControlService.requireUser(req);
+    await AccessControlService.assertAccess(user, 'video', id);
+
+    const { selectedAudioTrack, selectedSubtitleTrack } = body;
+    if (selectedAudioTrack === undefined && selectedSubtitleTrack === undefined) {
+      throw new BadRequestException(messages.errors.validation.notEnoughParams);
+    }
+    // Audio: a track index. Subtitles: a track index or -1 for "no subtitles".
+    if (
+      (selectedAudioTrack !== undefined && !(Number.isInteger(selectedAudioTrack) && selectedAudioTrack >= 0)) ||
+      (selectedSubtitleTrack !== undefined && !(Number.isInteger(selectedSubtitleTrack) && selectedSubtitleTrack >= -1))
+    ) {
+      throw new BadRequestException(messages.errors.validation.invalidData);
+    }
+
+    if (!(await useCases.getVideoById().execute(id))) {
+      throw new NotFoundException(messages.errors.notFound.video);
+    }
+
+    await UserVideoPreferencesService.save(user.id, id, { selectedAudioTrack, selectedSubtitleTrack });
+    return ApiResponse.success(null, messages.success.update);
   }
 
   /**
@@ -152,8 +194,13 @@ export class VideosController extends Controller {
    * Update video media info
    */
   @Get('{id}/media-info')
-  @Security('adminAuth')
-  public async updateMediaInfo(@Path() id: string): Promise<ApiResponse<null>> {
+  @Security('cookieAuth')
+  public async updateMediaInfo(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<null>> {
+    // Clients request the analysis the first time a video without track info is opened
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'video', id);
     const _result = await useCases.updateMediaInfo().execute(id);
     return ApiResponse.success(null, messages.success.update);
   }
