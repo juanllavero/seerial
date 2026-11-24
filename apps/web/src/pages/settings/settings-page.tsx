@@ -9,6 +9,7 @@ import {
   ServerLanguages,
   ServerLibraries,
   ServerTranscode,
+  ServerUsers,
   useSettingsStore,
 } from '@/features/settings';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
@@ -51,6 +52,8 @@ function SettingsPage() {
             <ServerLanguages />
           ) : settingsSection === SettingsSection.ServerTranscode ? (
             <ServerTranscode />
+          ) : settingsSection === SettingsSection.ServerUsers ? (
+            <ServerUsers />
           ) : (
             <ServerLibraries />
           )}

@@ -205,7 +205,7 @@ function CollectionDetailsPage() {
                 editModal={undefined}
                 cornerData={undefined}
                 centerText={false}
-                hidePlayButton={false}
+                hidePlayButton
                 progress={0}
                 cornerNumber={0}
                 watched={false}
@@ -249,7 +249,7 @@ function CollectionDetailsPage() {
                 editModal={undefined}
                 cornerData={undefined}
                 centerText={false}
-                hidePlayButton={false}
+                hidePlayButton
                 progress={0}
                 cornerNumber={0}
                 watched={false}
@@ -286,7 +286,7 @@ function CollectionDetailsPage() {
                 editModal={undefined}
                 cornerData={undefined}
                 centerText={false}
-                hidePlayButton={false}
+                hidePlayButton
                 progress={0}
                 cornerNumber={0}
                 watched={false}

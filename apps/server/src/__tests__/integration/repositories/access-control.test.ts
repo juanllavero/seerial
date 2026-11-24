@@ -21,6 +21,7 @@ import { UsersRepositoryImpl } from '@/api/v1/users/infrastructure/persistence/r
 import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
 import { WatchListModel } from '@/api/v1/watch-lists/infrastructure/persistence/models/WatchListModel';
 import { LibraryTypes } from '@/data/interfaces/Media';
+import { UserType } from '@/utils/constants';
 import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../helpers/test-db';
 
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
@@ -205,6 +206,57 @@ describe('UsersRepositoryImpl access management', () => {
     expect(await WatchListModel.count()).toBe(0);
     expect(await UserPlayListModel.count()).toBe(0);
     expect(await PlayListModel.count()).toBe(1);
+  });
+});
+
+describe('UsersRepositoryImpl administrator safeguards', () => {
+  it('refuses to delete or demote the last administrator', async () => {
+    const admin = await usersRepo.create({ username: 'root', password: 'Secret123!', type: UserType.ADMIN });
+
+    await expect(usersRepo.delete(admin.id)).rejects.toMatchObject({ statusCode: 409 });
+    await expect(usersRepo.update(admin.id, { type: UserType.NORMAL })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(await UserModel.count()).toBe(1);
+  });
+
+  it('allows removing an administrator when another one remains', async () => {
+    const first = await usersRepo.create({ username: 'root', password: 'Secret123!', type: UserType.ADMIN });
+    await usersRepo.create({ username: 'second', password: 'Secret123!', type: UserType.ADMIN });
+
+    await expect(usersRepo.delete(first.id)).resolves.toBeUndefined();
+  });
+
+  it('requires a password to promote a user to administrator', async () => {
+    const user = await usersRepo.create({ username: 'plain' });
+
+    await expect(usersRepo.update(user.id, { type: UserType.ADMIN })).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    await expect(
+      usersRepo.update(user.id, { type: UserType.ADMIN, password: 'Secret123!' }),
+    ).resolves.toMatchObject({ type: UserType.ADMIN });
+  });
+
+  it('answers 409 for a duplicated username on create and rename', async () => {
+    await usersRepo.create({ username: 'taken' });
+    const other = await usersRepo.create({ username: 'other' });
+
+    await expect(usersRepo.create({ username: 'taken' })).rejects.toMatchObject({ statusCode: 409 });
+    await expect(usersRepo.update(other.id, { username: 'taken' })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    await expect(usersRepo.update(other.id, { username: 'other' })).resolves.toBeDefined();
+  });
+
+  it('revokes sessions by bumping the token version', async () => {
+    const user = await usersRepo.create({ username: 'kid' });
+    const before = (await UserModel.findOne({ where: { id: user.id } }))!.tokenVersion;
+
+    await usersRepo.revokeSessions(user.id);
+
+    expect((await UserModel.findOne({ where: { id: user.id } }))!.tokenVersion).toBe(before + 1);
+    await expect(usersRepo.revokeSessions('missing')).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 

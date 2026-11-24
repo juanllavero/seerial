@@ -140,17 +140,8 @@ function MediaTab({ series, season, movie }: MediaTabProps) {
             </Button>
           </div>
         </div>
-        <video
-          controls
-          className={`w-full ${isTablet ? 'h-48' : 'h-64'} rounded-lg`}
-          src={`/api/${video.url}`}
-          onError={(e) => {
-            console.error('Video loading error:', e);
-          }}
-        >
-          <track kind="captions" />
-          {t('videoNotSupported')}
-        </video>
+        {/* The web client does not play videos: only the file is listed */}
+        <p className="text-muted-foreground truncate text-sm">{video.url}</p>
       </div>
     );
   };

@@ -38,6 +38,7 @@ export const API = {
         findAll: '/users',
         update: (id: string) => `/users/${id}`,
         delete: (id: string) => `/users/${id}`,
+        revokeSessions: (id: string) => `/users/${id}/revoke-sessions`,
         findAllPublic: '/users/public',
         login: '/users/login',
         logout: '/users/logout',

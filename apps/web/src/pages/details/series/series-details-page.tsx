@@ -11,7 +11,6 @@ import { useDialogStore } from '@/features/management';
 import {
   CastList,
   SeriesMyListButton as MyListButton,
-  SeriesPlayButton as PlayButton,
   SeriesSeasonContent as SeasonContent,
   SeriesSeasonSelectable as SeasonSelectable,
 } from '@/features/media-details';
@@ -211,10 +210,6 @@ function SeriesDetailsPage() {
             </span>
           </FlexBox>
           <FlexBox gap={1} wrap="wrap">
-            <PlayButton
-              selectedSeasonId={selectedSeasonId}
-              currentlyWatchingEpisodeId={undefined}
-            />
             {!isMobile && (
               <>
                 <Button

@@ -6,11 +6,14 @@ import { UserType } from '@/utils/constants';
 
 jest.mock('jsonwebtoken');
 jest.mock('@/api/v1/users/infrastructure/persistence/models/UserModel', () => ({
-  UserModel: { findOne: jest.fn() },
+  UserModel: { findOne: jest.fn(), count: jest.fn() },
 }));
 
 // jwt.verify has void-returning overloads; cast to jest.Mock to mock return values
 const jwtVerify = jest.mocked(jwt.verify) as jest.Mock;
+const mockCount: jest.Mock = jest.requireMock(
+  '@/api/v1/users/infrastructure/persistence/models/UserModel',
+).UserModel.count;
 const mockFindOne: jest.Mock = jest.requireMock(
   '@/api/v1/users/infrastructure/persistence/models/UserModel',
 ).UserModel.findOne;
@@ -238,17 +241,30 @@ describe('expressAuthentication', () => {
       });
     });
 
-    it('returns local user when local request has a valid token', async () => {
+    it('returns local admin user when local request has a valid admin token', async () => {
       const req = buildRequest({
         ip: '127.0.0.1',
         headers: { authorization: 'Bearer local-token' },
       } as unknown as Partial<Request>);
       jwtVerify.mockReturnValue({ userId: 'user-1' });
-      const user = buildMockUser();
+      const user = buildMockUser({ type: UserType.ADMIN });
       mockFindOne.mockResolvedValue(user);
 
       const result = await expressAuthentication(req, 'managementAuth');
       expect(result).toEqual(user);
+    });
+
+    it('rejects a regular user token even from a local request', async () => {
+      const req = buildRequest({
+        ip: '127.0.0.1',
+        headers: { authorization: 'Bearer local-token' },
+      } as unknown as Partial<Request>);
+      jwtVerify.mockReturnValue({ userId: 'user-1' });
+      mockFindOne.mockResolvedValue(buildMockUser({ type: UserType.NORMAL }));
+
+      await expect(expressAuthentication(req, 'managementAuth')).rejects.toMatchObject({
+        statusCode: 403,
+      });
     });
 
     it('returns null for local request when JWT secret is missing', async () => {
@@ -322,6 +338,58 @@ describe('expressAuthentication', () => {
       await expect(expressAuthentication(buildRequest(), 'unknownScheme')).rejects.toThrow(
         'Unsupported authentication method',
       );
+    });
+  });
+  describe('userManagementAuth', () => {
+    const local = (extra: object = {}) =>
+      buildRequest({ ip: '127.0.0.1', ...extra } as unknown as Partial<Request>);
+
+    beforeEach(() => mockCount.mockReset());
+
+    it('allows the first user to be created locally while no user exists', async () => {
+      mockCount.mockResolvedValue(0);
+      await expect(expressAuthentication(local(), 'userManagementAuth')).resolves.toBeNull();
+    });
+
+    it('rejects a tokenless local request once users exist (401)', async () => {
+      mockCount.mockResolvedValue(1);
+      await expect(expressAuthentication(local(), 'userManagementAuth')).rejects.toMatchObject({
+        statusCode: 401,
+      });
+    });
+
+    it('rejects a tokenless remote request even on an empty server (401)', async () => {
+      mockCount.mockResolvedValue(0);
+      const remote = buildRequest({ ip: '203.0.113.5' } as unknown as Partial<Request>);
+      await expect(expressAuthentication(remote, 'userManagementAuth')).rejects.toMatchObject({
+        statusCode: 401,
+      });
+    });
+
+    it('accepts an administrator token', async () => {
+      const req = local({ headers: { authorization: 'Bearer t' } });
+      jwtVerify.mockReturnValue({ userId: 'user-1' });
+      const admin = buildMockUser({ type: UserType.ADMIN });
+      mockFindOne.mockResolvedValue(admin);
+      await expect(expressAuthentication(req, 'userManagementAuth')).resolves.toEqual(admin);
+    });
+
+    it('rejects a regular user token (403)', async () => {
+      const req = local({ headers: { authorization: 'Bearer t' } });
+      jwtVerify.mockReturnValue({ userId: 'user-1' });
+      mockFindOne.mockResolvedValue(buildMockUser({ type: UserType.NORMAL }));
+      await expect(expressAuthentication(req, 'userManagementAuth')).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+
+    it('rejects an administrator token revoked by a token version change (401)', async () => {
+      const req = local({ headers: { authorization: 'Bearer t' } });
+      jwtVerify.mockReturnValue({ userId: 'user-1', tokenVersion: 0 });
+      mockFindOne.mockResolvedValue(buildMockUser({ type: UserType.ADMIN, tokenVersion: 3 }));
+      await expect(expressAuthentication(req, 'userManagementAuth')).rejects.toMatchObject({
+        statusCode: 401,
+      });
     });
   });
 });

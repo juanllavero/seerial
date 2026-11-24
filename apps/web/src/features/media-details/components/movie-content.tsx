@@ -1,6 +1,5 @@
-import type { Movie, Video } from '@seerial/domain';
+import type { Movie } from '@seerial/domain';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
 import HorizontalList from '@/shared/lists/horizontal-list';
 import FlexBox from '@/shared/ui/flex-box';
@@ -12,7 +11,6 @@ interface MovieContentProps {
 
 function MovieContent({ movie }: MovieContentProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   const getEpisodeMenu = () => {
@@ -34,10 +32,6 @@ function MovieContent({ movie }: MovieContentProps) {
     };
   };
 
-  const playEpisode = async (video: Video) => {
-    navigate(`/video-player/${video.id}`);
-  };
-
   return (
     <FlexBox
       direction="column"
@@ -52,7 +46,6 @@ function MovieContent({ movie }: MovieContentProps) {
             <VideoCard
               key={video.id}
               video={video}
-              playVideo={playEpisode}
               getVideoMenu={getEpisodeMenu}
               title={video.title}
               subtitle={''}
@@ -67,7 +60,6 @@ function MovieContent({ movie }: MovieContentProps) {
             <VideoCard
               key={video.id}
               video={video}
-              playVideo={playEpisode}
               getVideoMenu={getEpisodeMenu}
               title={video.title}
               subtitle={video.extraType ? t(video.extraType) : ''}

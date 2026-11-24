@@ -13,4 +13,5 @@ export interface UsersRepositoryPort {
   ): Promise<User>;
   findAllWithAccess(): Promise<(User & { libraryIds: string[]; playlistIds: string[] })[]>;
   delete(id: string): Promise<void>;
+  revokeSessions(id: string): Promise<void>;
 }

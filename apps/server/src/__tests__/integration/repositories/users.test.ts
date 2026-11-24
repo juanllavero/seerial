@@ -55,7 +55,7 @@ describe('UsersRepositoryImpl', () => {
       await expect(
         repo.create({ username: 'nopassadmin', type: UserType.ADMIN }),
       ).rejects.toMatchObject({
-        statusCode: 401,
+        statusCode: 400,
       });
     });
 

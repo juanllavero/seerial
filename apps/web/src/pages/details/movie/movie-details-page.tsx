@@ -19,9 +19,9 @@ import { type Movie, formatTimeForView } from '@seerial/domain';
 import { useIsAdmin } from '@seerial/hooks';
 import { useServerStore, useDataStore } from '@seerial/stores';
 import { t } from 'i18next';
-import { PlayIcon, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
 
 function MovieDetailsPage() {
@@ -37,7 +37,6 @@ function MovieDetailsPage() {
   const clientSettings = useSettingsStore((state) => state.clientSettings);
   const { openDialog } = useDialogStore((state) => ({ openDialog: state.openDialog }), shallow);
   const isAdmin = useIsAdmin();
-  const navigate = useNavigate();
 
   // Get movie data
   const { data: movie, isLoading, error, mutate } = useGet<Movie>(API.movies.get(movieId ?? ''));
@@ -89,10 +88,6 @@ function MovieDetailsPage() {
       await setMovieWatchState({ watched: !isWatched });
       mutate();
     }
-  };
-
-  const getPlayButtonText = () => {
-    return t('playButton');
   };
 
   if (error) {
@@ -181,18 +176,6 @@ function MovieDetailsPage() {
             )}
           </FlexBox>
           <FlexBox gap={1} wrap="wrap">
-            <Button
-              onClick={() => {
-                if (movie?.videos && movie.videos.length > 0) {
-                  navigate(`/video-player/${movie.videos[0].id}`);
-                }
-              }}
-            >
-              <FlexBox align="center" gap={0.5} className="text-black">
-                <PlayIcon color="#111111" fill="#111111" />
-                {getPlayButtonText()}
-              </FlexBox>
-            </Button>
             {!isMobile && (
               <>
                 <Button

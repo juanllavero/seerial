@@ -2,9 +2,9 @@ import { API, useGet } from '@seerial/api';
 import type { Episode, Season, Series } from '@seerial/domain';
 import { formatDate } from '@seerial/domain';
 import { useIsAdmin } from '@seerial/hooks';
-import { Pencil, PlayIcon } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
 import { useDialogStore } from '@/features/management';
 import { VideoTracks } from '@/features/media-details';
@@ -15,7 +15,6 @@ import { Skeleton } from '@/shared/ui/skeleton';
 
 function EpisodeDetailsPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { openDialog } = useDialogStore((state) => ({ openDialog: state.openDialog }), shallow);
   const { episodeId } = useParams();
   const isAdmin = useIsAdmin();
@@ -75,21 +74,6 @@ function EpisodeDetailsPage() {
           <span>{episode.video.runtime.toFixed()}min</span>
         </FlexBox>
         <span className="w-[80%] max-w-300">{episode.overview}</span>
-
-        <Button
-          onClick={async () => {
-            if (!episode.video?.id) {
-              return;
-            }
-
-            navigate(`/video-player/${episode.video.id}`);
-          }}
-        >
-          <FlexBox align="center" gap={0.5} className="text-black">
-            <PlayIcon color="#111111" />
-            {t('playButton')}
-          </FlexBox>
-        </Button>
 
         {isAdmin && (
           <Button

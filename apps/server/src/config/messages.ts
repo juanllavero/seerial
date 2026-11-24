@@ -49,6 +49,8 @@ export const messages = {
       itemNotInCollection: 'Item is not in the collection.',
       localPlayList:
         'This playlist is created from a local folder and can only be removed from the file system.',
+      usernameTaken: 'That username is already in use.',
+      lastAdmin: 'The last administrator cannot be removed or demoted.',
       localSong:
         'This song comes from a local playlist folder and can only be removed from the file system.',
     },

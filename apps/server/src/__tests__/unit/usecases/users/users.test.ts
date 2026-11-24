@@ -15,6 +15,7 @@ function buildMockRepo(overrides: Partial<UsersRepositoryPort> = {}): UsersRepos
     update: jest.fn(),
     delete: jest.fn(),
     findAllWithAccess: jest.fn(),
+    revokeSessions: jest.fn(),
     ...overrides,
   };
 }

@@ -42,6 +42,12 @@
         "name": "jwt",
         "description": "Management access for local or admin users"
       },
+      "userManagementAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "jwt",
+        "description": "Administrator access; the very first user can be created without a session while no user exists"
+      },
       "public": {
         "type": "apiKey",
         "in": "header",

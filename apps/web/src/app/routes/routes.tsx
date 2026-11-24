@@ -14,7 +14,6 @@ const CollectionDetailsPage = lazy(
   () => import('@/pages/details/collection/collection-details-page'),
 );
 const EpisodeDetailsPage = lazy(() => import('@/pages/details/episode/episode-details-page'));
-const VideoPlayerPage = lazy(() => import('@/pages/video-player/video-player-page'));
 const SideBarLayout = lazy(() => import('@/pages/sidebar-layout/sidebar-layout'));
 
 export function AppRoutes() {
@@ -43,7 +42,6 @@ export function AppRoutes() {
         </Route>
 
         {/* Video Player */}
-        <Route path="/video-player/:videoId" element={<VideoPlayerPage />} />
       </Route>
     </Routes>
   );

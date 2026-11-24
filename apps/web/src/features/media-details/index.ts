@@ -6,6 +6,5 @@ export { default as VideoTracks } from './components/episode/video-tracks';
 export { default as MovieMyListButton } from './components/movie/my-list-button';
 export { default as MovieContent } from './components/movie-content';
 export { default as SeriesMyListButton } from './components/series/my-list-button';
-export { default as SeriesPlayButton } from './components/series/play-button';
 export { default as SeriesSeasonSelectable } from './components/series/season-selectable';
 export { default as SeriesSeasonContent } from './components/series/seasons-content';

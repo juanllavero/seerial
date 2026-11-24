@@ -10,7 +10,6 @@ import FlexBox from '@/shared/ui/flex-box';
 
 interface EpisodeCardDetailsProps {
   episode: Episode;
-  playEpisode: (episode: Episode) => void;
   goToDetails: (episode: Episode) => void;
   getEpisodeMenu: (episode: Episode) => DropdownContent;
   editEpisode: (episode: Episode) => void;
@@ -18,7 +17,6 @@ interface EpisodeCardDetailsProps {
 
 function EpisodeCardDetails({
   episode,
-  playEpisode,
   goToDetails,
   getEpisodeMenu,
   editEpisode,
@@ -44,7 +42,7 @@ function EpisodeCardDetails({
           watched={watchedList && timeWatched < episode.video.runtime * 0.9}
           subtitle={''}
           action={() => goToDetails(episode)}
-          playButtonAction={() => playEpisode(episode)}
+          hidePlayButton
           menu={getEpisodeMenu(episode)}
           editModal={
             <Button

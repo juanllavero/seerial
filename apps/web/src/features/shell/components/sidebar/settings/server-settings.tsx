@@ -101,6 +101,24 @@ const ServerSettings = () => {
             </span>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            tooltip={t('adminUsers')}
+            onClick={() => setSettingsSection(SettingsSection.ServerUsers)}
+            className={`${settingsSection === SettingsSection.ServerUsers ? 'bg-accent' : ''}`}
+          >
+            <span
+              data-testid="settings-users"
+              style={{
+                color:
+                  settingsSection === SettingsSection.ServerUsers ? 'var(--app-color)' : 'white',
+              }}
+            >
+              {t('adminUsers')}
+            </span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
   );

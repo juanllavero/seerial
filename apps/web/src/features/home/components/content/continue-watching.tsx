@@ -50,7 +50,7 @@ function ContinueWatching({ goToContent }: ContinueWatchingProps) {
                   `/${video.episodeId ? 'episode' : 'movie'}/${video.episodeId ? video.episodeId : video.movieId}`,
                 )
               }
-              playButtonAction={() => goToContent(`/video-player/${video.id}`)}
+              hidePlayButton
             />
           ))
         : isLoading

@@ -79,6 +79,7 @@ export enum SettingsSection {
   ServerTranscode,
   ServerLanguages,
   ServerLibraries,
+  ServerUsers,
 }
 
 //#region DropDown Menu

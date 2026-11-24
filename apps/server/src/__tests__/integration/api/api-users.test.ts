@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import type { Express } from 'express';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { AuthenticateUserUseCase } from '@/api/v1/users/application/usecases/AuthenticateUserUseCase';
 import { CreateUserUseCase } from '@/api/v1/users/application/usecases/CreateUserUseCase';
@@ -57,6 +58,11 @@ beforeEach(async () => {
   mockContainer.useCases.updateUser.mockReturnValue(new UpdateUserUseCase(repo));
   mockContainer.useCases.deleteUser.mockReturnValue(new DeleteUserUseCase(repo));
 });
+
+async function adminToken(): Promise<string> {
+  const admin = await repo.create({ username: 'apiadmin', password: 'Secret123!', type: UserType.ADMIN });
+  return jwt.sign({ userId: admin.id, type: admin.type, tokenVersion: 0 }, process.env.JWT_SECRET as string);
+}
 
 describe('Users API', () => {
   describe('GET /api/users/public', () => {
@@ -182,6 +188,7 @@ describe('Users API', () => {
 
       const res = await request(app)
         .patch(`/api/users/${created.id}`)
+        .set('Authorization', `Bearer ${await adminToken()}`)
         .send({ username: 'updatedName' });
 
       expect(res.status).toBe(200);
@@ -206,14 +213,26 @@ describe('Users API', () => {
     });
   });
 
-  describe('DELETE /api/users/:id (managementAuth)', () => {
+  describe('user administration requires an administrator once users exist', () => {
+    it('rejects tokenless local requests (401)', async () => {
+      const created = await repo.create({ username: 'victim', type: UserType.NORMAL });
+
+      expect((await request(app).delete(`/api/users/${created.id}`)).status).toBe(401);
+      expect((await request(app).patch(`/api/users/${created.id}`).send({ username: 'x' })).status).toBe(401);
+      expect((await request(app).post('/api/users').send({ username: 'evil', type: 'admin', password: 'x12345678' })).status).toBe(401);
+    });
+  });
+
+  describe('DELETE /api/users/:id (userManagementAuth)', () => {
     it('returns 200 and deletes the user', async () => {
       const created = await repo.create({
         username: 'toDelete',
         type: UserType.NORMAL,
       });
 
-      const res = await request(app).delete(`/api/users/${created.id}`);
+      const res = await request(app)
+        .delete(`/api/users/${created.id}`)
+        .set('Authorization', `Bearer ${await adminToken()}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);

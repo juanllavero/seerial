@@ -5330,6 +5330,12 @@
 				"name": "jwt",
 				"description": "Management access for local or admin users"
 			},
+			"userManagementAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "jwt",
+				"description": "Administrator access; the very first user can be created without a session while no user exists"
+			},
 			"public": {
 				"type": "apiKey",
 				"in": "header",
@@ -5928,7 +5934,7 @@
 				],
 				"security": [
 					{
-						"managementAuth": []
+						"userManagementAuth": []
 					}
 				],
 				"parameters": [],
@@ -5963,7 +5969,7 @@
 				],
 				"security": [
 					{
-						"managementAuth": []
+						"userManagementAuth": []
 					}
 				],
 				"parameters": []
@@ -5990,7 +5996,7 @@
 				],
 				"security": [
 					{
-						"managementAuth": []
+						"userManagementAuth": []
 					}
 				],
 				"parameters": [
@@ -6034,7 +6040,43 @@
 				],
 				"security": [
 					{
-						"managementAuth": []
+						"userManagementAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/users/{id}/revoke-sessions": {
+			"post": {
+				"operationId": "RevokeSessions",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_null_"
+								}
+							}
+						}
+					}
+				},
+				"description": "Invalidate every session (token) of a user, forcing a new login on all devices",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"userManagementAuth": []
 					}
 				],
 				"parameters": [

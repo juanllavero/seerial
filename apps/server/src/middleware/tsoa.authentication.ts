@@ -17,7 +17,7 @@ import logger from '../utils/logger';
 /**
  * Function required by tsoa to handle authentication
  * @param request Express request
- * @param securityName Name of the security scheme (bearerAuth, cookieAuth, cookieAuthFast, adminAuth, managementAuth, public)
+ * @param securityName Name of the security scheme (bearerAuth, cookieAuth, cookieAuthFast, adminAuth, managementAuth, userManagementAuth, public)
  */
 export async function expressAuthentication(
   request: Request,
@@ -35,6 +35,8 @@ export async function expressAuthentication(
       return await authenticateAdmin(request);
     case 'managementAuth':
       return await authenticateManagement(request);
+    case 'userManagementAuth':
+      return await authenticateUserManagement(request);
     default:
       throw new Error('Unsupported authentication method');
   }
@@ -228,8 +230,16 @@ async function authenticateManagement(request: Request): Promise<UserDTO | null>
         const user = await UserModel.findOne({
           where: { id: decoded.userId },
         });
-        if (user) return user;
-      } catch (_e) { }
+        if (user) {
+          // Being on the same machine does not turn a regular user into an administrator
+          if (user.type !== UserType.ADMIN) {
+            throw new ForbiddenException(messages.errors.token.noAccess);
+          }
+          return user;
+        }
+      } catch (e) {
+        if (e instanceof HttpException && e.statusCode === HTTPCodes.FORBIDDEN) throw e;
+      }
     }
     return null; // Allow local access without user
   }
@@ -256,6 +266,41 @@ async function authenticateManagement(request: Request): Promise<UserDTO | null>
     logger.error(err, '[Authentication] Error');
     throw new UnauthorizedException(messages.errors.token.invalid);
   }
+}
+
+/**
+ * User administration. Requires an administrator session; the only exception is the very first
+ * user of a fresh server, which can be created from the local machine without any session.
+ */
+async function authenticateUserManagement(request: Request): Promise<UserDTO | null> {
+  const token = getTokenFromRequest(request);
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, getJwtSecret()) as { userId: string; tokenVersion?: number };
+      const user = await UserModel.findOne({ where: { id: decoded.userId } });
+      if (!user) throw new UnauthorizedException(messages.errors.token.invalid);
+
+      if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion) {
+        throw new UnauthorizedException(messages.errors.token.invalid);
+      }
+      if (user.type !== UserType.ADMIN) {
+        throw new ForbiddenException(messages.errors.token.noAccess);
+      }
+      return user;
+    } catch (err) {
+      if (err instanceof HttpException && err.statusCode === HTTPCodes.FORBIDDEN) throw err;
+      logger.error(err, '[Authentication] Error');
+      throw new UnauthorizedException(messages.errors.token.invalid);
+    }
+  }
+
+  // No session: only the initial setup of an empty server is allowed
+  if (isLoopback(getClientIp(request)) && (await UserModel.count()) === 0) {
+    return null;
+  }
+
+  throw new UnauthorizedException(messages.errors.token.missing);
 }
 
 // Auxiliary functions

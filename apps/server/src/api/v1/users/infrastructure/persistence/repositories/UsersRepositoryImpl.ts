@@ -5,7 +5,12 @@ import { In } from 'typeorm';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import { LibraryModel } from '@/api/v1/libraries/infrastructure/persistence/models/LibraryModel';
 import { PlayListModel } from '@/api/v1/playlists/infrastructure/persistence/models/PlayListModel';
-import { NotFoundException, UnauthorizedException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { messages } from '@/config/messages';
 import { GenericRepositoryHelper } from '@/helpers/GenericRepositoryHelper';
 import { UserType } from '@/utils/constants';
@@ -89,8 +94,10 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
     }>,
   ): Promise<User> {
     if (data.type === 'admin' && !data.password?.trim()) {
-      throw new UnauthorizedException(messages.errors.validation.userAdminNoPassword);
+      throw new BadRequestException(messages.errors.validation.userAdminNoPassword);
     }
+
+    await this.assertUsernameAvailable(data.username);
 
     const hashedPassword = data.password ? await bcrypt.hash(data.password, 10) : null;
 
@@ -122,6 +129,21 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
     input: Partial<User> & { libraryIds?: string[]; playlistIds?: string[] },
   ): Promise<User> {
     const { libraryIds, playlistIds, ...data } = input;
+    if (data.username) {
+      await this.assertUsernameAvailable(data.username, id);
+    }
+
+    if (data.type && data.type !== UserType.ADMIN) {
+      await this.assertNotLastAdmin(id);
+    }
+
+    if (data.type === UserType.ADMIN) {
+      const existing = await UserModel.findOne({ where: { id } });
+      if (!data.password?.trim() && !existing?.password) {
+        throw new BadRequestException(messages.errors.validation.userAdminNoPassword);
+      }
+    }
+
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
       // Invalidate all existing tokens when the password changes
@@ -190,6 +212,33 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
 
   async delete(id: string): Promise<void> {
     const validatedId = this.validateId(id, 'User ID');
+    await this.assertNotLastAdmin(validatedId);
     await this.helper.delete(validatedId);
+  }
+
+  /** Invalidates every token issued to the user (forced logout on all devices). */
+  async revokeSessions(id: string): Promise<void> {
+    const validatedId = this.validateId(id, 'User ID');
+    const user = await UserModel.findOne({ where: { id: validatedId } });
+    if (!user) throw new NotFoundException(messages.errors.notFound.user);
+    await UserModel.update(validatedId, { tokenVersion: (user.tokenVersion ?? 0) + 1 });
+  }
+
+  /** Usernames are unique: answer 409 with a clear message instead of a database error. */
+  private async assertUsernameAvailable(username?: string, exceptId?: string): Promise<void> {
+    if (!username) return;
+    const existing = await UserModel.findOne({ where: { username } });
+    if (existing && existing.id !== exceptId) {
+      throw new ConflictException(messages.errors.conflict.usernameTaken);
+    }
+  }
+
+  /** Removing or demoting the only administrator would leave the server unmanageable. */
+  private async assertNotLastAdmin(id: string): Promise<void> {
+    const user = await UserModel.findOne({ where: { id } });
+    if (user?.type !== UserType.ADMIN) return;
+
+    const admins = await UserModel.count({ where: { type: UserType.ADMIN } });
+    if (admins <= 1) throw new ConflictException(messages.errors.conflict.lastAdmin);
   }
 }

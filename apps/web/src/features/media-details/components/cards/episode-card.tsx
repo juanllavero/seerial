@@ -11,7 +11,6 @@ import { Pencil } from 'lucide-react';
 
 interface EpisodeCardProps {
   episode: Episode;
-  playEpisode: (episode: Episode) => void;
   goToDetails: (episode: Episode) => void;
   getEpisodeMenu: (episode: Episode) => DropdownContent;
   editEpisode: (episode: Episode) => void;
@@ -20,7 +19,6 @@ interface EpisodeCardProps {
 function EpisodeCard({
   episode,
   goToDetails,
-  playEpisode,
   getEpisodeMenu,
   editEpisode,
 }: EpisodeCardProps) {
@@ -44,7 +42,7 @@ function EpisodeCard({
       watched={watchedList && timeWatched < episode.video.runtime * 0.9}
       subtitle={`${t('episode')} ${episode.episodeNumber.toString()}`}
       action={() => goToDetails(episode)}
-      playButtonAction={() => playEpisode(episode)}
+      hidePlayButton
       menu={getEpisodeMenu(episode)}
       editModal={
         <Button

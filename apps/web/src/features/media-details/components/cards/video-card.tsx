@@ -10,11 +10,10 @@ interface VideoCardProps {
   video: Video;
   title: string;
   subtitle: string;
-  playVideo: (video: Video) => void;
   getVideoMenu: (video: Video) => DropdownContent;
 }
 
-function VideoCard({ video, title, subtitle, playVideo, getVideoMenu }: VideoCardProps) {
+function VideoCard({ video, title, subtitle, getVideoMenu }: VideoCardProps) {
   const isMobile = useIsMobile();
   const currentUser = useServerStore((state) => state.currentUser);
   const watchList = video.watchLists?.find((list) => list.userId === currentUser?.id);
@@ -28,8 +27,9 @@ function VideoCard({ video, title, subtitle, playVideo, getVideoMenu }: VideoCar
       progress={getVideoProgress(video.runtime, watchList?.timeWatched)}
       title={title}
       subtitle={subtitle}
-      action={() => playVideo(video)}
-      playButtonAction={() => playVideo(video)}
+      // Videos are not playable from the web client
+      action={() => {}}
+      hidePlayButton
       menu={getVideoMenu(video)}
       editModal={
         <Button

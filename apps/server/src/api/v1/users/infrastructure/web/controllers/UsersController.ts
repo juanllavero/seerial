@@ -42,7 +42,7 @@ export class UsersController extends Controller {
    * Create a new user
    */
   @Post()
-  @Security('managementAuth')
+  @Security('userManagementAuth')
   public async create(
     @Body() body: CreateUserDTO,
   ): Promise<ApiResponse<{ token: string; user: UserDTO }>> {
@@ -65,7 +65,7 @@ export class UsersController extends Controller {
    * Update user details
    */
   @Patch('{id}')
-  @Security('managementAuth')
+  @Security('userManagementAuth')
   public async update(
     @Path() id: string,
     @Body() body: UpdateUserDTO,
@@ -78,17 +78,27 @@ export class UsersController extends Controller {
    * Delete a user
    */
   @Delete('{id}')
-  @Security('managementAuth')
+  @Security('userManagementAuth')
   public async delete(@Path() id: string): Promise<ApiResponse<null>> {
     await useCases.deleteUser().execute(id);
     return ApiResponse.success(null, messages.success.delete);
   }
 
   /**
+   * Invalidate every session (token) of a user, forcing a new login on all devices
+   */
+  @Post('{id}/revoke-sessions')
+  @Security('userManagementAuth')
+  public async revokeSessions(@Path() id: string): Promise<ApiResponse<null>> {
+    await useCases.revokeUserSessions().execute(id);
+    return ApiResponse.success(null, messages.success.update);
+  }
+
+  /**
    * Get all users with the libraries/playlists each one can access (management)
    */
   @Get()
-  @Security('managementAuth')
+  @Security('userManagementAuth')
   public async findAllWithAccess(): Promise<ApiResponse<UserDTO[]>> {
     const result = await useCases.getAllUsers().executeWithAccess();
     return ApiResponse.success(result.map(mapUserWithAccessToDTO), messages.success.fetch);

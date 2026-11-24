@@ -25,14 +25,6 @@ function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: Ep
     navigate(`/episode/${episode.id}`);
   };
 
-  const playEpisode = async (episodeToPlay: Episode) => {
-    if (!episodeToPlay.video?.id) {
-      return;
-    }
-
-    navigate(`/video-player/${episodeToPlay.video.id}`);
-  };
-
   const getEpisodeMenu = (episode: Episode) => {
     return {
       items: [
@@ -80,7 +72,6 @@ function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: Ep
               <EpisodeCard
                 key={'Episode card' + episode.id}
                 episode={episode}
-                playEpisode={playEpisode}
                 goToDetails={goToEpisodePage}
                 getEpisodeMenu={getEpisodeMenu}
                 editEpisode={() => openDialog('episode', { id: episode.id })}
@@ -95,7 +86,6 @@ function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: Ep
               <EpisodeCardDetails
                 key={'Episode details' + episode.id}
                 episode={episode}
-                playEpisode={playEpisode}
                 goToDetails={goToEpisodePage}
                 getEpisodeMenu={getEpisodeMenu}
                 editEpisode={() => openDialog('episode', { id: episode.id })}

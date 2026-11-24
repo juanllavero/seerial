@@ -110,6 +110,7 @@ import { AuthenticateUserUseCase } from '@/api/v1/users/application/usecases/Aut
 import { CreateUserUseCase } from '@/api/v1/users/application/usecases/CreateUserUseCase';
 import { DeleteUserUseCase } from '@/api/v1/users/application/usecases/DeleteUserUseCase';
 import { GetAllUsersUseCase } from '@/api/v1/users/application/usecases/GetAllUsersUseCase';
+import { RevokeUserSessionsUseCase } from '@/api/v1/users/application/usecases/RevokeUserSessionsUseCase';
 import { UpdateUserUseCase } from '@/api/v1/users/application/usecases/UpdateUserUseCase';
 import { UsersRepositoryImpl } from '@/api/v1/users/infrastructure/persistence/repositories/UsersRepositoryImpl';
 import { CreateVideoAsEpisodeUseCase } from '@/api/v1/videos/application/usecases/CreateVideoAsEpisodeUseCase';
@@ -204,6 +205,7 @@ export const useCases = {
   deleteUser: () => new DeleteUserUseCase(usersRepo),
   updateUser: () => new UpdateUserUseCase(usersRepo),
   getAllUsers: () => new GetAllUsersUseCase(usersRepo),
+  revokeUserSessions: () => new RevokeUserSessionsUseCase(usersRepo),
 
   // Libraries
   deleteLibrary: () => new DeleteLibraryUseCase(librariesRepo, seriesRepo, moviesRepo, albumsRepo),

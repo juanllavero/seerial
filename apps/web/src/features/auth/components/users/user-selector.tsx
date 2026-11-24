@@ -165,14 +165,17 @@ function UserSelector({ server, users, onServerChange, onLogin }: UserSelectorPr
           >
             Acceder manualmente
           </SecondaryButton>
-          <SecondaryButton
-            onClick={() => {
-              setView('addUser');
-              setError('');
-            }}
-          >
-            Añadir usuario
-          </SecondaryButton>
+          {/* Only the very first user can be created from the login screen; afterwards an administrator manages users */}
+          {users.length === 0 && (
+            <SecondaryButton
+              onClick={() => {
+                setView('addUser');
+                setError('');
+              }}
+            >
+              Añadir usuario
+            </SecondaryButton>
+          )}
         </div>
       </>
     );
@@ -209,14 +212,17 @@ function UserSelector({ server, users, onServerChange, onLogin }: UserSelectorPr
           >
             Acceder
           </PrimaryButton>
-          <SecondaryButton
-            onClick={() => {
-              setView('addUser');
-              setError('');
-            }}
-          >
-            Añadir usuario
-          </SecondaryButton>
+          {/* Only the very first user can be created from the login screen; afterwards an administrator manages users */}
+          {users.length === 0 && (
+            <SecondaryButton
+              onClick={() => {
+                setView('addUser');
+                setError('');
+              }}
+            >
+              Añadir usuario
+            </SecondaryButton>
+          )}
         </div>
       </>
     );
