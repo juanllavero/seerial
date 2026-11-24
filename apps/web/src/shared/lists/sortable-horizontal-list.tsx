@@ -1,7 +1,5 @@
-import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
-import { useEffect } from 'react';
 import HorizontalList from './horizontal-list';
-import { SortableItem } from './sortable-item';
+import { SortableGrid } from './sortable-grid';
 
 interface SortableEntity {
   id: string;
@@ -14,38 +12,19 @@ interface SortableHorizontalListProps<T extends SortableEntity> {
   renderItem: (item: T) => React.ReactNode;
 }
 
+/**
+ * Horizontal list whose items can be reordered by dragging. It shares the drag engine of
+ * SortableGrid (items need its SortableListContext, which SortableGrid provides).
+ */
 export function SortableHorizontalList<T extends SortableEntity>({
   title,
   items,
   onDragEnd,
   renderItem,
 }: SortableHorizontalListProps<T>) {
-  useEffect(() => {
-    return monitorForElements({
-      onDrop: ({ source, location }) => {
-        const target = location.current.dropTargets[0];
-        if (!target) return;
-
-        const sourceData = source.data as { id: string; index: number };
-        const targetData = target.data as { id: string; index: number };
-
-        if (sourceData.id === targetData.id) return;
-
-        const sourceIndex = sourceData.index;
-        const destinationIndex = targetData.index;
-
-        onDragEnd(sourceIndex, destinationIndex);
-      },
-    });
-  }, [onDragEnd]);
-
   return (
     <HorizontalList title={title}>
-      {items.map((item, index) => (
-        <SortableItem key={item.id} id={item.id} index={index}>
-          {renderItem(item)}
-        </SortableItem>
-      ))}
+      <SortableGrid items={items} onDragEnd={onDragEnd} renderItem={renderItem} />
     </HorizontalList>
   );
 }

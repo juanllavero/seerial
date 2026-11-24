@@ -34,6 +34,10 @@ export class PlayListModel extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   title!: string;
 
+  /** False: songs are listed alphabetically. True: songs follow the manual `position` order. */
+  @Column({ type: 'boolean', nullable: false, default: false })
+  customOrder!: boolean;
+
   @Column({ type: 'varchar', nullable: true, default: '' })
   description?: string;
 

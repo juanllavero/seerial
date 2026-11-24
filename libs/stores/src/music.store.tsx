@@ -134,12 +134,16 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
       isLoading: true,
       playbackVersion: state.playbackVersion + 1,
     })),
-  setAlbum: (album, songs) => set({ album, songQueue: songs ?? [] }),
+  // Without an explicit song list the current queue is kept: players call setAlbum(album)
+  // right after the page chose a queue, and wiping it would break next/previous.
+  setAlbum: (album, songs) => set((state) => ({ album, songQueue: songs ?? state.songQueue })),
   resetPlayerState: () => {
     const { audioRef } = get();
     if (audioRef?.current) {
       audioRef.current.pause();
-      audioRef.current.src = '';
+      // removeAttribute avoids loading the page itself, which an empty src would do
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
     }
     set({
       currentSong: null,
@@ -152,7 +156,6 @@ const useMusicStore = createWithEqualityFn<MusicState>((set, get) => ({
       buffered: 0,
       isShown: false,
       isLoading: false,
-      audioRef: null,
     });
   },
 

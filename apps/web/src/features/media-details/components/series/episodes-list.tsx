@@ -1,6 +1,5 @@
 import { API, useCreate } from '@seerial/api';
 import type { Episode } from '@seerial/domain';
-import { useServerStore } from '@seerial/stores';
 import { t } from 'i18next';
 import { useNavigate } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
@@ -19,7 +18,6 @@ interface EpisodesListProps {
 
 function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: EpisodesListProps) {
   const navigate = useNavigate();
-  const { user } = useServerStore((state) => ({ user: state.currentUser }), shallow);
   const { openDialog } = useDialogStore((state) => ({ openDialog: state.openDialog }), shallow);
   const { create } = useCreate<unknown>();
 
@@ -51,11 +49,7 @@ function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: Ep
             {
               title: t('markWatched'),
               action: async () => {
-                await create(API.episodes.setWatchState(episode.id), {
-                  episodeId: episode.id,
-                  watched: true,
-                  userId: user?.id,
-                });
+                await create(API.episodes.setWatchState(episode.id), { state: true });
 
                 mutate((key: string) => key.startsWith(API.series.get(seriesId || '')));
                 mutate((key: string) => key.startsWith(API.seasons.get(seasonId || '')));
@@ -64,11 +58,7 @@ function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: Ep
             {
               title: t('markUnwatched'),
               action: async () => {
-                await create(API.episodes.setWatchState(episode.id), {
-                  episodeId: episode.id,
-                  watched: false,
-                  userId: user?.id,
-                });
+                await create(API.episodes.setWatchState(episode.id), { state: false });
 
                 mutate((key: string) => key.startsWith(API.series.get(seriesId || '')));
                 mutate((key: string) => key.startsWith(API.seasons.get(seasonId || '')));

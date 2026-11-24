@@ -16,18 +16,14 @@ function MyListButton({ movieId }: MyListButtonProps) {
   });
   const { mutateAsync: setMovieWatchState } = useSetMovieWatchState<
     unknown,
-    { movieId: string; watched: boolean; userId?: string }
+    { watched: boolean }
   >(movieId);
 
   const inMyList =
     movie?.watchLists?.some((list) => list.userId === user?.id && list.watched) ?? false;
 
   const toggleMyList = async () => {
-    await setMovieWatchState({
-      movieId,
-      watched: !inMyList,
-      userId: user?.id,
-    });
+    await setMovieWatchState({ watched: !inMyList });
     void refetch();
   };
   return (

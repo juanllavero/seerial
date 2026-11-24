@@ -23,8 +23,10 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
+import { getUserId } from '@/utils/auth';
 import type { SetVideoWatchStateDTO, UpdateVideoDTO } from '../../../application/dtos/VideoDTOs';
 
 type TsoaContext = { response: ExpressResponse };
@@ -33,12 +35,49 @@ type AuthenticatedRequest = ExpressRequest & { user?: { id?: string } };
 @Route('videos')
 @Tags('Videos')
 export class VideosController extends Controller {
+  // Static routes must be declared before `{id}`, which would otherwise capture them.
+
+  /**
+   * Extract video thumbnail
+   */
+  @Get('thumbnail')
+  @Security('adminAuth')
+  public async getVideoThumbnail(@Query() url: string, @Query() time?: string): Promise<void> {
+    await videoExtractionService.streamVideoThumbnail(
+      url,
+      time || '10',
+      (this as unknown as TsoaContext).response,
+    );
+  }
+
+  /**
+   * Extract subtitle track from video
+   */
+  @Get('subtitles')
+  @Security('adminAuth')
+  public async getSubsFromVideo(
+    @Query() videoPathParam: string,
+    @Query() trackId: number,
+    @Query() startTime?: number,
+  ): Promise<void> {
+    await videoExtractionService.streamVideoSubtitles(
+      videoPathParam,
+      trackId,
+      startTime || 0,
+      (this as unknown as TsoaContext).response,
+    );
+  }
+
   /**
    * Get video details by ID
    */
   @Get('{id}')
   @Security('cookieAuth')
-  public async get(@Path() id: string): Promise<ApiResponse<Video>> {
+  public async get(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Video>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'video', id);
     const result = await useCases.getVideoById().execute(id);
 
     if (!result) {
@@ -53,7 +92,11 @@ export class VideosController extends Controller {
    */
   @Get('by-episode/{episodeId}')
   @Security('cookieAuth')
-  public async getByEpisodeId(@Path() episodeId: string): Promise<ApiResponse<Video>> {
+  public async getByEpisodeId(
+    @Path() episodeId: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Video>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'episode', episodeId);
     const result = await useCases.getVideoByEpisodeId().execute(episodeId);
 
     if (!result) {
@@ -68,7 +111,11 @@ export class VideosController extends Controller {
    */
   @Get('playback-info/{id}')
   @Security('cookieAuth')
-  public async getPlaybackInfo(@Path() id: string): Promise<ApiResponse<PlayBackInfo>> {
+  public async getPlaybackInfo(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<PlayBackInfo>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'video', id);
     const result = await useCases.getVideoPlaybackInfo().execute(id);
 
     if (!result) {
@@ -121,12 +168,9 @@ export class VideosController extends Controller {
     @Body() body: SetVideoWatchStateDTO,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<null>> {
-    const { watched, userId: bodyUserId } = body;
-    const userId = (req as AuthenticatedRequest).user?.id ?? bodyUserId;
-
-    if (!userId) {
-      throw new BadRequestException(messages.errors.validation.notEnoughParams);
-    }
+    const { watched } = body;
+    const userId = getUserId(req);
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'video', id);
 
     const video = await useCases.getVideoById().execute(id);
 
@@ -135,44 +179,13 @@ export class VideosController extends Controller {
     }
 
     if (watched) {
-      await useCases.addVideoToWatchList().execute(id, userId);
+      await useCases.addVideoToWatchList().execute(userId, id);
     } else {
-      await useCases.removeVideoFromWatchList().execute(id, userId);
+      await useCases.removeVideoFromWatchList().execute(userId, id);
     }
     await useCases.updateVideo().execute(video.id, video);
 
     return ApiResponse.success(null, messages.success.update);
-  }
-
-  /**
-   * Extract video thumbnail
-   */
-  @Get('thumbnail')
-  @Security('adminAuth')
-  public async getVideoThumbnail(@Query() url: string, @Query() time?: string): Promise<void> {
-    await videoExtractionService.streamVideoThumbnail(
-      url,
-      time || '10',
-      (this as unknown as TsoaContext).response,
-    );
-  }
-
-  /**
-   * Extract subtitle track from video
-   */
-  @Get('subtitles')
-  @Security('adminAuth')
-  public async getSubsFromVideo(
-    @Query() videoPathParam: string,
-    @Query() trackId: number,
-    @Query() startTime?: number,
-  ): Promise<void> {
-    await videoExtractionService.streamVideoSubtitles(
-      videoPathParam,
-      trackId,
-      startTime || 0,
-      (this as unknown as TsoaContext).response,
-    );
   }
 
   /**
@@ -181,7 +194,11 @@ export class VideosController extends Controller {
    */
   @Get('{id}/chapter-thumbnails')
   @Security('cookieAuth')
-  public async getChapterThumbnails(@Path() id: string): Promise<ApiResponse<Chapter[]>> {
+  public async getChapterThumbnails(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Chapter[]>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'video', id);
     const video = await useCases.getVideoById().execute(id);
 
     if (!video) {

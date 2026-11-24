@@ -1,4 +1,4 @@
-import { API, api, createServerClient, setApiBaseUrl } from '@seerial/api';
+import { API, api, apiClient, createServerClient, setApiBaseUrl } from '@seerial/api';
 import type { BasicUser, PersistedServer } from '@seerial/domain';
 import { createWithEqualityFn } from 'zustand/traditional';
 
@@ -94,6 +94,8 @@ export const useServerStore = createWithEqualityFn<AuthState>((set) => ({
       void api.post<unknown>(API.users.logout).catch(() => undefined);
     }
     set({ currentUser: user });
+    // The status check done at startup had no session: repeat it now that there is one
+    if (user) void useServerStore.getState().initializeStatusChecks();
   },
 
   clearAuth: () => {
@@ -137,7 +139,11 @@ export const useServerStore = createWithEqualityFn<AuthState>((set) => ({
     // Check server status if a server is persisted
     if (state.selectedServer) {
       try {
-        const client = createServerClient(state.selectedServer.url);
+        // /servers needs a session: with a user, go through the authenticated client
+        // (it already points at the selected server); a bare client is enough to know it is up.
+        const client = state.currentUser
+          ? apiClient
+          : createServerClient(state.selectedServer.url);
         // Try to reach the /servers endpoint for a quick check
         const response = await client.get('/servers');
         set({
@@ -148,6 +154,17 @@ export const useServerStore = createWithEqualityFn<AuthState>((set) => ({
           gettingApiKeyStatus: false,
         });
       } catch (error) {
+        // Any HTTP answer (e.g. 401 before logging in) means the server is reachable
+        const httpStatus = (error as { response?: { status?: number } })?.response?.status;
+        if (httpStatus === 401 || httpStatus === 403) {
+          set({
+            serverOnline: true,
+            serverCheckError: null,
+            gettingServerStatus: false,
+            gettingApiKeyStatus: false,
+          });
+          return;
+        }
         set({
           serverOnline: false,
           serverCheckError: error instanceof Error ? error.message : 'Server unreachable',

@@ -43,7 +43,7 @@ function MovieDetailsPage() {
   const { data: movie, isLoading, error, mutate } = useGet<Movie>(API.movies.get(movieId ?? ''));
   const { mutateAsync: setMovieWatchState } = useSetMovieWatchState<
     unknown,
-    { movieId: string; watched: boolean; userId?: string }
+    { watched: boolean }
   >(movie?.id ?? '');
 
   const isMobile = useIsMobile();
@@ -86,11 +86,7 @@ function MovieDetailsPage() {
 
   const toggleMovieWatched = async () => {
     if (movie) {
-      await setMovieWatchState({
-        movieId: movie.id,
-        watched: !isWatched,
-        userId: user?.id,
-      });
+      await setMovieWatchState({ watched: !isWatched });
       mutate();
     }
   };

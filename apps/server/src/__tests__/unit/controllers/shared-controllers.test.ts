@@ -11,6 +11,8 @@ import { SearchController } from '@/api/v1/shared/infrastructure/web/controllers
 import { ContinueWatchingController } from '@/api/v1/watch-lists/infrastructure/web/controllers/ContinueWatchingController';
 import { messages } from '@/config/messages';
 
+const adminReq = { user: { id: 'user-1', type: 'admin' } } as never;
+
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => {
   const nodeFs = jest.requireActual('node:fs');
   return {
@@ -268,8 +270,8 @@ describe('Shared controllers', () => {
     it('returns media details and media background for valid types', async () => {
       const controller = new MediaController();
 
-      const details = await controller.getDetails('movie', 'movie-1');
-      const background = await controller.getMediaBackground('movie', 'video', 'movie-1');
+      const details = await controller.getDetails('movie', 'movie-1', adminReq);
+      const background = await controller.getMediaBackground('movie', 'video', 'movie-1', adminReq);
 
       expect(details.success).toBe(true);
       expect(mediaDetailsService.getDetails).toHaveBeenCalledWith('movie', 'movie-1');
@@ -284,10 +286,10 @@ describe('Shared controllers', () => {
     it('throws when itemType or mediaType are invalid', async () => {
       const controller = new MediaController();
 
-      await expect(controller.getMediaBackground('album', 'video', 'id-1')).rejects.toMatchObject({
+      await expect(controller.getMediaBackground('album', 'video', 'id-1', adminReq)).rejects.toMatchObject({
         statusCode: 400,
       });
-      await expect(controller.getMediaBackground('movie', 'book', 'id-1')).rejects.toThrow(
+      await expect(controller.getMediaBackground('movie', 'book', 'id-1', adminReq)).rejects.toThrow(
         "Invalid mediaType. Must be 'video' or 'music'.",
       );
     });
@@ -295,7 +297,7 @@ describe('Shared controllers', () => {
 
   describe('ContinueWatchingController', () => {
     it('returns continue-watching videos for authenticated user', async () => {
-      const req = { user: { id: 'user-1' } };
+      const req = { user: { id: 'user-1', type: 'admin' } };
 
       const response = await new ContinueWatchingController().getVideos(req as never);
 

@@ -22,6 +22,10 @@ export interface CreateUserDTO {
   allowDownloads?: boolean;
   hideInLogin?: boolean;
   maxSessions?: number;
+  /** Libraries (read-only) the user can access. Ignored for admins, who access everything. */
+  libraryIds?: string[];
+  /** Non folder-based playlists (read-only) the user can access. */
+  playlistIds?: string[];
 }
 
 export interface UpdateUserDTO {
@@ -35,6 +39,10 @@ export interface UpdateUserDTO {
   allowDownloads?: boolean;
   hideInLogin?: boolean;
   maxSessions?: number;
+  /** Replaces the libraries the user can access. */
+  libraryIds?: string[];
+  /** Replaces the playlists the user can access. */
+  playlistIds?: string[];
 }
 
 export interface UserDTO {
@@ -47,5 +55,7 @@ export interface UserDTO {
   internetBitrateLimit?: number;
   allowDownloads: boolean;
   hideInLogin: boolean;
-  maxSessions: number;
+  maxSessions: number;  /** Only returned by the admin user listing. */
+  libraryIds?: string[];
+  playlistIds?: string[];
 }

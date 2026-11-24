@@ -36,7 +36,6 @@ function LibraryContentList({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
-  const currentUser = useServerStore((state) => state.currentUser);
 
   const { data: libraryContent, isLoading } = useGetLibraryContent<LibraryItem[]>(libraryId, {
     enabled: !!libraryId && serverUrl !== '',
@@ -70,10 +69,7 @@ function LibraryContentList({
         if (item.type === 'movie') {
           await apiClient.post(API.movies.setWatchState(item.id), { watched: isWatched });
         } else if (item.type === 'series') {
-          await apiClient.post(API.series.setWatchState(item.id), {
-            watched: isWatched,
-            userId: currentUser?.id,
-          });
+          await apiClient.post(API.series.setWatchState(item.id), { watched: isWatched });
         } else if (item.type === 'collection') {
           const res = await apiClient.get<{
             movies: LibraryItem[];
@@ -84,10 +80,7 @@ function LibraryContentList({
               apiClient.post(API.movies.setWatchState(m.id), { watched: isWatched }),
             ),
             ...res.data.series.map((s) =>
-              apiClient.post(API.series.setWatchState(s.id), {
-                watched: isWatched,
-                userId: currentUser?.id,
-              }),
+              apiClient.post(API.series.setWatchState(s.id), { watched: isWatched }),
             ),
           ]);
         }
@@ -96,7 +89,7 @@ function LibraryContentList({
         // Silently fail
       }
     },
-    [currentUser, queryClient, libraryId],
+    [queryClient, libraryId],
   );
 
   const handleLongPress = useCallback(

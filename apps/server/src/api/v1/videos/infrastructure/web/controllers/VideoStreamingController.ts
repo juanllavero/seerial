@@ -10,6 +10,7 @@ import {
   useCases,
   videoProcessingService,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
 import { verifyVideoStreamToken } from '@/middleware/video.middleware';
@@ -49,10 +50,13 @@ export class VideoStreamingController extends Controller {
       }
 
       // Prefer known library media paths for any client.
-      const getVideoByPathFactory = (useCases as { getVideoByPath?: () => { execute: (filePath: string) => Promise<{ fileSrc?: string } | null> } }).getVideoByPath;
+      const getVideoByPathFactory = (useCases as { getVideoByPath?: () => { execute: (filePath: string) => Promise<{ id?: string; fileSrc?: string } | null> } }).getVideoByPath;
       if (typeof getVideoByPathFactory === 'function') {
         const knownVideo = await getVideoByPathFactory().execute(normalizedPath);
         if (knownVideo?.fileSrc) {
+          if (knownVideo.id && req?.user) {
+            await AccessControlService.assertAccess(req.user, 'video', knownVideo.id);
+          }
           return knownVideo.fileSrc;
         }
       } else {
@@ -70,6 +74,9 @@ export class VideoStreamingController extends Controller {
 
     // Try movie media folder
     const movie = moviesRepo?.findById ? await moviesRepo.findById(localId) : null;
+    if (movie && req?.user) {
+      await AccessControlService.assertAccess(req.user, 'movie', localId);
+    }
     if (movie?.folder) {
       const mediaFolder = path.join(movie.folder, 'media');
       const [videoPath] = await fileSystemService.getValidVideoFiles(mediaFolder);
@@ -79,6 +86,7 @@ export class VideoStreamingController extends Controller {
     // Try season media folder (localId is season id)
     const season = seasonsRepo?.findById ? await seasonsRepo.findById(localId, 'few') : null;
     if (season) {
+      if (req?.user) await AccessControlService.assertAccess(req.user, 'season', localId);
       const series = seriesRepo?.findById ? await seriesRepo.findById(season.seriesId, 'few') : null;
       if (series?.folder) {
         const mediaFolder = path.join(series.folder, 'media');

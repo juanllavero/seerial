@@ -45,7 +45,6 @@ function ContinueWatchingContent({
           videoId: element.videoId,
           timeWatched: element.duration * 60,
           watched: true,
-          userId: currentUser.id,
         });
         await queryClient.invalidateQueries({ queryKey: ['continueWatching', 'getVideos'] });
       } catch {

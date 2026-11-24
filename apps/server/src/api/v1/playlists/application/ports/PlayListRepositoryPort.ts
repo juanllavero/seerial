@@ -9,5 +9,6 @@ export interface PlayListRepositoryPort {
   update(id: string, playList: Partial<PlayList>): Promise<PlayList>;
   delete(id: string): Promise<void>;
   addSongToPlaylist(playlistId: string, songId: string): Promise<void>;
+  reorderSongs(playlistId: string, orderedSongIds: string[]): Promise<boolean>;
   removeSongFromPlaylist(playlistId: string, songId: string): Promise<void>;
 }

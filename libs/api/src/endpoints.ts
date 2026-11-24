@@ -35,6 +35,7 @@ export const API = {
     },
     users: {
         create: '/users',
+        findAll: '/users',
         update: (id: string) => `/users/${id}`,
         delete: (id: string) => `/users/${id}`,
         findAllPublic: '/users/public',
@@ -100,6 +101,7 @@ export const API = {
         delete: (id: string) => `/playlists/${id}`,
         addSong: (id: string) => `/playlists/${id}/songs`,
         removeSong: (id: string, songId: string) => `/playlists/${id}/songs/${songId}`,
+        reorderSongs: (id: string) => `/playlists/${id}/order`,
     },
     libraries: {
         getAll: '/libraries',

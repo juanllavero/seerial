@@ -16,18 +16,14 @@ function MyListButton({ seriesId }: MyListButtonProps) {
   });
   const { mutateAsync: setSeriesWatchState } = useSetSeriesWatchState<
     unknown,
-    { seriesId: string; watched: boolean; userId?: string }
+    { watched: boolean }
   >(seriesId);
 
   const inMyList =
     series?.watchLists?.some((list) => list.userId === user?.id && list.watched) ?? false;
 
   const toggleMyList = async () => {
-    await setSeriesWatchState({
-      seriesId,
-      watched: !inMyList,
-      userId: user?.id,
-    });
+    await setSeriesWatchState({ watched: !inMyList });
     void refetch();
   };
   return (

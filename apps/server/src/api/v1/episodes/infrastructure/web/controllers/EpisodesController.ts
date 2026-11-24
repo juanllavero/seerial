@@ -14,6 +14,7 @@ import {
   Tags,
 } from 'tsoa';
 import { HTTPCodes } from '@/api/v1/shared/domain/types/HTTPCodes';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { episodesRepo, useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { BadRequestException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
@@ -31,7 +32,11 @@ export class EpisodesController extends Controller {
    */
   @Get('{id}')
   @Security('cookieAuth')
-  public async get(@Path() id: string): Promise<ApiResponse<Episode | null>> {
+  public async get(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Episode | null>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'episode', id);
     const episode = await episodesRepo.findById(id);
     return ApiResponse.success(episode, messages.success.fetch);
   }
@@ -74,6 +79,7 @@ export class EpisodesController extends Controller {
   ): Promise<ApiResponse<null>> {
     const { state } = body;
     const userId = (req as AuthenticatedRequest).user?.id as string;
+    if (userId) await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'episode', id);
 
     if (!userId) {
       throw new BadRequestException(messages.errors.validation.notEnoughParams);

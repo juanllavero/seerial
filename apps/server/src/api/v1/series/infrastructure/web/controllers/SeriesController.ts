@@ -19,6 +19,7 @@ import {
   externalSearchService,
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { MediaService } from '@/api/v1/shared/infrastructure/services/MediaService';
 import {
   BadRequestException,
@@ -26,6 +27,7 @@ import {
 } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
+import { getUserId } from '@/utils/auth';
 import type { IncludeType } from '@/types/common';
 import type {
   RefreshMetadataDTO,
@@ -114,14 +116,11 @@ export class SeriesController extends Controller {
     @Body() body: SetSeriesWatchStateDTO,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<null>> {
-    const { watched, userId: bodyUserId } = body;
-    const userId = (req as AuthenticatedRequest).user?.id ?? bodyUserId;
+    const { watched } = body;
+    const userId = getUserId(req);
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'series', id);
 
-    if (!userId) {
-      throw new BadRequestException(messages.errors.validation.notEnoughParams);
-    }
-
-    const series = await useCases.getSeriesById().execute(id);
+    const series = await useCases.getSeriesById().execute(id, 'few');
 
     if (!series) {
       throw new NotFoundException(messages.errors.notFound.series);
@@ -142,7 +141,7 @@ export class SeriesController extends Controller {
     userId: string,
     watched: boolean,
   ): Promise<void> {
-    const seasonWithEpisodes = await useCases.getSeasonById().execute(seasonId);
+    const seasonWithEpisodes = await useCases.getSeasonById().execute(seasonId, 'all');
     if (!seasonWithEpisodes) return;
 
     for (const episode of seasonWithEpisodes.episodes) {
@@ -153,19 +152,19 @@ export class SeriesController extends Controller {
       if (!video) continue;
 
       if (watched) {
-        await useCases.addVideoToWatchList().execute(video.id, userId);
+        await useCases.addVideoToWatchList().execute(userId, video.id);
         await useCases.removeVideoFromContinueWatching().execute(video.id, userId);
       } else {
-        await useCases.removeVideoFromWatchList().execute(video.id, userId);
+        await useCases.removeVideoFromWatchList().execute(userId, video.id);
       }
 
       await useCases.updateVideo().execute(video.id, video);
     }
 
     if (watched) {
-      await useCases.addSeasonToWatchList().execute(seasonWithEpisodes.id, userId);
+      await useCases.addSeasonToWatchList().execute(userId, seasonWithEpisodes.id);
     } else {
-      await useCases.removeSeasonFromWatchList().execute(seasonWithEpisodes.id, userId);
+      await useCases.removeSeasonFromWatchList().execute(userId, seasonWithEpisodes.id);
     }
     await useCases.updateSeason().execute(seasonWithEpisodes.id, seasonWithEpisodes);
   }
@@ -176,11 +175,11 @@ export class SeriesController extends Controller {
     watched: boolean,
   ): Promise<void> {
     if (watched) {
-      await useCases.addSeriesToWatchList().execute(seriesId, userId);
+      await useCases.addSeriesToWatchList().execute(userId, seriesId);
       return;
     }
 
-    await useCases.removeSeriesFromWatchList().execute(seriesId, userId);
+    await useCases.removeSeriesFromWatchList().execute(userId, seriesId);
   }
 
   /**
@@ -215,8 +214,10 @@ export class SeriesController extends Controller {
   @Security('cookieAuth')
   public async get(
     @Path() id: string,
+    @Request() req: ExpressRequest,
     @Query() include?: IncludeType,
   ): Promise<ApiResponse<Series>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'series', id);
     const series = await useCases.getSeriesById().execute(id, include);
 
     if (!series) {
@@ -235,12 +236,13 @@ export class SeriesController extends Controller {
    * Get remaining episodes count for a series
    */
   @Get('{id}/remaining-episodes')
-  @Security('adminAuth')
+  @Security('cookieAuth')
   public async getRemainingEpisodes(
     @Path() id: string,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<number>> {
     const userId = (req as AuthenticatedRequest).user?.id as string;
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'series', id);
     const result = await MediaService.countRemainingEpisodes(id, userId);
     return ApiResponse.success(result, messages.success.fetch);
   }

@@ -42,4 +42,8 @@ export interface UserDTO {
     allowDownloads: boolean;
     hideInLogin: boolean;
     maxSessions: number;
+    /** Only returned by the admin user listing: libraries the user can read. */
+    libraryIds?: string[];
+    /** Only returned by the admin user listing: playlists the user can read. */
+    playlistIds?: string[];
 }

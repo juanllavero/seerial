@@ -174,7 +174,6 @@ function useVideoPlayerPageController({
       videoId: video.id,
       timeWatched: lastKnownPositionRef.current,
       watched: false,
-      userId: currentUserId,
     });
   }, [videoLoaded, video, currentUserId, updateWatchState]);
 
@@ -303,7 +302,6 @@ function useVideoPlayerPageController({
             videoId: video.id,
             timeWatched: lastKnownPositionRef.current,
             watched: true,
-            userId: currentUserId,
           });
         }
       } catch (error) {
@@ -335,7 +333,6 @@ function useVideoPlayerPageController({
           videoId: currentVideo.id,
           timeWatched: lastKnownPositionRef.current,
           watched: false,
-          userId: activeUserId,
         });
       }
 

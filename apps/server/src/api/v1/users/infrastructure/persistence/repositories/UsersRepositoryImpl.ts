@@ -4,13 +4,15 @@ import jwt from 'jsonwebtoken';
 import { In } from 'typeorm';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import { LibraryModel } from '@/api/v1/libraries/infrastructure/persistence/models/LibraryModel';
-import { UnauthorizedException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
+import { PlayListModel } from '@/api/v1/playlists/infrastructure/persistence/models/PlayListModel';
+import { NotFoundException, UnauthorizedException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { messages } from '@/config/messages';
 import { GenericRepositoryHelper } from '@/helpers/GenericRepositoryHelper';
 import { UserType } from '@/utils/constants';
 import { getJwtSecret } from '@/utils/jwt-secret';
 import type { UsersRepositoryPort } from '../../../application/ports/UsersRepositoryPort';
 import { UserLibraryModel } from '../models/UserLibraryModel';
+import { UserPlayListModel } from '../models/UserPlayListModel';
 import { UserModel } from '../models/UserModel';
 
 export class UsersRepositoryImpl extends BaseRepository implements UsersRepositoryPort {
@@ -83,6 +85,7 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
       hideInLogin?: boolean;
       maxSessions?: number;
       libraryIds?: string[];
+      playlistIds?: string[];
     }>,
   ): Promise<User> {
     if (data.type === 'admin' && !data.password?.trim()) {
@@ -91,8 +94,9 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
 
     const hashedPassword = data.password ? await bcrypt.hash(data.password, 10) : null;
 
+    const { libraryIds, playlistIds, ...userFields } = data;
     const userData = {
-      ...data,
+      ...userFields,
       password: hashedPassword || undefined,
       type: data.type || UserType.NORMAL,
       allowRemote: data.allowRemote ?? true,
@@ -104,20 +108,7 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
 
     const user = await this.helper.create(userData, true);
 
-    if (data.libraryIds) {
-      // Load the libraries and assign them to the user
-      const libraries = await LibraryModel.findBy({ id: In(data.libraryIds) });
-      const userModel = user as unknown as UserModel;
-
-      for (const library of libraries) {
-        const userLibrary = UserLibraryModel.create({
-          userId: user.id,
-          libraryId: library.id,
-        });
-        await userLibrary.save();
-      }
-      await userModel.save();
-    }
+    await this.setAccess(user.id, { libraryIds, playlistIds });
 
     const safeUser = await UserModel.findOne({
       where: { id: user.id },
@@ -126,7 +117,11 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
     return safeUser ? (safeUser as unknown as User) : (user as unknown as User);
   }
 
-  async update(id: string, data: Partial<User>): Promise<User> {
+  async update(
+    id: string,
+    input: Partial<User> & { libraryIds?: string[]; playlistIds?: string[] },
+  ): Promise<User> {
+    const { libraryIds, playlistIds, ...data } = input;
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
       // Invalidate all existing tokens when the password changes
@@ -138,7 +133,59 @@ export class UsersRepositoryImpl extends BaseRepository implements UsersReposito
       }
     }
 
-    return this.helper.update(id, data);
+    const updated = Object.keys(data).length > 0 ? await this.helper.update(id, data) : await this.findSafeById(id);
+    await this.setAccess(id, { libraryIds, playlistIds });
+    return updated;
+  }
+
+  async findAllWithAccess(): Promise<(User & { libraryIds: string[]; playlistIds: string[] })[]> {
+    const users = await UserModel.find({
+      select: ['id', 'username', 'type', 'avatar', 'allowRemote', 'allowVideoTranscoding', 'internetBitrateLimit', 'allowDownloads', 'hideInLogin', 'maxSessions'],
+    });
+    const [libraries, playlists] = await Promise.all([
+      UserLibraryModel.find(),
+      UserPlayListModel.find(),
+    ]);
+    return users.map((user) => ({
+      ...(user as unknown as User),
+      libraryIds: libraries.filter((row) => row.userId === user.id).map((row) => row.libraryId),
+      playlistIds: playlists.filter((row) => row.userId === user.id).map((row) => row.playlistId),
+    }));
+  }
+
+  /**
+   * Replaces the access grants of a user. Each list is only touched when provided.
+   * Unknown ids are ignored.
+   */
+  private async setAccess(
+    userId: string,
+    access: { libraryIds?: string[]; playlistIds?: string[] },
+  ): Promise<void> {
+    if (access.libraryIds) {
+      await UserLibraryModel.delete({ userId });
+      const libraries = access.libraryIds.length
+        ? await LibraryModel.findBy({ id: In(access.libraryIds) })
+        : [];
+      for (const library of libraries) {
+        await UserLibraryModel.create({ userId, libraryId: library.id }).save();
+      }
+    }
+
+    if (access.playlistIds) {
+      await UserPlayListModel.delete({ userId });
+      const playlists = access.playlistIds.length
+        ? await PlayListModel.findBy({ id: In(access.playlistIds) })
+        : [];
+      for (const playlist of playlists) {
+        await UserPlayListModel.create({ userId, playlistId: playlist.id }).save();
+      }
+    }
+  }
+
+  private async findSafeById(id: string): Promise<User> {
+    const user = await UserModel.findOne({ where: { id }, select: { password: false } });
+    if (!user) throw new NotFoundException(messages.errors.notFound.user);
+    return user as unknown as User;
   }
 
   async delete(id: string): Promise<void> {

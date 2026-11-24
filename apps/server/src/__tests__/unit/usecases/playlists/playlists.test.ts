@@ -30,6 +30,7 @@ function buildPlayListRepo(
     update: jest.fn(),
     delete: jest.fn(),
     addSongToPlaylist: jest.fn(),
+    reorderSongs: jest.fn(),
     removeSongFromPlaylist: jest.fn(),
     ...overrides,
   };
@@ -43,16 +44,17 @@ describe('Playlist use cases', () => {
         create: jest.fn().mockResolvedValue(playList),
       });
 
-      const result = await new CreatePlayListUseCase(repo).execute({
-        title: 'Road Trip',
-        description: 'Driving songs',
-      });
+      const result = await new CreatePlayListUseCase(repo).execute(
+        { title: 'Road Trip', description: 'Driving songs' },
+        'admin-1',
+      );
 
       expect(result).toEqual(playList);
       expect(repo.create).toHaveBeenCalledWith({
         id: '',
         title: 'Road Trip',
         description: 'Driving songs',
+        userId: 'admin-1',
       });
     });
   });

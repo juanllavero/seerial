@@ -1,12 +1,10 @@
 import type { Request as ExpressRequest } from 'express';
 import { Body, Controller, Patch, Request, Route, Security, Tags } from 'tsoa';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
-import { BadRequestException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
 import type { UpdateWatchStateDTO } from '../../../application/dtos/WatchListDTOs';
-
-type AuthenticatedRequest = ExpressRequest & { user?: { id?: string } };
 
 @Route('watch-lists')
 @Tags('Watch Lists')
@@ -20,12 +18,10 @@ export class WatchListController extends Controller {
     @Body() body: UpdateWatchStateDTO,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<null>> {
-    const { videoId, timeWatched, watched, userId: bodyUserId } = body;
-    const userId = (req as AuthenticatedRequest).user?.id ?? bodyUserId;
-
-    if (!userId) {
-      throw new BadRequestException(messages.errors.validation.notEnoughParams);
-    }
+    const { videoId, timeWatched, watched } = body;
+    const user = AccessControlService.requireUser(req);
+    await AccessControlService.assertAccess(user, 'video', videoId);
+    const userId = user.id;
 
     await useCases.updateWatchStateUseCase().execute({
       videoId,

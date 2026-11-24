@@ -1,4 +1,5 @@
 import { API, useGet } from '@seerial/api';
+import { useIsAdmin } from '@seerial/hooks';
 import type { Library } from '@seerial/domain';
 import { useDataStore, useServerStore } from '@seerial/stores';
 import { useEffect } from 'react';
@@ -17,6 +18,7 @@ export default function HomePage() {
     shallow,
   );
   const selectLibrary = useDataStore((state) => state.selectLibrary);
+  const isAdmin = useIsAdmin();
 
   // Get Libraries
   const { data: libraries, isLoading: loadingLibraries } = useGet<Library[]>(API.libraries.getAll, {
@@ -36,7 +38,8 @@ export default function HomePage() {
     return <NotAvailableServer />;
   }
 
-  if (!apiKeyStatus) {
+  // Only admins can configure the TMDB key, so other users are not blocked by it
+  if (!apiKeyStatus && isAdmin) {
     return <NoApiKey />;
   }
 

@@ -4,6 +4,8 @@ import { PlayListController } from '@/api/v1/playlists/infrastructure/web/contro
 import { SeasonsController } from '@/api/v1/seasons/infrastructure/web/controllers/SeasonsController';
 import { messages } from '@/config/messages';
 
+const adminReq = { user: { id: 'user-1', type: 'admin' } } as unknown as Request;
+
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     getPlayLists: jest.fn(),
@@ -39,7 +41,7 @@ describe('PlayListController', () => {
     const playlists = [{ id: 'pl-1' }, { id: 'pl-2' }];
     container.useCases.getPlayLists.mockReturnValue(uc(playlists));
 
-    const response = await new PlayListController().getAll();
+    const response = await new PlayListController().getAll(adminReq);
 
     expect(response.success).toBe(true);
     expect(response.data).toEqual(playlists);
@@ -49,7 +51,7 @@ describe('PlayListController', () => {
     const playlist = { id: 'pl-1', name: 'Favorites' };
     container.useCases.getPlayListById.mockReturnValue(uc(playlist));
 
-    const response = await new PlayListController().getById('pl-1');
+    const response = await new PlayListController().getById('pl-1', adminReq);
 
     expect(response.data).toEqual(playlist);
   });
@@ -57,7 +59,7 @@ describe('PlayListController', () => {
   it('throws not found when playlist does not exist', async () => {
     container.useCases.getPlayListById.mockReturnValue(uc(null));
 
-    await expect(new PlayListController().getById('missing')).rejects.toMatchObject({
+    await expect(new PlayListController().getById('missing', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -66,9 +68,10 @@ describe('PlayListController', () => {
     const playlist = { id: 'pl-new', name: 'New' };
     container.useCases.createPlayList.mockReturnValue(uc(playlist));
 
-    const response = await new PlayListController().create({
-      name: 'New',
-    } as never);
+    const response = await new PlayListController().create(
+      { name: 'New' } as never,
+      adminReq,
+    );
 
     expect(response.message).toBe(messages.success.create);
     expect(response.data).toEqual(playlist);
@@ -125,7 +128,7 @@ describe('SeasonsController', () => {
     const season = { id: 'season-1', episodes: [] };
     container.useCases.getSeasonById.mockReturnValue(uc(season));
 
-    const response = await new SeasonsController().get('season-1');
+    const response = await new SeasonsController().get('season-1', adminReq);
 
     expect(response.data).toEqual(season);
   });
@@ -133,7 +136,7 @@ describe('SeasonsController', () => {
   it('throws not found when season does not exist', async () => {
     container.useCases.getSeasonById.mockReturnValue(uc(null));
 
-    await expect(new SeasonsController().get('missing')).rejects.toMatchObject({
+    await expect(new SeasonsController().get('missing', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -157,10 +160,10 @@ describe('SeasonsController', () => {
     expect(response.message).toBe(messages.success.delete);
   });
 
-  it('throws 400 when userId is missing in setWatchState', async () => {
+  it('throws 401 when the request has no authenticated user in setWatchState', async () => {
     await expect(
       new SeasonsController().setWatchState('season-1', { watched: true } as never, asRequest({})),
-    ).rejects.toMatchObject({ statusCode: 400 });
+    ).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it('throws not found when season does not exist in setWatchState', async () => {
@@ -169,8 +172,8 @@ describe('SeasonsController', () => {
     await expect(
       new SeasonsController().setWatchState(
         'missing',
-        { watched: true, userId: 'user-1' } as never,
-        asRequest({}),
+        { watched: true } as never,
+        adminReq,
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
@@ -195,7 +198,7 @@ describe('SeasonsController', () => {
     await new SeasonsController().setWatchState(
       'season-1',
       { watched: true } as never,
-      asRequest({ user: { id: 'user-1' } } as never),
+      adminReq,
     );
 
     expect(episodeExec).toHaveBeenCalledWith('ep-2', 'user-1', true);
@@ -220,8 +223,8 @@ describe('SeasonsController', () => {
 
     await new SeasonsController().setWatchState(
       'season-1',
-      { watched: false, userId: 'user-1' } as never,
-      asRequest({}),
+      { watched: false } as never,
+      adminReq,
     );
 
     expect(episodeExec).toHaveBeenCalledWith('ep-1', 'user-1', false);
@@ -234,7 +237,7 @@ describe('EpisodesController', () => {
   it('returns episode by id (including null)', async () => {
     container.episodesRepo.findById.mockResolvedValue({ id: 'ep-1' });
 
-    const response = await new EpisodesController().get('ep-1');
+    const response = await new EpisodesController().get('ep-1', adminReq);
 
     expect(response.data).toEqual({ id: 'ep-1' });
   });
@@ -242,7 +245,7 @@ describe('EpisodesController', () => {
   it('returns null when episode does not exist in get', async () => {
     container.episodesRepo.findById.mockResolvedValue(null);
 
-    const response = await new EpisodesController().get('missing');
+    const response = await new EpisodesController().get('missing', adminReq);
 
     expect(response.data).toBeNull();
   });
@@ -281,7 +284,7 @@ describe('EpisodesController', () => {
     const response = await new EpisodesController().setWatchState(
       'ep-1',
       { state: true } as never,
-      asRequest({ user: { id: 'user-1' } } as never),
+      adminReq,
     );
 
     expect(execMock).toHaveBeenCalledWith('ep-1', 'user-1', true);

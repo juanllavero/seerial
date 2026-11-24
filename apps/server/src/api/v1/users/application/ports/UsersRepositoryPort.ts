@@ -6,7 +6,11 @@ export interface UsersRepositoryPort {
     username: string,
     password: string | null,
   ): Promise<{ token: string; user: User | null } | null>;
-  create(data: Partial<User>): Promise<User>;
-  update(id: string, data: Partial<User>): Promise<User>;
+  create(data: Partial<User> & { libraryIds?: string[]; playlistIds?: string[] }): Promise<User>;
+  update(
+    id: string,
+    data: Partial<User> & { libraryIds?: string[]; playlistIds?: string[] },
+  ): Promise<User>;
+  findAllWithAccess(): Promise<(User & { libraryIds: string[]; playlistIds: string[] })[]>;
   delete(id: string): Promise<void>;
 }

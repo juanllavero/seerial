@@ -76,12 +76,12 @@ function ServerLibraries() {
     (serverSettings['autoScan'] as boolean) ?? false,
   );
   const [autoScanPeriod, setAutoScanPeriod] = useState<string>(
-    scanOptions.find((option) => option.key === serverSettings['autoScanPeriod'])?.value ||
-      scanOptions[0].value,
+    scanOptions.find((option) => option.key === serverSettings['autoScanPeriod'])?.key ??
+      scanOptions[0].key,
   );
   const [generateChapters, setGenerateThumbnails] = useState<string>(
-    chapterOptions.find((option) => option.key === serverSettings['generateChapters'])?.value ||
-      chapterOptions[0].value,
+    chapterOptions.find((option) => option.key === serverSettings['generateChapters'])?.key ??
+      chapterOptions[0].key,
   );
 
   const handleAutoScanChange = (checked: boolean) => {
@@ -133,7 +133,7 @@ function ServerLibraries() {
       <LabeledInputWrapper direction="row" label={t('scanOptions')}>
         <SelectableWrapper
           options={scanOptions}
-          defaultValue={autoScanPeriod}
+          defaultValue={scanOptions.find((option) => option.key === autoScanPeriod)?.value}
           onValueChange={handleAutoScanPeriodChange}
         />
       </LabeledInputWrapper>
@@ -141,7 +141,7 @@ function ServerLibraries() {
       <LabeledInputWrapper direction="row" label={t('generateThumbnailsCheck')}>
         <SelectableWrapper
           options={chapterOptions}
-          defaultValue={generateChapters}
+          defaultValue={chapterOptions.find((option) => option.key === generateChapters)?.value}
           onValueChange={handleGenerateThumbnailsChange}
         />
       </LabeledInputWrapper>

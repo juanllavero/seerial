@@ -107,11 +107,7 @@ function SeriesDetailsPage() {
 
   const toggleSeasonWatched = async () => {
     if (season) {
-      await create(API.seasons.setWatchState(season.id), {
-        seasonId: season.id,
-        watched: !isWatched,
-        userId: user?.id,
-      });
+      await create(API.seasons.setWatchState(season.id), { watched: !isWatched });
 
       mutateSeries();
     }

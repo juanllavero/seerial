@@ -18,6 +18,42 @@ import type {
 import type { Server } from '../../../domain/Server';
 import { ServerConfigService } from '../../services/ServerConfigService';
 
+const DEFAULT_SERVER_CONFIG = {
+  autoScan: false,
+  autoScanPeriod: 'never',
+  generateChapters: 'never',
+  autoSelectTracks: true,
+  preferAudioLan: 'es-ES',
+  preferSubsLan: 'es-ES',
+  subsMode: 'autoSubs',
+  tempTranscodeFolder: '',
+  transcodeBuffer: 60,
+  transcodePreset: 'veryfast',
+  maxTranscodeProcesses: 4,
+  automaticUpdates: false,
+};
+
+/**
+ * Reads the persisted server settings. The file is only created when it does not exist yet
+ * (never overwritten), and keys missing from an older file fall back to their defaults.
+ */
+function loadServerConfig(): { file: string; config: Record<string, unknown> } {
+  const file = fileSystemService.getExternalPath('resources/config/serverConfig.json');
+
+  if (!fileSystemService.existsSync(file)) {
+    fileSystemService.createJSONFile(file, DEFAULT_SERVER_CONFIG);
+  }
+
+  let stored: Record<string, unknown> = {};
+  try {
+    stored = JSON.parse(fileSystemService.readFileSync(file, 'utf8')) as Record<string, unknown>;
+  } catch {
+    // Corrupted file: fall back to defaults instead of failing every settings request
+  }
+
+  return { file, config: { ...DEFAULT_SERVER_CONFIG, ...stored } };
+}
+
 @Route('servers')
 @Tags('Servers')
 export class ServersController extends Controller {
@@ -58,50 +94,15 @@ export class ServersController extends Controller {
   }
 
   /**
-   * Update server configuration
-   */
-  @Patch('{id}')
-  @Security('adminAuth')
-  public async update(
-    @Path() id: string,
-    @Body() body: UpdateServerDTO,
-  ): Promise<ApiResponse<Server>> {
-    const result = await useCases.updateServer().execute(id, body);
-    return ApiResponse.success(result, messages.success.update);
-  }
-
-  /**
    * Get a specific server config setting
    */
   @Get('config/{key}')
   @Security('adminAuth')
   public async getServerConfigKey(@Path() key: string): Promise<ApiResponse<ServerConfigResponse>> {
-    const SERVER_CONFIG_FILE = fileSystemService.getExternalPath(
-      'resources/config/serverConfig.json',
-    );
-
-    const defaultServerConfig = {
-      autoScan: false,
-      autoScanPeriod: 'never',
-      generateChapters: 'never',
-      autoSelectTracks: true,
-      preferAudioLan: 'es-ES',
-      preferSubsLan: 'es-ES',
-      subsMode: 'autoSubs',
-      tempTranscodeFolder: '',
-      transcodeBuffer: 60,
-      transcodePreset: 'veryfast',
-      maxTranscodeProcesses: 4,
-      automaticUpdates: false,
-    };
-
-    fileSystemService.createJSONFile(SERVER_CONFIG_FILE, defaultServerConfig);
-    const configData = JSON.parse(
-      fileSystemService.readFileSync(SERVER_CONFIG_FILE, 'utf8'),
-    ) as Record<string, unknown>;
+    const { config: configData } = loadServerConfig();
 
     // Restrict key lookup to known settings while keeping backward-compatible null responses.
-    const allowedKeys = Object.keys(defaultServerConfig) as string[];
+    const allowedKeys = Object.keys(DEFAULT_SERVER_CONFIG) as string[];
     const isAllowedKey = allowedKeys.includes(key);
     const value = isAllowedKey && Object.hasOwn(configData, key) ? configData[key] : null;
     return ApiResponse.success({ key, value }, messages.success.fetch);
@@ -113,28 +114,8 @@ export class ServersController extends Controller {
   @Get('config')
   @Security('adminAuth')
   public async getServerConfig(): Promise<ApiResponse<ServerConfigDTO>> {
-    const SERVER_CONFIG_FILE = fileSystemService.getExternalPath(
-      'resources/config/serverConfig.json',
-    );
-
-    const defaultServerConfig = {
-      autoScan: false,
-      autoScanPeriod: 'never',
-      generateChapters: 'never',
-      autoSelectTracks: true,
-      preferAudioLan: 'es-ES',
-      preferSubsLan: 'es-ES',
-      subsMode: 'autoSubs',
-      tempTranscodeFolder: '',
-      transcodeBuffer: 60,
-      transcodePreset: 'veryfast',
-      maxTranscodeProcesses: 4,
-      automaticUpdates: false,
-    };
-
-    fileSystemService.createJSONFile(SERVER_CONFIG_FILE, defaultServerConfig);
-    const configData = JSON.parse(fileSystemService.readFileSync(SERVER_CONFIG_FILE, 'utf8'));
-    return ApiResponse.success(configData, messages.success.fetch);
+    const { config } = loadServerConfig();
+    return ApiResponse.success(config as unknown as ServerConfigDTO, messages.success.fetch);
   }
 
   /**
@@ -145,33 +126,28 @@ export class ServersController extends Controller {
   public async updateServerConfig(
     @Body() body: UpdateServerConfigDTO,
   ): Promise<ApiResponse<ServerConfigDTO>> {
-    const SERVER_CONFIG_FILE = fileSystemService.getExternalPath(
-      'resources/config/serverConfig.json',
-    );
+    const { file, config } = loadServerConfig();
+    const configData = { ...config, ...body };
 
-    const defaultServerConfig = {
-      autoScan: false,
-      autoScanPeriod: 'never',
-      generateChapters: 'never',
-      autoSelectTracks: true,
-      preferAudioLan: 'es-ES',
-      preferSubsLan: 'es-ES',
-      subsMode: 'autoSubs',
-      tempTranscodeFolder: '',
-      transcodeBuffer: 60,
-      transcodePreset: 'veryfast',
-      maxTranscodeProcesses: 4,
-      automaticUpdates: false,
-    };
+    // Synchronous on purpose: the client sends several PATCH requests back to back, and an
+    // un-awaited async write let them overlap and corrupt the file.
+    fileSystemService.writeFileSync(file, JSON.stringify(configData, null, 2));
 
-    fileSystemService.createJSONFile(SERVER_CONFIG_FILE, defaultServerConfig);
-    const updates = body;
-    let configData = JSON.parse(fileSystemService.readFileSync(SERVER_CONFIG_FILE, 'utf8'));
+    return ApiResponse.success(configData as unknown as ServerConfigDTO, messages.success.update);
+  }
 
-    configData = { ...configData, ...updates };
-
-    fileSystemService.writeFile(SERVER_CONFIG_FILE, JSON.stringify(configData, null, 2));
-
-    return ApiResponse.success(configData, messages.success.update);
+  /**
+   * Update server configuration.
+   * Declared after the static `config` routes: otherwise `PATCH /servers/config` would be
+   * captured by this `{id}` route.
+   */
+  @Patch('{id}')
+  @Security('adminAuth')
+  public async update(
+    @Path() id: string,
+    @Body() body: UpdateServerDTO,
+  ): Promise<ApiResponse<Server>> {
+    const result = await useCases.updateServer().execute(id, body);
+    return ApiResponse.success(result, messages.success.update);
   }
 }

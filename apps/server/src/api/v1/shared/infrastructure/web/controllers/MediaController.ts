@@ -1,8 +1,24 @@
-import { Get, Path, Query, Route, Security, Tags } from 'tsoa';
+import type { Request as ExpressRequest } from 'express';
+import { Get, Path, Query, Request, Route, Security, Tags } from 'tsoa';
 import { messages } from '@/config/messages';
+import { AccessControlService, type AccessKind } from '../../services/AccessControlService';
 import { findMediaBackground, getDetails } from '../../services/MediaDetailsService';
 import { BadRequestException } from '../exceptions/HTTPExceptions';
 import { ApiResponse } from '../http/APIResponse';
+
+// Maps `getDetails` types to the kind of resource whose library must be readable
+const DETAILS_ACCESS_KIND: Record<string, AccessKind> = {
+  collection: 'collection',
+  series: 'series',
+  season: 'season',
+  seriesBySeasonId: 'season',
+  episode: 'episode',
+  'episode-video': 'episode',
+  video: 'video',
+  movie: 'movie',
+  'movie-video': 'movie',
+  album: 'album',
+};
 
 @Route('media')
 @Tags('Media')
@@ -15,7 +31,10 @@ export class MediaController {
   public async getDetails(
     @Path() type: string,
     @Query() id: string,
+    @Request() req: ExpressRequest,
   ): Promise<ApiResponse<unknown>> {
+    const kind = DETAILS_ACCESS_KIND[type];
+    if (kind) await AccessControlService.assertAccess(AccessControlService.requireUser(req), kind, id);
     return ApiResponse.success(await getDetails(type, id), messages.success.fetch);
   }
 
@@ -28,14 +47,21 @@ export class MediaController {
     @Path() itemType: string,
     @Path() mediaType: string,
     @Query() id: string,
+    @Request() req: ExpressRequest,
   ): Promise<ApiResponse<unknown>> {
     if (!['movie', 'series', 'season'].includes(itemType)) {
       throw new BadRequestException("Invalid itemType. Must be 'movie', 'series', or 'season'.");
     }
 
     if (!['video', 'music'].includes(mediaType)) {
-      throw new Error("Invalid mediaType. Must be 'video' or 'music'.");
+      throw new BadRequestException("Invalid mediaType. Must be 'video' or 'music'.");
     }
+
+    await AccessControlService.assertAccess(
+      AccessControlService.requireUser(req),
+      itemType as 'movie' | 'series' | 'season',
+      id,
+    );
 
     return ApiResponse.success(
       await findMediaBackground(

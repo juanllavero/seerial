@@ -2,5 +2,6 @@ export interface UpdateWatchStateDTO {
   videoId: string;
   timeWatched: number;
   watched: boolean;
-  userId: string;
+  /** @deprecated Ignored: the user always comes from the authentication token. */
+  userId?: string;
 }

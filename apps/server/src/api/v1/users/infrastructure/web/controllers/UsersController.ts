@@ -27,6 +27,14 @@ const mapUserToDTO = (user: User): UserDTO => ({
   maxSessions: user.maxSessions,
 });
 
+const mapUserWithAccessToDTO = (
+  user: User & { libraryIds: string[]; playlistIds: string[] },
+): UserDTO => ({
+  ...mapUserToDTO(user),
+  libraryIds: user.libraryIds,
+  playlistIds: user.playlistIds,
+});
+
 @Route('users')
 @Tags('Users')
 export class UsersController extends Controller {
@@ -74,6 +82,16 @@ export class UsersController extends Controller {
   public async delete(@Path() id: string): Promise<ApiResponse<null>> {
     await useCases.deleteUser().execute(id);
     return ApiResponse.success(null, messages.success.delete);
+  }
+
+  /**
+   * Get all users with the libraries/playlists each one can access (management)
+   */
+  @Get()
+  @Security('managementAuth')
+  public async findAllWithAccess(): Promise<ApiResponse<UserDTO[]>> {
+    const result = await useCases.getAllUsers().executeWithAccess();
+    return ApiResponse.success(result.map(mapUserWithAccessToDTO), messages.success.fetch);
   }
 
   /**

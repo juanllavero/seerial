@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: <Test file> */
 
 import 'reflect-metadata';
+import { UserModel } from '@/api/v1/users/infrastructure/persistence/models/UserModel';
 import { WatchListRepositoryImpl } from '@/api/v1/watch-lists/infrastructure/persistence/repositories/WatchListRepositoryImpl';
 import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../helpers/test-db';
 
@@ -25,6 +26,8 @@ afterAll(async () => {
 beforeEach(async () => {
   const ds = await getTestDataSource();
   await clearAllTables(ds);
+  // WatchList.userId is a real foreign key
+  await UserModel.create({ id: 'user-1', username: 'user-1' }).save();
 });
 
 describe('WatchListRepositoryImpl', () => {

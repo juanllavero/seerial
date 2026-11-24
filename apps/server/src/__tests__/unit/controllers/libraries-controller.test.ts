@@ -2,6 +2,8 @@ import type { Request } from 'express';
 import { LibrariesController } from '@/api/v1/libraries/infrastructure/web/controllers/LibrariesController';
 import { messages } from '@/config/messages';
 
+const adminReq = { user: { id: 'user-1', type: 'admin' } } as unknown as Request;
+
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     getLibraries: jest.fn(),
@@ -34,7 +36,7 @@ describe('LibrariesController', () => {
     const libraries = [{ id: 'lib-1' }];
     container.useCases.getLibraries.mockReturnValue(uc(libraries));
 
-    const response = await new LibrariesController().getAll();
+    const response = await new LibrariesController().getAll(adminReq);
 
     expect(response.success).toBe(true);
     expect(response.data).toEqual(libraries);
@@ -44,7 +46,7 @@ describe('LibrariesController', () => {
     const library = { id: 'lib-1', name: 'Movies' };
     container.useCases.getLibrary.mockReturnValue(uc(library));
 
-    const response = await new LibrariesController().getById('lib-1');
+    const response = await new LibrariesController().getById('lib-1', adminReq);
 
     expect(response.data).toEqual(library);
   });
@@ -52,7 +54,7 @@ describe('LibrariesController', () => {
   it('throws not found when library does not exist in getById', async () => {
     container.useCases.getLibrary.mockReturnValue(uc(null));
 
-    await expect(new LibrariesController().getById('missing')).rejects.toMatchObject({
+    await expect(new LibrariesController().getById('missing', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -62,7 +64,7 @@ describe('LibrariesController', () => {
     authUtils.getUserId.mockReturnValue('user-1');
     container.useCases.getLibraryContent.mockReturnValue(uc(content));
 
-    const response = await new LibrariesController().getContent('lib-1', asRequest({}));
+    const response = await new LibrariesController().getContent('lib-1', asRequest({ user: adminReq.user } as never));
 
     expect(response.data).toEqual(content);
     expect(authUtils.getUserId).toHaveBeenCalled();
@@ -73,7 +75,7 @@ describe('LibrariesController', () => {
     container.useCases.getLibraryContent.mockReturnValue(uc(null));
 
     await expect(
-      new LibrariesController().getContent('missing', asRequest({})),
+      new LibrariesController().getContent('missing', asRequest({ user: adminReq.user } as never)),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 

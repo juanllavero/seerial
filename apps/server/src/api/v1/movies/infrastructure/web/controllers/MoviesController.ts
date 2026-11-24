@@ -19,6 +19,7 @@ import {
   externalSearchService,
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { MediaService } from '@/api/v1/shared/infrastructure/services/MediaService';
 import { NotFoundException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
@@ -93,6 +94,7 @@ export class MoviesController extends Controller {
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<null>> {
     const userId = (req as AuthenticatedRequest).user?.id as string;
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'movie', id);
     const { watched } = body;
 
     const movie = await useCases.getMoviebyId().execute(id);
@@ -102,9 +104,9 @@ export class MoviesController extends Controller {
     }
 
     if (watched) {
-      await useCases.addMovieToWatchList().execute(id, userId);
+      await useCases.addMovieToWatchList().execute(userId, id);
     } else {
-      await useCases.removeMovieFromWatchList().execute(id, userId);
+      await useCases.removeMovieFromWatchList().execute(userId, id);
     }
     await useCases.updateMovie().execute(movie.id, movie);
 
@@ -112,8 +114,8 @@ export class MoviesController extends Controller {
     for (const video of movie.videos) {
       if (
         watched === false &&
-        video.watchLists.filter((wl) => wl.id === userId).length > 0 &&
-        (video.watchLists.filter((wl) => wl.id === userId)[0]?.timeWatched ?? 0) > 0
+        video.watchLists.filter((wl) => wl.userId === userId).length > 0 &&
+        (video.watchLists.filter((wl) => wl.userId === userId)[0]?.timeWatched ?? 0) > 0
       ) {
         await useCases.addVideoToContinueWatching().execute(video.id, userId);
       } else if (watched === true) {
@@ -152,7 +154,11 @@ export class MoviesController extends Controller {
    */
   @Get('{id}')
   @Security('cookieAuth')
-  public async get(@Path() id: string): Promise<ApiResponse<Movie>> {
+  public async get(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Movie>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'movie', id);
     const movie = await useCases.getMoviebyId().execute(id);
 
     if (!movie) {
@@ -172,12 +178,13 @@ export class MoviesController extends Controller {
    * Get remaining videos count for a movie
    */
   @Get('{id}/remaining-videos')
-  @Security('adminAuth')
+  @Security('cookieAuth')
   public async getRemainingVideos(
     @Path() id: string,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<number>> {
     const userId = (req as AuthenticatedRequest).user?.id as string;
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'movie', id);
     const count = await MediaService.countRemainingVideos(id, userId);
 
     return ApiResponse.success(count, messages.success.fetch);

@@ -22,6 +22,10 @@ export class PlayListItemModel extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   songId!: string;
 
+  /** Manual position inside the playlist (only meaningful when the playlist has a custom order). */
+  @Column({ type: 'integer', nullable: false, default: 0 })
+  position!: number;
+
   @ManyToOne(() => PlayListModel, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'playlist_id' })
   playList!: PlayListModel;

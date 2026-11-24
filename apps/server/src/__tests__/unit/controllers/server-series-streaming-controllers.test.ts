@@ -42,7 +42,8 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     join: jest.fn(),
     createJSONFile: jest.fn(),
     readFileSync: jest.fn(),
-    writeFile: jest.fn(),
+    existsSync: jest.fn(),
+    writeFileSync: jest.fn(),
   },
   tmdbApiClient: {
     THEMOVIEDB_API_TOKEN: '',
@@ -71,6 +72,7 @@ jest.mock('jsonwebtoken', () => ({
 const container = jest.requireMock('@/api/v1/shared/infrastructure/adapters/di/container');
 
 const asRequest = (input: Partial<Request>) => input as Request;
+const adminReq = asRequest({ user: { id: 'user-1', type: 'admin' } } as never);
 
 const useCase = (result?: unknown) => ({
   execute: jest.fn().mockResolvedValue(result),
@@ -87,10 +89,10 @@ describe('Servers, Series and Video Streaming controllers', () => {
   });
 
   describe('SeriesController', () => {
-    it('throws when user id is missing in both request and body', async () => {
+    it('throws 401 when the request has no authenticated user', async () => {
       await expect(
         new SeriesController().setWatchState('series-1', { watched: true } as never, asRequest({})),
-      ).rejects.toMatchObject({ statusCode: 400 });
+      ).rejects.toMatchObject({ statusCode: 401 });
     });
 
     it('throws when target series is not found', async () => {
@@ -99,8 +101,8 @@ describe('Servers, Series and Video Streaming controllers', () => {
       await expect(
         new SeriesController().setWatchState(
           'series-1',
-          { watched: true, userId: 'user-1' } as never,
-          asRequest({}),
+          { watched: true } as never,
+          adminReq,
         ),
       ).rejects.toMatchObject({ statusCode: 404 });
     });
@@ -161,14 +163,14 @@ describe('Servers, Series and Video Streaming controllers', () => {
       const response = await new SeriesController().setWatchState(
         'series-1',
         { watched: true } as never,
-        asRequest({ user: { id: 'user-1' } } as never),
+        adminReq,
       );
 
       expect(response.success).toBe(true);
-      expect(addVideoToWatchListExecute).toHaveBeenCalledWith('video-1', 'user-1');
+      expect(addVideoToWatchListExecute).toHaveBeenCalledWith('user-1', 'video-1');
       expect(removeContinueExecute).toHaveBeenCalledWith('video-1', 'user-1');
-      expect(addSeasonExecute).toHaveBeenCalledWith('season-1', 'user-1');
-      expect(addSeriesExecute).toHaveBeenCalledWith('series-1', 'user-1');
+      expect(addSeasonExecute).toHaveBeenCalledWith('user-1', 'season-1');
+      expect(addSeriesExecute).toHaveBeenCalledWith('user-1', 'series-1');
       expect(updateSeriesExecute).toHaveBeenCalledWith(
         'series-1',
         expect.objectContaining({ id: 'series-1' }),
@@ -196,12 +198,12 @@ describe('Servers, Series and Video Streaming controllers', () => {
 
       const response = await new SeriesController().setWatchState(
         'series-1',
-        { watched: false, userId: 'user-1' } as never,
-        asRequest({}),
+        { watched: false } as never,
+        adminReq,
       );
 
       expect(response.message).toBe(messages.success.update);
-      expect(removeSeriesExecute).toHaveBeenCalledWith('series-1', 'user-1');
+      expect(removeSeriesExecute).toHaveBeenCalledWith('user-1', 'series-1');
       expect(container.useCases.removeSeasonFromWatchList).not.toHaveBeenCalled();
     });
 
@@ -210,7 +212,7 @@ describe('Servers, Series and Video Streaming controllers', () => {
 
       const response = await new SeriesController().getRemainingEpisodes(
         'series-1',
-        asRequest({ user: { id: 'user-1' } } as never),
+        adminReq,
       );
 
       expect(MediaService.countRemainingEpisodes).toHaveBeenCalledWith('series-1', 'user-1');
@@ -247,18 +249,33 @@ describe('Servers, Series and Video Streaming controllers', () => {
 
     it('reads a single config key and returns null when key is missing', async () => {
       container.fileSystemService.getExternalPath.mockReturnValue('/tmp/serverConfig.json');
+      container.fileSystemService.existsSync.mockReturnValue(false);
       container.fileSystemService.readFileSync.mockReturnValue(JSON.stringify({ autoScan: true }));
 
       const response = await new ServersController().getServerConfigKey('unknownKey');
 
+      // The file is only created when it does not exist yet
       expect(container.fileSystemService.createJSONFile).toHaveBeenCalled();
       expect(response.data).toEqual({ key: 'unknownKey', value: null });
     });
 
+    it('does not overwrite an existing config file when reading it', async () => {
+      container.fileSystemService.createJSONFile.mockClear();
+      container.fileSystemService.getExternalPath.mockReturnValue('/tmp/serverConfig.json');
+      container.fileSystemService.existsSync.mockReturnValue(true);
+      container.fileSystemService.readFileSync.mockReturnValue(JSON.stringify({ autoScan: true }));
+
+      const response = await new ServersController().getServerConfig();
+
+      expect(container.fileSystemService.createJSONFile).not.toHaveBeenCalled();
+      expect(response.data).toMatchObject({ autoScan: true, transcodeBuffer: 60 });
+    });
+
     it('merges and persists updated server config values', async () => {
       container.fileSystemService.getExternalPath.mockReturnValue('/tmp/serverConfig.json');
+      container.fileSystemService.existsSync.mockReturnValue(true);
       container.fileSystemService.readFileSync.mockReturnValue(
-        JSON.stringify({ autoScan: false, transcodeBuffer: 60 }),
+        JSON.stringify({ autoScan: false, transcodeBuffer: 60, preferAudioLan: 'en' }),
       );
 
       const response = await new ServersController().updateServerConfig({
@@ -266,11 +283,14 @@ describe('Servers, Series and Video Streaming controllers', () => {
         transcodeBuffer: 120,
       } as never);
 
-      expect(container.fileSystemService.writeFile).toHaveBeenCalledWith(
-        '/tmp/serverConfig.json',
-        JSON.stringify({ autoScan: true, transcodeBuffer: 120 }, null, 2),
-      );
-      expect(response.data).toEqual({ autoScan: true, transcodeBuffer: 120 });
+      const [file, written] = container.fileSystemService.writeFileSync.mock.calls.at(-1);
+      expect(file).toBe('/tmp/serverConfig.json');
+      expect(JSON.parse(written)).toMatchObject({
+        autoScan: true,
+        transcodeBuffer: 120,
+        preferAudioLan: 'en',
+      });
+      expect(response.data).toMatchObject({ autoScan: true, transcodeBuffer: 120 });
     });
   });
 
@@ -280,7 +300,7 @@ describe('Servers, Series and Video Streaming controllers', () => {
 
       const response = await new VideoStreamingController().getStreamUrl(
         { filePath: '/media/movie.mkv' } as never,
-        asRequest({ user: { id: 'user-1' } } as never),
+        adminReq,
       );
 
       expect(jwt.sign).toHaveBeenCalledWith(

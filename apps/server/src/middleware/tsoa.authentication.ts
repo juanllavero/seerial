@@ -2,6 +2,7 @@ import type { Request } from 'express';
 import jwt from 'jsonwebtoken';
 import {
   ForbiddenException,
+  HttpException,
   NotFoundException,
   UnauthorizedException,
 } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
@@ -10,6 +11,7 @@ import { UserModel } from '@/api/v1/users/infrastructure/persistence/models/User
 import { messages } from '@/config/messages';
 import { UserType } from '@/utils/constants';
 import { getJwtSecret } from '@/utils/jwt-secret';
+import { HTTPCodes } from '@/api/v1/shared/domain/types/HTTPCodes';
 import logger from '../utils/logger';
 
 /**
@@ -189,13 +191,24 @@ async function authenticateAdmin(request: Request): Promise<UserDTO> {
     const decoded = jwt.verify(token, getJwtSecret()) as {
       userId: string;
       type: string;
+      tokenVersion?: number;
     };
     const user = await UserModel.findOne({ where: { id: decoded.userId } });
-    if (!user || user.type !== UserType.ADMIN) {
+    if (!user) {
+      throw new UnauthorizedException(messages.errors.token.invalid);
+    }
+
+    // Reject tokens issued before a password change or forced logout
+    if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion) {
+      throw new UnauthorizedException(messages.errors.token.invalid);
+    }
+
+    if (user.type !== UserType.ADMIN) {
       throw new ForbiddenException(messages.errors.token.noAccess);
     }
     return user;
   } catch (err) {
+    if (err instanceof HttpException && err.statusCode === HTTPCodes.FORBIDDEN) throw err; // 403 must not look like an expired session (401)
     logger.error(err, '[Authentication] Error');
     throw new UnauthorizedException(messages.errors.token.invalid);
   }
@@ -239,6 +252,7 @@ async function authenticateManagement(request: Request): Promise<UserDTO | null>
 
     throw new ForbiddenException(messages.errors.token.noAccess);
   } catch (err) {
+    if (err instanceof HttpException && err.statusCode === HTTPCodes.FORBIDDEN) throw err; // 403 must not look like an expired session (401)
     logger.error(err, '[Authentication] Error');
     throw new UnauthorizedException(messages.errors.token.invalid);
   }

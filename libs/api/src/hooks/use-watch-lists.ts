@@ -5,7 +5,6 @@ export interface UpdateWatchStateParams {
     videoId: string
     timeWatched: number
     watched: boolean
-    userId: string
 }
 
 export const useUpdateVideoWatchState = <TResponse = unknown>(

@@ -26,6 +26,7 @@ import {
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { findLyricsForSong } from '@/api/v1/shared/infrastructure/services/MediaDetailsService';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
 import { verifyAudioStreamToken } from '@/middleware/audio.middleware';
@@ -65,16 +66,26 @@ export class SongsController extends Controller {
       }
 
       // Prefer known library media paths for any client.
-      const getSongByPathFactory = (useCases as { getSongByPath?: () => { execute: (filePath: string) => Promise<{ fileSrc?: string } | null> } }).getSongByPath;
+      const getSongByPathFactory = (useCases as { getSongByPath?: () => { execute: (filePath: string) => Promise<{ id?: string; fileSrc?: string } | null> } }).getSongByPath;
       if (typeof getSongByPathFactory === 'function') {
         const knownSong = await getSongByPathFactory().execute(normalizedPath);
         if (knownSong?.fileSrc) {
+          if (knownSong.id && req?.user) {
+            await AccessControlService.assertAccess(req.user, 'song', knownSong.id);
+          }
           return knownSong.fileSrc;
         }
 
         // Dolby Atmos versions and karaoke stems are not songs, but belong to one
-        const getSongByAnyFilePath = (useCases as { getSongByAnyFilePath?: () => { execute: (filePath: string) => Promise<unknown> } }).getSongByAnyFilePath;
-        if (typeof getSongByAnyFilePath === 'function' && (await getSongByAnyFilePath().execute(normalizedPath))) {
+        const getSongByAnyFilePath = (useCases as { getSongByAnyFilePath?: () => { execute: (filePath: string) => Promise<{ id?: string } | null> } }).getSongByAnyFilePath;
+        const companionOwner =
+          typeof getSongByAnyFilePath === 'function'
+            ? await getSongByAnyFilePath().execute(normalizedPath)
+            : null;
+        if (companionOwner) {
+          if (companionOwner.id && req?.user) {
+            await AccessControlService.assertAccess(req.user, 'song', companionOwner.id);
+          }
           return normalizedPath;
         }
       } else {
@@ -169,8 +180,12 @@ export class SongsController extends Controller {
    * Get song lyrics
    */
   @Get('{id}/lyrics')
-  @Security('adminAuth')
-  public async getSongsLyrics(@Path() id: string): Promise<ApiResponse<LyricsLine[]>> {
+  @Security('cookieAuth')
+  public async getSongsLyrics(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<LyricsLine[]>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'song', id);
     const result = await findLyricsForSong(id);
     return ApiResponse.success(result, messages.success.fetch);
   }

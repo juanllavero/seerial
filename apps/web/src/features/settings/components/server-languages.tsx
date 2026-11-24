@@ -44,17 +44,17 @@ function ServerLanguages() {
   const [autoSelectTracks, setAutoSelectTracks] = useState<boolean>(
     (serverSettings['autoSelectTracks'] as boolean) ?? true,
   );
+  // The state keeps option keys (language codes / mode keys), which is what the selectors report
+  // when changed and what the server stores. Labels are only used to display the selection.
   const [preferAudioLan, setPreferAudioLan] = useState<string>(
-    ISO6391.getNativeName((serverSettings['preferAudioLan'] as string).split('-')[0]) ||
-      currentLanguage,
+    ((serverSettings['preferAudioLan'] as string) ?? '').split('-')[0] || currentLanguage,
   );
   const [subsMode, setSubsMode] = useState<string>(
-    subtitleModeOptions.find((option) => option.key === serverSettings['subsMode'])?.value ||
-      subtitleModeOptions[0].value,
+    subtitleModeOptions.find((option) => option.key === serverSettings['subsMode'])?.key ??
+      subtitleModeOptions[0].key,
   );
   const [preferSubLan, setPreferSubLan] = useState<string>(
-    ISO6391.getNativeName((serverSettings['preferSubsLan'] as string).split('-')[0]) ||
-      currentLanguage,
+    ((serverSettings['preferSubsLan'] as string) ?? '').split('-')[0] || currentLanguage,
   );
 
   const languageCodes = ISO6391.getAllCodes();
@@ -66,16 +66,16 @@ function ServerLanguages() {
 
   const handleSave = () => {
     setServerSetting('autoSelectTracks', autoSelectTracks);
-    setServerSetting('preferAudioLan', ISO6391.getCode(preferAudioLan));
+    setServerSetting('preferAudioLan', preferAudioLan);
     setServerSetting('subsMode', subsMode);
-    setServerSetting('preferSubsLan', ISO6391.getCode(preferSubLan));
+    setServerSetting('preferSubsLan', preferSubLan);
 
     setServerSettings({
       ...serverSettings,
       autoSelectTracks: autoSelectTracks,
-      preferAudioLan: ISO6391.getCode(preferAudioLan),
+      preferAudioLan: preferAudioLan,
       subsMode: subsMode,
-      preferSubsLan: ISO6391.getCode(preferSubLan),
+      preferSubsLan: preferSubLan,
     });
 
     setIsDirty(false);
@@ -120,7 +120,7 @@ function ServerLanguages() {
           <LabeledInputWrapper direction="row" label={t('preferAudio')}>
             <SelectableWrapper
               options={languagesOptions}
-              defaultValue={preferAudioLan}
+              defaultValue={ISO6391.getNativeName(preferAudioLan)}
               onValueChange={handlePreferAudioLanChange}
             />
           </LabeledInputWrapper>
@@ -128,7 +128,7 @@ function ServerLanguages() {
           <LabeledInputWrapper direction="row" label={t('subsMode')}>
             <SelectableWrapper
               options={subtitleModeOptions}
-              defaultValue={subsMode}
+              defaultValue={subtitleModeOptions.find((option) => option.key === subsMode)?.value}
               onValueChange={handleSubsModeChange}
             />
           </LabeledInputWrapper>
@@ -136,7 +136,7 @@ function ServerLanguages() {
           <LabeledInputWrapper direction="row" label={t('preferSubs')}>
             <SelectableWrapper
               options={languagesOptions}
-              defaultValue={preferSubLan}
+              defaultValue={ISO6391.getNativeName(preferSubLan)}
               onValueChange={handlePreferSubLanChange}
             />
           </LabeledInputWrapper>

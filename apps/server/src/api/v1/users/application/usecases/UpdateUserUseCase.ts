@@ -4,7 +4,7 @@ import type { UsersRepositoryPort } from '../ports/UsersRepositoryPort';
 export class UpdateUserUseCase {
   constructor(private usersRepo: UsersRepositoryPort) {}
 
-  async execute(id: string, data: Partial<User>): Promise<User> {
+  async execute(id: string, data: Partial<User> & { libraryIds?: string[]; playlistIds?: string[] }): Promise<User> {
     return this.usersRepo.update(id, data);
   }
 }

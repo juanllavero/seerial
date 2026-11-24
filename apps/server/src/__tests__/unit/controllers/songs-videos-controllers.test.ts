@@ -3,6 +3,8 @@ import { SongsController } from '@/api/v1/songs/infrastructure/web/controllers/S
 import { VideosController } from '@/api/v1/videos/infrastructure/web/controllers/VideosController';
 import { messages } from '@/config/messages';
 
+const adminReq = { user: { id: 'user-1', type: 'admin' } } as unknown as Request;
+
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     updateSong: jest.fn(),
@@ -112,7 +114,7 @@ describe('SongsController', () => {
     const lyrics = [{ content: '[00:00.00] Hello', language: 'en' }];
     (findLyricsForSong as jest.Mock).mockResolvedValue(lyrics);
 
-    const response = await new SongsController().getSongsLyrics('song-1');
+    const response = await new SongsController().getSongsLyrics('song-1', adminReq);
 
     expect(response.data).toEqual(lyrics);
     expect(findLyricsForSong).toHaveBeenCalledWith('song-1');
@@ -238,7 +240,7 @@ describe('VideosController', () => {
     const video = { id: 'vid-1', title: 'Pilot' };
     container.useCases.getVideoById.mockReturnValue(uc(video));
 
-    const response = await new VideosController().get('vid-1');
+    const response = await new VideosController().get('vid-1', adminReq);
 
     expect(response.data).toEqual(video);
   });
@@ -246,7 +248,7 @@ describe('VideosController', () => {
   it('throws not found when video does not exist in get', async () => {
     container.useCases.getVideoById.mockReturnValue(uc(null));
 
-    await expect(new VideosController().get('missing')).rejects.toMatchObject({
+    await expect(new VideosController().get('missing', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -255,7 +257,7 @@ describe('VideosController', () => {
     const video = { id: 'vid-1' };
     container.useCases.getVideoByEpisodeId.mockReturnValue(uc(video));
 
-    const response = await new VideosController().getByEpisodeId('ep-1');
+    const response = await new VideosController().getByEpisodeId('ep-1', adminReq);
 
     expect(response.data).toEqual(video);
   });
@@ -263,7 +265,7 @@ describe('VideosController', () => {
   it('throws not found when video by episode id does not exist', async () => {
     container.useCases.getVideoByEpisodeId.mockReturnValue(uc(null));
 
-    await expect(new VideosController().getByEpisodeId('ep-missing')).rejects.toMatchObject({
+    await expect(new VideosController().getByEpisodeId('ep-missing', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -272,7 +274,7 @@ describe('VideosController', () => {
     const info = { videoId: 'vid-1', duration: 3600 };
     container.useCases.getVideoPlaybackInfo.mockReturnValue(uc(info));
 
-    const response = await new VideosController().getPlaybackInfo('vid-1');
+    const response = await new VideosController().getPlaybackInfo('vid-1', adminReq);
 
     expect(response.data).toEqual(info);
   });
@@ -280,7 +282,7 @@ describe('VideosController', () => {
   it('throws not found when playback info does not exist', async () => {
     container.useCases.getVideoPlaybackInfo.mockReturnValue(uc(null));
 
-    await expect(new VideosController().getPlaybackInfo('missing')).rejects.toMatchObject({
+    await expect(new VideosController().getPlaybackInfo('missing', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -314,10 +316,10 @@ describe('VideosController', () => {
     expect(response.data).toBeNull();
   });
 
-  it('throws 400 when userId is missing in setWatchState', async () => {
+  it('throws 401 when the request has no authenticated user in setWatchState', async () => {
     await expect(
       new VideosController().setWatchState('vid-1', { watched: true } as never, asRequest({})),
-    ).rejects.toMatchObject({ statusCode: 400 });
+    ).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it('throws not found when video does not exist in setWatchState', async () => {
@@ -327,7 +329,7 @@ describe('VideosController', () => {
       new VideosController().setWatchState(
         'missing',
         { watched: true } as never,
-        asRequest({ user: { id: 'user-1' } } as never),
+        asRequest({ user: { id: 'user-1', type: 'admin' } } as never),
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
@@ -341,12 +343,12 @@ describe('VideosController', () => {
     await new VideosController().setWatchState(
       'vid-1',
       { watched: true } as never,
-      asRequest({ user: { id: 'user-1' } } as never),
+      asRequest({ user: { id: 'user-1', type: 'admin' } } as never),
     );
 
     expect(container.useCases.addVideoToWatchList().execute).toHaveBeenCalledWith(
-      'vid-1',
       'user-1',
+      'vid-1',
     );
   });
 
@@ -358,13 +360,13 @@ describe('VideosController', () => {
 
     await new VideosController().setWatchState(
       'vid-1',
-      { watched: false, userId: 'user-2' } as never,
-      asRequest({}),
+      { watched: false } as never,
+      asRequest({ user: { id: 'user-2', type: 'admin' } } as never),
     );
 
     expect(container.useCases.removeVideoFromWatchList().execute).toHaveBeenCalledWith(
-      'vid-1',
       'user-2',
+      'vid-1',
     );
   });
 });

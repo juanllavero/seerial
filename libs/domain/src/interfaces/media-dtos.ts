@@ -46,7 +46,8 @@ export interface UpdateSeriesDTO {
 
 export interface SetSeriesWatchStateDTO {
     watched: boolean;
-    userId: string;
+    /** @deprecated Ignored: the user always comes from the authentication token. */
+    userId?: string;
 }
 
 export interface UpdateSeasonDTO {
@@ -65,7 +66,8 @@ export interface UpdateSeasonDTO {
 
 export interface SetSeasonWatchStateDTO {
     watched: boolean;
-    userId: string;
+    /** @deprecated Ignored: the user always comes from the authentication token. */
+    userId?: string;
 }
 
 export interface UpdateEpisodeDTO {

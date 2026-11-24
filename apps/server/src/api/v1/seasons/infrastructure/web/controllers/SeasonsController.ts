@@ -13,6 +13,7 @@ import {
   Security,
   Tags,
 } from 'tsoa';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import {
   BadRequestException,
@@ -20,6 +21,7 @@ import {
 } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
+import { getUserId } from '@/utils/auth';
 import type { IncludeType } from '@/types/common';
 import type { SetSeasonWatchStateDTO, UpdateSeasonDTO } from '@seerial/domain';
 import type { Season } from '../../../domain/Season';
@@ -36,8 +38,10 @@ export class SeasonsController extends Controller {
   @Security('cookieAuth')
   public async get(
     @Path() id: string,
+    @Request() req: ExpressRequest,
     @Query() include?: IncludeType,
   ): Promise<ApiResponse<Season>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'season', id);
     const result = await useCases.getSeasonById().execute(id, include);
 
     if (!result) {
@@ -80,14 +84,11 @@ export class SeasonsController extends Controller {
     @Body() body: SetSeasonWatchStateDTO,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<null>> {
-    const { watched, userId: bodyUserId } = body;
-    const userId = (req as AuthenticatedRequest).user?.id ?? bodyUserId;
+    const { watched } = body;
+    const userId = getUserId(req);
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'season', id);
 
-    if (!userId) {
-      throw new BadRequestException(messages.errors.validation.notEnoughParams);
-    }
-
-    const season = await useCases.getSeasonById().execute(id);
+    const season = await useCases.getSeasonById().execute(id, 'few');
 
     if (!season) {
       throw new NotFoundException(messages.errors.notFound.season);
@@ -96,6 +97,11 @@ export class SeasonsController extends Controller {
     // Get first or last episode
     const episodeIndex = watched === true ? season.episodes.length - 1 : 0;
     const episode = season.episodes.sort((a, b) => a.episodeNumber - b.episodeNumber)[episodeIndex];
+
+    // A season without episodes has nothing to mark
+    if (!episode) {
+      return ApiResponse.success(null, messages.success.update);
+    }
 
     // Set episode watched state
     await useCases.setEpisodeWatchState().execute(episode.id, userId, watched);

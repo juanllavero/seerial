@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Patch, Path, Route, Security, Tags } from 'tsoa';
+import type { Request as ExpressRequest } from 'express';
+import { Body, Controller, Delete, Get, Patch, Path, Request, Route, Security, Tags } from 'tsoa';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
@@ -13,7 +15,11 @@ export class AlbumsController extends Controller {
    */
   @Get('{id}')
   @Security('cookieAuth')
-  public async get(@Path() id: string): Promise<ApiResponse<Album | null>> {
+  public async get(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Album | null>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'album', id);
     const result = await useCases.getAlbumById().execute(id);
 
     return ApiResponse.success(result, messages.success.fetch);

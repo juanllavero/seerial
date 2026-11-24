@@ -3,6 +3,8 @@ import { MoviesController } from '@/api/v1/movies/infrastructure/web/controllers
 import { MediaService } from '@/api/v1/shared/infrastructure/services/MediaService';
 import { messages } from '@/config/messages';
 
+const adminReq = { user: { id: 'user-1', type: 'admin' } } as unknown as Request;
+
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {
     refreshMovieMetadata: jest.fn(),
@@ -79,14 +81,14 @@ describe('MoviesController', () => {
 
     const controller = new MoviesController();
 
-    await expect(controller.get('movie-404')).rejects.toMatchObject({
+    await expect(controller.get('movie-404', adminReq)).rejects.toMatchObject({
       statusCode: 404,
     });
     await expect(
       controller.setWatchState(
         'movie-404',
         { watched: true } as never,
-        asRequest({ user: { id: 'user-1' } } as never),
+        asRequest({ user: { id: 'user-1', type: 'admin' } } as never),
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
@@ -95,7 +97,7 @@ describe('MoviesController', () => {
     const movie = {
       id: 'movie-1',
       videos: [
-        { id: 'video-1', watchLists: [{ id: 'user-1', timeWatched: 10 }] },
+        { id: 'video-1', watchLists: [{ userId: 'user-1', timeWatched: 10 }] },
         { id: 'video-2', watchLists: [] },
       ],
     };
@@ -116,10 +118,10 @@ describe('MoviesController', () => {
     const response = await new MoviesController().setWatchState(
       'movie-1',
       { watched: true } as never,
-      asRequest({ user: { id: 'user-1' } } as never),
+      asRequest({ user: { id: 'user-1', type: 'admin' } } as never),
     );
 
-    expect(addMovieExecute).toHaveBeenCalledWith('movie-1', 'user-1');
+    expect(addMovieExecute).toHaveBeenCalledWith('user-1', 'movie-1');
     expect(removeContinueExecute).toHaveBeenCalledTimes(2);
     expect(removeContinueExecute).toHaveBeenCalledWith('video-1', 'user-1');
     expect(removeContinueExecute).toHaveBeenCalledWith('video-2', 'user-1');
@@ -131,9 +133,9 @@ describe('MoviesController', () => {
     const movie = {
       id: 'movie-1',
       videos: [
-        { id: 'video-1', watchLists: [{ id: 'user-1', timeWatched: 0 }] },
-        { id: 'video-2', watchLists: [{ id: 'user-1', timeWatched: 25 }] },
-        { id: 'video-3', watchLists: [{ id: 'other-user', timeWatched: 100 }] },
+        { id: 'video-1', watchLists: [{ userId: 'user-1', timeWatched: 0 }] },
+        { id: 'video-2', watchLists: [{ userId: 'user-1', timeWatched: 25 }] },
+        { id: 'video-3', watchLists: [{ userId: 'other-user', timeWatched: 100 }] },
       ],
     };
 
@@ -152,10 +154,10 @@ describe('MoviesController', () => {
     const response = await new MoviesController().setWatchState(
       'movie-1',
       { watched: false } as never,
-      asRequest({ user: { id: 'user-1' } } as never),
+      asRequest({ user: { id: 'user-1', type: 'admin' } } as never),
     );
 
-    expect(removeMovieExecute).toHaveBeenCalledWith('movie-1', 'user-1');
+    expect(removeMovieExecute).toHaveBeenCalledWith('user-1', 'movie-1');
     expect(addContinueExecute).toHaveBeenCalledTimes(1);
     expect(addContinueExecute).toHaveBeenCalledWith('video-2', 'user-1');
     expect(response.message).toBe(messages.success.update);
@@ -175,12 +177,12 @@ describe('MoviesController', () => {
 
     const controller = new MoviesController();
 
-    const getResponse = await controller.get('movie-1');
+    const getResponse = await controller.get('movie-1', adminReq);
     const searchResponse = await controller.searchMovies('Interstellar', '2014');
     const imdbResponse = await controller.getImdbScore('tt0816692');
     const remainingResponse = await controller.getRemainingVideos(
       'movie-1',
-      asRequest({ user: { id: 'user-1' } } as never),
+      asRequest({ user: { id: 'user-1', type: 'admin' } } as never),
     );
 
     expect(getResponse.data).toEqual(movie);

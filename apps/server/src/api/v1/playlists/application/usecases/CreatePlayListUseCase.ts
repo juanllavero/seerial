@@ -5,11 +5,12 @@ import type { PlayListRepositoryPort } from '../ports/PlayListRepositoryPort';
 export class CreatePlayListUseCase {
   constructor(private playlistRepo: PlayListRepositoryPort) {}
 
-  async execute(dto: CreatePlayListDTO): Promise<PlayList> {
+  async execute(dto: CreatePlayListDTO, userId?: string): Promise<PlayList> {
     const playList: PlayList = {
       id: '', // Will be generated in repository
       title: dto.title,
       description: dto.description,
+      userId: userId ?? null,
     };
     return this.playlistRepo.create(playList);
   }

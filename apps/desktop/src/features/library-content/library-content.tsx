@@ -1,7 +1,7 @@
 import { getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { API, apiClient, useReorderLibraryItems } from '@seerial/api';
 import { LibraryContentItemType, type LibraryItem, LibraryTypes } from '@seerial/domain';
-import { useDataStore, useGradientStore, useServerStore } from '@seerial/stores';
+import { useDataStore, useGradientStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -148,7 +148,6 @@ function LibraryContent({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setGradientImageSrc = useGradientStore((state) => state.setGradientImageSrc);
-  const currentUser = useServerStore((state) => state.currentUser);
 
   useEffect(() => {
     const src = selectedElement?.coverSrc || selectedElement?.images?.[0] || '';
@@ -231,10 +230,7 @@ function LibraryContent({
         if (item.type === 'movie') {
           await apiClient.post(API.movies.setWatchState(item.id), { watched });
         } else if (item.type === 'series') {
-          await apiClient.post(API.series.setWatchState(item.id), {
-            watched,
-            userId: currentUser?.id,
-          });
+          await apiClient.post(API.series.setWatchState(item.id), { watched });
         } else if (item.type === 'collection') {
           const res = await apiClient.get<{
             movies: LibraryItem[];
@@ -245,7 +241,7 @@ function LibraryContent({
               apiClient.post(API.movies.setWatchState(m.id), { watched }),
             ),
             ...res.data.series.map((s) =>
-              apiClient.post(API.series.setWatchState(s.id), { watched, userId: currentUser?.id }),
+              apiClient.post(API.series.setWatchState(s.id), { watched }),
             ),
           ]);
         }
@@ -254,7 +250,7 @@ function LibraryContent({
         // Silently fail
       }
     },
-    [currentUser, queryClient, libraryId],
+    [queryClient, libraryId],
   );
 
   const handleReorderMove = useCallback(

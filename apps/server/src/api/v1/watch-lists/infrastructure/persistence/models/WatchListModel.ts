@@ -15,6 +15,7 @@ import { EpisodeModel } from '@/api/v1/episodes/infrastructure/persistence/model
 import { MovieModel } from '@/api/v1/movies/infrastructure/persistence/models/MovieModel';
 import { SeasonModel } from '@/api/v1/seasons/infrastructure/persistence/models/SeasonModel';
 import { SeriesModel } from '@/api/v1/series/infrastructure/persistence/models/SeriesModel';
+import { UserModel } from '@/api/v1/users/infrastructure/persistence/models/UserModel';
 import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
 
 @Entity({ name: 'WatchList' })
@@ -26,6 +27,10 @@ export class WatchListModel extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: false })
   userId!: string;
+
+  @ManyToOne(() => UserModel, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user?: UserModel;
 
   @Column({ type: 'varchar', nullable: true })
   seriesId?: string;

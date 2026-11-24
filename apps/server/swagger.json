@@ -46,14 +46,14 @@
 						"type": "boolean"
 					},
 					"userId": {
-						"type": "string"
+						"type": "string",
+						"deprecated": true
 					}
 				},
 				"required": [
 					"videoId",
 					"timeWatched",
-					"watched",
-					"userId"
+					"watched"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -263,6 +263,9 @@
 					"filePath": {
 						"type": "string"
 					},
+					"localId": {
+						"type": "string"
+					},
 					"start": {
 						"type": "number",
 						"format": "double"
@@ -329,6 +332,16 @@
 					},
 					"localId": {
 						"type": "string"
+					},
+					"start": {
+						"type": "number",
+						"format": "double",
+						"description": "Accepted for parity with the shared client request type; direct streaming ignores it."
+					},
+					"audio": {
+						"type": "number",
+						"format": "double",
+						"description": "Accepted for parity with the shared client request type; direct streaming ignores it."
 					},
 					"expiresIn": {
 						"anyOf": [
@@ -1531,12 +1544,12 @@
 						"type": "boolean"
 					},
 					"userId": {
-						"type": "string"
+						"type": "string",
+						"deprecated": true
 					}
 				},
 				"required": [
-					"watched",
-					"userId"
+					"watched"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -1603,6 +1616,18 @@
 					"maxSessions": {
 						"type": "number",
 						"format": "double"
+					},
+					"libraryIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"playlistIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
 					}
 				},
 				"required": [
@@ -1696,6 +1721,20 @@
 					"maxSessions": {
 						"type": "number",
 						"format": "double"
+					},
+					"libraryIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "Libraries (read-only) the user can access. Ignored for admins, who access everything."
+					},
+					"playlistIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "Non folder-based playlists (read-only) the user can access."
 					}
 				},
 				"required": [
@@ -1767,6 +1806,20 @@
 					"maxSessions": {
 						"type": "number",
 						"format": "double"
+					},
+					"libraryIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "Replaces the libraries the user can access."
+					},
+					"playlistIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "Replaces the playlists the user can access."
 					}
 				},
 				"type": "object",
@@ -1887,7 +1940,8 @@
 						"type": "string"
 					},
 					"hasDolbyAtmos": {
-						"type": "boolean"
+						"type": "boolean",
+						"description": "True when the song is Dolby Atmos, either the original file or its `.atmos` companion file."
 					},
 					"trackNumber": {
 						"type": "number",
@@ -1915,6 +1969,27 @@
 					},
 					"fileSrc": {
 						"type": "string"
+					},
+					"atmosFileSrc": {
+						"type": "string",
+						"nullable": true,
+						"description": "Dolby Atmos version of a song whose original file is not Atmos (`name.atmos.ext`).\r\nNull when the original is already Atmos or there is no valid Atmos companion file."
+					},
+					"vocalsFileSrc": {
+						"type": "string",
+						"nullable": true,
+						"description": "Vocals stem (`name.vocals.ext`) used for the karaoke mix."
+					},
+					"instrumentalFileSrc": {
+						"type": "string",
+						"nullable": true,
+						"description": "Instrumental stem (`name.inst.ext`) used for the karaoke mix."
+					},
+					"fileModifiedAt": {
+						"type": "number",
+						"format": "double",
+						"nullable": true,
+						"description": "Modification time (ms) of the original file when it was last analyzed."
 					}
 				},
 				"required": [
@@ -1971,6 +2046,18 @@
 					},
 					"hasDolbyAtmos": {
 						"type": "boolean"
+					},
+					"atmosFileSrc": {
+						"type": "string",
+						"nullable": true
+					},
+					"vocalsFileSrc": {
+						"type": "string",
+						"nullable": true
+					},
+					"instrumentalFileSrc": {
+						"type": "string",
+						"nullable": true
 					},
 					"trackNumber": {
 						"type": "number",
@@ -3536,16 +3623,14 @@
 					"Music"
 				]
 			},
-			"Record_string.string_": {
-				"properties": {},
-				"additionalProperties": {
-					"type": "string"
-				},
-				"type": "object",
-				"description": "Construct a type with a set of properties K of type T"
-			},
-			"Library": {
+			"Pick_Library.Exclude_keyofLibrary.analyzedFiles-or-analyzedFolders__": {
 				"properties": {
+					"series": {
+						"items": {
+							"$ref": "#/components/schemas/Series"
+						},
+						"type": "array"
+					},
 					"id": {
 						"type": "string"
 					},
@@ -3580,20 +3665,8 @@
 					"subsMode": {
 						"type": "string"
 					},
-					"analyzedFiles": {
-						"$ref": "#/components/schemas/Record_string.string_"
-					},
-					"analyzedFolders": {
-						"$ref": "#/components/schemas/Record_string.string_"
-					},
 					"backgroundSrc": {
 						"type": "string"
-					},
-					"series": {
-						"items": {
-							"$ref": "#/components/schemas/Series"
-						},
-						"type": "array"
 					},
 					"movies": {
 						"items": {
@@ -3615,6 +3688,7 @@
 					}
 				},
 				"required": [
+					"series",
 					"id",
 					"name",
 					"language",
@@ -3622,18 +3696,23 @@
 					"order",
 					"hidden",
 					"folders",
-					"analyzedFiles",
-					"analyzedFolders",
 					"backgroundSrc",
-					"series",
 					"movies",
 					"albums",
 					"collections"
 				],
 				"type": "object",
-				"additionalProperties": false
+				"description": "From T, pick a set of properties whose keys are in the union K"
 			},
-			"ApiResponse_Library-Array_": {
+			"Omit_Library.analyzedFiles-or-analyzedFolders_": {
+				"$ref": "#/components/schemas/Pick_Library.Exclude_keyofLibrary.analyzedFiles-or-analyzedFolders__",
+				"description": "Construct a type with the properties of T except for those in type K."
+			},
+			"LibrarySummary": {
+				"$ref": "#/components/schemas/Omit_Library.analyzedFiles-or-analyzedFolders_",
+				"description": "Library as returned by the list/detail endpoints: the (potentially huge) scan bookkeeping\r\n(`analyzedFiles`, `analyzedFolders`) is not sent to clients."
+			},
+			"ApiResponse_LibrarySummary-Array_": {
 				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
 				"properties": {
 					"success": {
@@ -3644,7 +3723,7 @@
 					},
 					"data": {
 						"items": {
-							"$ref": "#/components/schemas/Library"
+							"$ref": "#/components/schemas/LibrarySummary"
 						},
 						"type": "array",
 						"nullable": true
@@ -3662,7 +3741,7 @@
 				"type": "object",
 				"additionalProperties": false
 			},
-			"ApiResponse_Library_": {
+			"ApiResponse_LibrarySummary_": {
 				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
 				"properties": {
 					"success": {
@@ -3674,7 +3753,7 @@
 					"data": {
 						"allOf": [
 							{
-								"$ref": "#/components/schemas/Library"
+								"$ref": "#/components/schemas/LibrarySummary"
 							}
 						],
 						"nullable": true
@@ -4185,6 +4264,10 @@
 					"description": {
 						"type": "string"
 					},
+					"customOrder": {
+						"type": "boolean",
+						"description": "False: songs are listed alphabetically. True: the admin reordered them manually."
+					},
 					"songs": {
 						"items": {
 							"$ref": "#/components/schemas/Song"
@@ -4298,6 +4381,22 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"ReorderPlayListSongsDTO": {
+				"properties": {
+					"orderedSongIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "Song ids in the desired order. Songs not listed keep their order after the listed ones."
+					}
+				},
+				"required": [
+					"orderedSongIds"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"ApiResponse_Season_": {
 				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
 				"properties": {
@@ -4385,12 +4484,12 @@
 						"type": "boolean"
 					},
 					"userId": {
-						"type": "string"
+						"type": "string",
+						"deprecated": true
 					}
 				},
 				"required": [
-					"watched",
-					"userId"
+					"watched"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -4588,12 +4687,12 @@
 						"type": "boolean"
 					},
 					"userId": {
-						"type": "string"
+						"type": "string",
+						"deprecated": true
 					}
 				},
 				"required": [
-					"watched",
-					"userId"
+					"watched"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -4858,6 +4957,178 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"ServerConfigResponse": {
+				"properties": {
+					"key": {
+						"type": "string"
+					},
+					"value": {}
+				},
+				"type": "object",
+				"additionalProperties": {}
+			},
+			"ApiResponse_ServerConfigResponse_": {
+				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
+				"properties": {
+					"success": {
+						"type": "boolean"
+					},
+					"message": {
+						"type": "string"
+					},
+					"data": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/ServerConfigResponse"
+							}
+						],
+						"nullable": true
+					},
+					"timestamp": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"data",
+					"timestamp"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ServerConfigDTO": {
+				"properties": {
+					"autoScan": {
+						"type": "boolean"
+					},
+					"autoScanPeriod": {
+						"type": "string"
+					},
+					"generateChapters": {
+						"type": "string"
+					},
+					"autoSelectTracks": {
+						"type": "boolean"
+					},
+					"preferAudioLan": {
+						"type": "string"
+					},
+					"preferSubsLan": {
+						"type": "string"
+					},
+					"subsMode": {
+						"type": "string"
+					},
+					"tempTranscodeFolder": {
+						"type": "string"
+					},
+					"transcodeBuffer": {
+						"type": "number",
+						"format": "double"
+					},
+					"transcodePreset": {
+						"type": "string"
+					},
+					"maxTranscodeProcesses": {
+						"type": "number",
+						"format": "double"
+					},
+					"automaticUpdates": {
+						"type": "boolean"
+					}
+				},
+				"required": [
+					"autoScan",
+					"autoScanPeriod",
+					"generateChapters",
+					"autoSelectTracks",
+					"preferAudioLan",
+					"preferSubsLan",
+					"subsMode",
+					"tempTranscodeFolder",
+					"transcodeBuffer",
+					"transcodePreset",
+					"maxTranscodeProcesses",
+					"automaticUpdates"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ApiResponse_ServerConfigDTO_": {
+				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
+				"properties": {
+					"success": {
+						"type": "boolean"
+					},
+					"message": {
+						"type": "string"
+					},
+					"data": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/ServerConfigDTO"
+							}
+						],
+						"nullable": true
+					},
+					"timestamp": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"data",
+					"timestamp"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UpdateServerConfigDTO": {
+				"properties": {
+					"autoScan": {
+						"type": "boolean"
+					},
+					"autoScanPeriod": {
+						"type": "string"
+					},
+					"generateChapters": {
+						"type": "string"
+					},
+					"autoSelectTracks": {
+						"type": "boolean"
+					},
+					"preferAudioLan": {
+						"type": "string"
+					},
+					"preferSubsLan": {
+						"type": "string"
+					},
+					"subsMode": {
+						"type": "string"
+					},
+					"tempTranscodeFolder": {
+						"type": "string"
+					},
+					"transcodeBuffer": {
+						"type": "number",
+						"format": "double"
+					},
+					"transcodePreset": {
+						"type": "string"
+					},
+					"maxTranscodeProcesses": {
+						"type": "number",
+						"format": "double"
+					},
+					"automaticUpdates": {
+						"type": "boolean"
+					}
+				},
+				"type": "object",
+				"additionalProperties": false
+			},
 			"Server": {
 				"properties": {
 					"id": {
@@ -5028,178 +5299,6 @@
 					"publicHttpsPort": {
 						"type": "number",
 						"format": "double"
-					}
-				},
-				"type": "object",
-				"additionalProperties": false
-			},
-			"ServerConfigResponse": {
-				"properties": {
-					"key": {
-						"type": "string"
-					},
-					"value": {}
-				},
-				"type": "object",
-				"additionalProperties": {}
-			},
-			"ApiResponse_ServerConfigResponse_": {
-				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
-				"properties": {
-					"success": {
-						"type": "boolean"
-					},
-					"message": {
-						"type": "string"
-					},
-					"data": {
-						"allOf": [
-							{
-								"$ref": "#/components/schemas/ServerConfigResponse"
-							}
-						],
-						"nullable": true
-					},
-					"timestamp": {
-						"type": "string"
-					}
-				},
-				"required": [
-					"success",
-					"message",
-					"data",
-					"timestamp"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
-			"ServerConfigDTO": {
-				"properties": {
-					"autoScan": {
-						"type": "boolean"
-					},
-					"autoScanPeriod": {
-						"type": "string"
-					},
-					"generateChapters": {
-						"type": "string"
-					},
-					"autoSelectTracks": {
-						"type": "boolean"
-					},
-					"preferAudioLan": {
-						"type": "string"
-					},
-					"preferSubsLan": {
-						"type": "string"
-					},
-					"subsMode": {
-						"type": "string"
-					},
-					"tempTranscodeFolder": {
-						"type": "string"
-					},
-					"transcodeBuffer": {
-						"type": "number",
-						"format": "double"
-					},
-					"transcodePreset": {
-						"type": "string"
-					},
-					"maxTranscodeProcesses": {
-						"type": "number",
-						"format": "double"
-					},
-					"automaticUpdates": {
-						"type": "boolean"
-					}
-				},
-				"required": [
-					"autoScan",
-					"autoScanPeriod",
-					"generateChapters",
-					"autoSelectTracks",
-					"preferAudioLan",
-					"preferSubsLan",
-					"subsMode",
-					"tempTranscodeFolder",
-					"transcodeBuffer",
-					"transcodePreset",
-					"maxTranscodeProcesses",
-					"automaticUpdates"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
-			"ApiResponse_ServerConfigDTO_": {
-				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
-				"properties": {
-					"success": {
-						"type": "boolean"
-					},
-					"message": {
-						"type": "string"
-					},
-					"data": {
-						"allOf": [
-							{
-								"$ref": "#/components/schemas/ServerConfigDTO"
-							}
-						],
-						"nullable": true
-					},
-					"timestamp": {
-						"type": "string"
-					}
-				},
-				"required": [
-					"success",
-					"message",
-					"data",
-					"timestamp"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
-			"UpdateServerConfigDTO": {
-				"properties": {
-					"autoScan": {
-						"type": "boolean"
-					},
-					"autoScanPeriod": {
-						"type": "string"
-					},
-					"generateChapters": {
-						"type": "string"
-					},
-					"autoSelectTracks": {
-						"type": "boolean"
-					},
-					"preferAudioLan": {
-						"type": "string"
-					},
-					"preferSubsLan": {
-						"type": "string"
-					},
-					"subsMode": {
-						"type": "string"
-					},
-					"tempTranscodeFolder": {
-						"type": "string"
-					},
-					"transcodeBuffer": {
-						"type": "number",
-						"format": "double"
-					},
-					"transcodePreset": {
-						"type": "string"
-					},
-					"maxTranscodeProcesses": {
-						"type": "number",
-						"format": "double"
-					},
-					"automaticUpdates": {
-						"type": "boolean"
 					}
 				},
 				"type": "object",
@@ -5418,6 +5517,90 @@
 				],
 				"security": [],
 				"parameters": []
+			}
+		},
+		"/videos/thumbnail": {
+			"get": {
+				"operationId": "GetVideoThumbnail",
+				"responses": {
+					"204": {
+						"description": "No content"
+					}
+				},
+				"description": "Extract video thumbnail",
+				"tags": [
+					"Videos"
+				],
+				"security": [
+					{
+						"adminAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "url",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "time",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/videos/subtitles": {
+			"get": {
+				"operationId": "GetSubsFromVideo",
+				"responses": {
+					"204": {
+						"description": "No content"
+					}
+				},
+				"description": "Extract subtitle track from video",
+				"tags": [
+					"Videos"
+				],
+				"security": [
+					{
+						"adminAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "videoPathParam",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "trackId",
+						"required": true,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					},
+					{
+						"in": "query",
+						"name": "startTime",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
 			}
 		},
 		"/videos/{id}": {
@@ -5688,90 +5871,6 @@
 				}
 			}
 		},
-		"/videos/thumbnail": {
-			"get": {
-				"operationId": "GetVideoThumbnail",
-				"responses": {
-					"204": {
-						"description": "No content"
-					}
-				},
-				"description": "Extract video thumbnail",
-				"tags": [
-					"Videos"
-				],
-				"security": [
-					{
-						"adminAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"in": "query",
-						"name": "url",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					},
-					{
-						"in": "query",
-						"name": "time",
-						"required": false,
-						"schema": {
-							"type": "string"
-						}
-					}
-				]
-			}
-		},
-		"/videos/subtitles": {
-			"get": {
-				"operationId": "GetSubsFromVideo",
-				"responses": {
-					"204": {
-						"description": "No content"
-					}
-				},
-				"description": "Extract subtitle track from video",
-				"tags": [
-					"Videos"
-				],
-				"security": [
-					{
-						"adminAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"in": "query",
-						"name": "videoPathParam",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					},
-					{
-						"in": "query",
-						"name": "trackId",
-						"required": true,
-						"schema": {
-							"format": "double",
-							"type": "number"
-						}
-					},
-					{
-						"in": "query",
-						"name": "startTime",
-						"required": false,
-						"schema": {
-							"format": "double",
-							"type": "number"
-						}
-					}
-				]
-			}
-		},
 		"/videos/{id}/chapter-thumbnails": {
 			"get": {
 				"operationId": "GetChapterThumbnails",
@@ -5843,6 +5942,31 @@
 						}
 					}
 				}
+			},
+			"get": {
+				"operationId": "FindAllWithAccess",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_UserDTO-Array_"
+								}
+							}
+						}
+					}
+				},
+				"description": "Get all users with the libraries/playlists each one can access (management)",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"managementAuth": []
+					}
+				],
+				"parameters": []
 			}
 		},
 		"/users/{id}": {
@@ -6153,7 +6277,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -6276,7 +6400,7 @@
 				],
 				"security": [
 					{
-						"cookieAuth": []
+						"adminAuth": []
 					}
 				],
 				"parameters": [
@@ -6805,7 +6929,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -6885,7 +7009,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": []
@@ -6947,7 +7071,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -6983,7 +7107,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -7948,19 +8072,19 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_Library-Array_"
+									"$ref": "#/components/schemas/ApiResponse_LibrarySummary-Array_"
 								}
 							}
 						}
 					}
 				},
-				"description": "Get all libraries",
+				"description": "Get the libraries the current user can read (all of them for admins)",
 				"tags": [
 					"Libraries"
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": []
@@ -7973,7 +8097,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_Library_"
+									"$ref": "#/components/schemas/ApiResponse_LibrarySummary_"
 								}
 							}
 						}
@@ -8010,7 +8134,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_Library_"
+									"$ref": "#/components/schemas/ApiResponse_LibrarySummary_"
 								}
 							}
 						}
@@ -8022,7 +8146,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -8044,7 +8168,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_Library_"
+									"$ref": "#/components/schemas/ApiResponse_LibrarySummary_"
 								}
 							}
 						}
@@ -8136,7 +8260,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -8168,7 +8292,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_Library_"
+									"$ref": "#/components/schemas/ApiResponse_LibrarySummary_"
 								}
 							}
 						}
@@ -8621,7 +8745,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -8651,13 +8775,13 @@
 						}
 					}
 				},
-				"description": "Get all playlists",
+				"description": "Get the playlists the current user can read.\nAdmins get all of them; other users get the playlists of the libraries they can access\nplus the playlists an admin granted them.",
 				"tags": [
 					"Playlists"
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": []
@@ -8719,7 +8843,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -8852,6 +8976,52 @@
 						"application/json": {
 							"schema": {
 								"$ref": "#/components/schemas/AddSongToPlaylistDTO"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/playlists/{id}/order": {
+			"patch": {
+				"operationId": "ReorderSongs",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_boolean_"
+								}
+							}
+						}
+					}
+				},
+				"description": "Reorder the songs of a playlist (switches it from alphabetical to manual order)",
+				"tags": [
+					"Playlists"
+				],
+				"security": [
+					{
+						"adminAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReorderPlayListSongsDTO"
 							}
 						}
 					}
@@ -9461,7 +9631,7 @@
 				],
 				"security": [
 					{
-						"adminAuth": []
+						"cookieAuth": []
 					}
 				],
 				"parameters": [
@@ -9501,52 +9671,6 @@
 					}
 				],
 				"parameters": []
-			}
-		},
-		"/servers/{id}": {
-			"patch": {
-				"operationId": "Update",
-				"responses": {
-					"200": {
-						"description": "Ok",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_Server_"
-								}
-							}
-						}
-					}
-				},
-				"description": "Update server configuration",
-				"tags": [
-					"Servers"
-				],
-				"security": [
-					{
-						"adminAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "id",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					}
-				],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"$ref": "#/components/schemas/UpdateServerDTO"
-							}
-						}
-					}
-				}
 			}
 		},
 		"/servers/config/{key}": {
@@ -9641,6 +9765,52 @@
 						"application/json": {
 							"schema": {
 								"$ref": "#/components/schemas/UpdateServerConfigDTO"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/servers/{id}": {
+			"patch": {
+				"operationId": "Update",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_Server_"
+								}
+							}
+						}
+					}
+				},
+				"description": "Update server configuration.\nDeclared after the static `config` routes: otherwise `PATCH /servers/config` would be\ncaptured by this `{id}` route.",
+				"tags": [
+					"Servers"
+				],
+				"security": [
+					{
+						"adminAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateServerDTO"
 							}
 						}
 					}

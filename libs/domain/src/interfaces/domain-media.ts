@@ -93,6 +93,12 @@ export interface Library {
   collections: Collection[];
 }
 
+/**
+ * Library as returned by the list/detail endpoints: the (potentially huge) scan bookkeeping
+ * (`analyzedFiles`, `analyzedFolders`) is not sent to clients.
+ */
+export type LibrarySummary = Omit<Library, 'analyzedFiles' | 'analyzedFolders'>;
+
 export interface Movie {
   id: string;
   libraryId: string;
@@ -146,6 +152,8 @@ export interface PlayList {
   folder?: string | null;
   title: string;
   description?: string;
+  /** False: songs are listed alphabetically. True: the admin reordered them manually. */
+  customOrder?: boolean;
   /** Songs of the playlist (local and referenced). Only present when the playlist is fetched with its songs. */
   songs?: Song[];
 }

@@ -14,6 +14,7 @@ import {
   Tags,
 } from 'tsoa';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
 import { getUserId } from '@/utils/auth';
@@ -32,9 +33,17 @@ export class CollectionsController extends Controller {
    * Get all collections (id and title only)
    */
   @Get()
-  @Security('adminAuth')
-  public async getAll(): Promise<ApiResponse<CollectionSummaryDTO[]>> {
-    const collections = await useCases.getAllCollections().execute();
+  @Security('cookieAuth')
+  public async getAll(@Request() req: ExpressRequest): Promise<ApiResponse<CollectionSummaryDTO[]>> {
+    const user = AccessControlService.requireUser(req);
+    const all = await useCases.getAllCollections().execute();
+    const visibleIds = new Set(
+      await AccessControlService.filterCollectionIds(
+        user,
+        all.map((collection) => collection.id),
+      ),
+    );
+    const collections = all.filter((collection) => visibleIds.has(collection.id));
 
     return ApiResponse.success(collections, messages.success.fetch);
   }
@@ -56,10 +65,16 @@ export class CollectionsController extends Controller {
    * Get music extras for a collection
    */
   @Get('{collectionId}/music-extras')
-  @Security('adminAuth')
+  @Security('cookieAuth')
   public async getMusicExtras(
     @Path() collectionId: string,
+    @Request() req: ExpressRequest,
   ): Promise<ApiResponse<MusicExtrasDTO[]>> {
+    await AccessControlService.assertAccess(
+      AccessControlService.requireUser(req),
+      'collection',
+      collectionId,
+    );
     const musicExtras = await useCases.getMusicExtras().execute(collectionId);
 
     return ApiResponse.success(musicExtras, messages.success.fetch);
@@ -69,15 +84,25 @@ export class CollectionsController extends Controller {
    * Get collection content items (movies, series, albums)
    */
   @Get('{collectionId}/content')
-  @Security('adminAuth')
+  @Security('cookieAuth')
   public async getCollectionContent(
     @Path() collectionId: string,
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<CollectionContentDTO>> {
     const userId = getUserId(req);
+    const user = AccessControlService.requireUser(req);
+    await AccessControlService.assertAccess(user, 'collection', collectionId);
     const content = await useCases.getCollectionContent().execute(collectionId, userId);
 
-    return ApiResponse.success(content, messages.success.fetch);
+    // A collection can mix libraries: hide the items of the ones the user cannot read
+    return ApiResponse.success(
+      {
+        movies: await AccessControlService.filterItemsByLibrary(user, 'movie', content.movies),
+        series: await AccessControlService.filterItemsByLibrary(user, 'series', content.series),
+        albums: await AccessControlService.filterItemsByLibrary(user, 'album', content.albums),
+      },
+      messages.success.fetch,
+    );
   }
 
   /**
@@ -176,7 +201,11 @@ export class CollectionsController extends Controller {
    */
   @Get('{id}')
   @Security('cookieAuth')
-  public async get(@Path() id: string): Promise<ApiResponse<Collection | null>> {
+  public async get(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<ApiResponse<Collection | null>> {
+    await AccessControlService.assertAccess(AccessControlService.requireUser(req), 'collection', id);
     const collection = await useCases.getCollectionById().execute(id);
     return ApiResponse.success(collection, messages.success.fetch);
   }

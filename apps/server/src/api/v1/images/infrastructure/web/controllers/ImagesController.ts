@@ -231,11 +231,17 @@ export class ImagesController extends Controller {
         path.includes('resources/') ? path : fileSystemService.join('resources', path),
       );
 
-    const sanitizedPath = sanitizeImagePath(
-      imagePath,
-      getSystemAllowedPaths(),
-      true, // Must exist
-    );
+    // A missing or disallowed image is a client-visible 404, not a server error
+    let sanitizedPath: string;
+    try {
+      sanitizedPath = sanitizeImagePath(
+        imagePath,
+        getSystemAllowedPaths(),
+        true, // Must exist
+      );
+    } catch {
+      throw new NotFoundException();
+    }
 
     await imageProcessingService.streamLocalImage({
       filePath: sanitizedPath,

@@ -16,6 +16,7 @@ import { ServerModel } from '@/api/v1/servers/infrastructure/persistence/models/
 import { fileSystemService } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { SongModel } from '@/api/v1/songs/infrastructure/persistence/models/SongModel';
 import { UserLibraryModel } from '@/api/v1/users/infrastructure/persistence/models/UserLibraryModel';
+import { UserPlayListModel } from '@/api/v1/users/infrastructure/persistence/models/UserPlayListModel';
 import { UserModel } from '@/api/v1/users/infrastructure/persistence/models/UserModel';
 import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/VideoModel';
 import { WatchListModel } from '@/api/v1/watch-lists/infrastructure/persistence/models/WatchListModel';
@@ -30,6 +31,25 @@ export class DatabaseManager {
     return fileSystemService.getExternalPath('resources/db/data.db');
   }
   public static dataSource: DataSource | null = null;
+
+  /**
+   * Deletes WatchList rows whose user no longer exists (no-op on fresh databases).
+   */
+  private static async removeOrphanWatchListRows(): Promise<void> {
+    const dataSource = DatabaseManager.dataSource;
+    if (!dataSource) return;
+    const runner = dataSource.createQueryRunner();
+    try {
+      const tables = (await runner.query(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('WatchList', 'User')`,
+      )) as { name: string }[] | undefined;
+      if (Array.isArray(tables) && tables.length === 2) {
+        await runner.query('DELETE FROM "WatchList" WHERE "user_id" NOT IN (SELECT "id" FROM "User")');
+      }
+    } finally {
+      await runner.release();
+    }
+  }
 
   /**
    * Initialize SQLite DB with TypeORM and better-sqlite3.
@@ -64,6 +84,7 @@ export class DatabaseManager {
           ServerModel,
           UserModel,
           UserLibraryModel,
+          UserPlayListModel,
         ],
         logging: false,
         // logger: {
@@ -91,6 +112,10 @@ export class DatabaseManager {
       // Sync models to db — always synchronise because this is a local SQLite instance.
       // In production the database lives only on the user's machine, so auto-synchronisation
       // is safe and avoids the need to ship migration files with every release.
+      // WatchList.userId became a real foreign key: drop rows of already deleted users first,
+      // otherwise the schema rebuild would fail on databases created before the constraint existed.
+      await DatabaseManager.removeOrphanWatchListRows();
+
       await DatabaseManager.dataSource.synchronize();
 
       // One-time data migration: copy collection membership from the old junction tables

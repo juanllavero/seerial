@@ -3,6 +3,7 @@ import path from 'node:path';
 import { FileSystemServiceImpl } from '../adapters/filesystem/FileSystemServiceImpl';
 import { audioExtensions, imageExtensions, videoExtensions } from '@/utils/constants';
 import logger from '@/utils/logger';
+import { BadRequestException, NotFoundException } from '../web/exceptions/HTTPExceptions';
 
 const sanitizationLogger = logger.child({ category: 'Sanitization' });
 const fileSystemService = new FileSystemServiceImpl();
@@ -110,7 +111,7 @@ export function buildCompatiblePathCandidates(filePath: string): string[] {
  */
 export function sanitizeFilePath(filePath: string, allowedBasePaths?: string[]): string {
   if (!filePath || typeof filePath !== 'string') {
-    throw new Error('Invalid file path: path must be a non-empty string');
+    throw new BadRequestException('Invalid file path: path must be a non-empty string');
   }
 
   const decodedPath = decodePathSafely(filePath);
@@ -118,13 +119,13 @@ export function sanitizeFilePath(filePath: string, allowedBasePaths?: string[]):
   // Detect dangerous patterns
   for (const pattern of dangerousPatterns) {
     if (pattern.test(decodedPath)) {
-      throw new Error('Invalid file path: contains dangerous patterns (path traversal attempt)');
+      throw new BadRequestException('Invalid file path: contains dangerous patterns (path traversal attempt)');
     }
   }
 
   const candidates = buildCompatiblePathCandidates(decodedPath);
   if (!candidates.length) {
-    throw new Error('Invalid file path: path could not be normalized');
+    throw new BadRequestException('Invalid file path: path could not be normalized');
   }
 
   const normalizedAllowedBasePaths =
@@ -151,7 +152,7 @@ export function sanitizeFilePath(filePath: string, allowedBasePaths?: string[]):
   }
 
   if (normalizedAllowedBasePaths.length > 0) {
-    throw new Error('Invalid file path: path is outside allowed directories');
+    throw new BadRequestException('Invalid file path: path is outside allowed directories');
   }
 
   // If no candidate matched the policy but there are no allowed paths constraints,
@@ -160,7 +161,7 @@ export function sanitizeFilePath(filePath: string, allowedBasePaths?: string[]):
     return candidates[0];
   }
 
-  throw new Error('Invalid file path: path could not be normalized');
+  throw new BadRequestException('Invalid file path: path could not be normalized');
 }
 
 function resolveExistingPathCandidate(filePath: string): string | null {
@@ -190,12 +191,12 @@ export function sanitizeDirectoryPath(
 
   if (shouldExist) {
     if (!fileSystemService.existsSync(sanitizedPath)) {
-      throw new Error('Directory does not exist');
+      throw new NotFoundException('Directory does not exist');
     }
 
     const stats = fileSystemService.getFileStatsSync(sanitizedPath);
     if (!stats?.isDirectory()) {
-      throw new Error('Path is not a directory');
+      throw new BadRequestException('Path is not a directory');
     }
   }
 
@@ -220,19 +221,19 @@ export function sanitizeFilePathWithExtension(
 
   const ext = path.extname(sanitizedPath).toLowerCase();
   if (!allowedExtensions.includes(ext)) {
-    throw new Error(`Invalid file extension: ${ext}. Allowed: ${allowedExtensions.join(', ')}`);
+    throw new BadRequestException(`Invalid file extension: ${ext}. Allowed: ${allowedExtensions.join(', ')}`);
   }
 
   if (shouldExist) {
     const existingPath =
       resolveExistingPathCandidate(sanitizedPath) ?? resolveExistingPathCandidate(filePath);
     if (!existingPath) {
-      throw new Error('File does not exist');
+      throw new NotFoundException('File does not exist');
     }
 
     const stats = fileSystemService.getFileStatsSync(existingPath);
     if (!stats?.isFile()) {
-      throw new Error('Path is not a file');
+      throw new BadRequestException('Path is not a file');
     }
 
     return existingPath;
@@ -328,7 +329,7 @@ export function sanitizeMultipleFilePaths(
   allowedBasePaths?: string[],
 ): string[] {
   if (!Array.isArray(filePaths)) {
-    throw new Error('File paths must be an array');
+    throw new BadRequestException('File paths must be an array');
   }
 
   return filePaths.map((filePath) => {
@@ -351,14 +352,14 @@ export function safeJoinPath(basePath: string, fileName: string): string {
 
   // Validate that the file name does not contain path separators
   if (!fileName || typeof fileName !== 'string') {
-    throw new Error('Invalid file name');
+    throw new BadRequestException('Invalid file name');
   }
 
   // Remove any slashes from the file name
   const cleanFileName = fileName.replace(/[/\\]/g, '');
 
   if (cleanFileName !== fileName) {
-    throw new Error('File name contains path separators');
+    throw new BadRequestException('File name contains path separators');
   }
 
   // Combine the paths
@@ -369,7 +370,7 @@ export function safeJoinPath(basePath: string, fileName: string): string {
   const resolvedBase = path.resolve(sanitizedBase);
 
   if (!resolvedJoined.startsWith(resolvedBase)) {
-    throw new Error('Resulting path is outside base directory');
+    throw new BadRequestException('Resulting path is outside base directory');
   }
 
   return resolvedJoined;

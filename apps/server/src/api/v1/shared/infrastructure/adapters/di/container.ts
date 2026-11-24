@@ -67,6 +67,7 @@ import { DeletePlayListUseCase } from '@/api/v1/playlists/application/usecases/D
 import { FindAllPlayListsUseCase } from '@/api/v1/playlists/application/usecases/FindAllPlayListsUseCase';
 import { FindPlayListByIdUseCase } from '@/api/v1/playlists/application/usecases/FindPlayListByIdUseCase';
 import { FindPlayListsByLibraryUseCase } from '@/api/v1/playlists/application/usecases/FindPlayListsByLibraryUseCase';
+import { ReorderPlayListSongsUseCase } from '@/api/v1/playlists/application/usecases/ReorderPlayListSongsUseCase';
 import { RemoveFolderPlayListUseCase } from '@/api/v1/playlists/application/usecases/RemoveFolderPlayListUseCase';
 import { RemoveSongFromPlayListUseCase } from '@/api/v1/playlists/application/usecases/RemoveSongFromPlayListUseCase';
 import { ScanPlayListFoldersUseCase } from '@/api/v1/playlists/application/usecases/ScanPlayListFoldersUseCase';
@@ -370,6 +371,7 @@ export const useCases = {
   updatePlayList: () => new UpdatePlayListUseCase(playlistRepo),
   deletePlayList: () => new DeletePlayListUseCase(playlistRepo),
   addSongToPlayList: () => new AddSongToPlayListUseCase(playlistRepo),
+  reorderPlayListSongs: () => new ReorderPlayListSongsUseCase(playlistRepo),
   removeSongFromPlayList: () => new RemoveSongFromPlayListUseCase(playlistRepo, songsRepo),
   getPlayListsByLibrary: () => new FindPlayListsByLibraryUseCase(playlistRepo),
   removeFolderPlayList: () => new RemoveFolderPlayListUseCase(playlistRepo, songsRepo),

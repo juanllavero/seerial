@@ -20,9 +20,7 @@ export class ArtistsRepositoryImpl extends BaseRepository implements ArtistsRepo
 
   async getById(id: string): Promise<Artist | null> {
     const validatedId = this.validateId(id, 'Artist ID');
-    return this.helper.findById(validatedId, {
-      relations: ['albums'],
-    });
+    return this.helper.findById(validatedId);
   }
 
   async getByName(name: string): Promise<Artist | null> {

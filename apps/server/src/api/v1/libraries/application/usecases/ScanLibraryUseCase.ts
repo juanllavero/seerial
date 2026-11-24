@@ -12,6 +12,9 @@ import logger from '@/utils/logger';
 import type { Library } from '../../domain/Library';
 import type { LibrariesRepositoryPort } from '../ports/LibrariesRepositoryPort';
 
+/** Ids of the libraries being scanned right now (shared by every use case instance). */
+const activeScans = new Set<string>();
+
 export class ScanLibraryUseCase {
   constructor(
     private readonly filesManager: FileSystemServicePort,
@@ -48,6 +51,13 @@ export class ScanLibraryUseCase {
       return undefined;
     }
 
+    // A second scan running at the same time would create duplicated albums, series and movies
+    if (activeScans.has(library.id)) {
+      logger.warn({ libraryId: library.id }, 'Library scan already in progress, ignoring request');
+      return library;
+    }
+    activeScans.add(library.id);
+
     // Send SCAN_STARTED immediately
     const message = {
       header: 'SCAN_STARTED',
@@ -57,9 +67,15 @@ export class ScanLibraryUseCase {
     notificationService.mutateLibrary(library.id);
 
     // Fire and forget - processing continues in background
-    this.executeScan(library, addNewLibrary).catch((error) => {
-      logger.error({ libraryId: library.id, error }, 'Scan execution failed');
-    });
+    this.executeScan(library, addNewLibrary)
+      .catch((error) => {
+        logger.error({ libraryId: library.id, error }, 'Scan execution failed');
+        // Clients are waiting for this to stop showing the library as scanning
+        notificationService.broadcast(
+          JSON.stringify({ header: 'SCAN_COMPLETE', body: { libraryId: library.id } }),
+        );
+      })
+      .finally(() => activeScans.delete(library.id));
 
     return library;
   }

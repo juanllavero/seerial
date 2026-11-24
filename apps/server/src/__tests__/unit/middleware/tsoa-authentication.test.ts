@@ -198,7 +198,7 @@ describe('expressAuthentication', () => {
       mockFindOne.mockResolvedValue(user);
 
       await expect(expressAuthentication(req, 'adminAuth')).rejects.toMatchObject({
-        statusCode: 401,
+        statusCode: 403,
       });
     });
 
@@ -286,8 +286,8 @@ describe('expressAuthentication', () => {
       mockFindOne.mockResolvedValue(buildMockUser({ type: UserType.NORMAL }));
 
       await expect(expressAuthentication(req, 'managementAuth')).rejects.toMatchObject({
-        statusCode: 401,
-        message: messages.errors.token.invalid,
+        statusCode: 403,
+        message: messages.errors.token.noAccess,
       });
     });
 

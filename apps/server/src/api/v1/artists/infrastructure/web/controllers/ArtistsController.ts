@@ -13,7 +13,7 @@ export class ArtistsController extends Controller {
    * Get artist by ID
    */
   @Get('{id}')
-  @Security('adminAuth')
+  @Security('cookieAuth')
   public async getById(@Path() id: string): Promise<ApiResponse<Artist>> {
     const result = await useCases.getArtistById().execute(id);
 

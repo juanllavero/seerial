@@ -1432,8 +1432,9 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
     await queryRunner.startTransaction();
 
     try {
-      // Reset all orders to temporary value
-      await queryRunner.manager.update(LibraryModel, {}, { order: 9999 });
+      // Reset all orders to temporary value.
+      // (`manager.update(Model, {}, ...)` is rejected by TypeORM: empty criteria are not allowed.)
+      await queryRunner.manager.createQueryBuilder().update(LibraryModel).set({ order: 9999 }).execute();
 
       // Update each library with new order
       for (const [index, libraryId] of orderedLibrariesIds.entries()) {
@@ -1444,7 +1445,8 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
 
       await queryRunner.commitTransaction();
       return true;
-    } catch (_error) {
+    } catch (error) {
+      libraryRepositoryLogger.error({ error }, 'Failed to reorder libraries');
       await queryRunner.rollbackTransaction();
       return false;
     } finally {
@@ -1559,9 +1561,18 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
     let attempts = 0;
     const maxAttempts = 3;
 
+    // New libraries (no explicit order) go after the existing ones instead of all sharing order 0
+    const lastLibrary = await LibraryModel.findOne({
+      where: {},
+      order: { order: 'DESC' },
+      select: { id: true, order: true },
+    });
+    const nextOrder = lastLibrary ? lastLibrary.order + 1 : 0;
+
     while (attempts < maxAttempts) {
       const libraryData = {
         ...library,
+        order: library.order ? library.order : nextOrder,
         id: uuidv4().split('-')[0],
       };
 

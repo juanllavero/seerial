@@ -1,21 +1,22 @@
-import { useGetAlbum } from '@seerial/api';
+import { getSignedSongStreamUrl, useGetAlbum } from '@seerial/api';
 import type { Album } from '@seerial/domain';
 import { useGradientStore, useMusicStore } from '@seerial/stores';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { shallow } from 'zustand/shallow';
 
 function MusicPlayer() {
-  const { currentSong, initializeAudioRef, getAudioSrc, setAlbum } = useMusicStore(
+  const { currentSong, initializeAudioRef, setAlbum } = useMusicStore(
     (state) => ({
       currentSong: state.currentSong,
       initializeAudioRef: state.initializeAudioRef,
-      getAudioSrc: state.getAudioSrc,
       setAlbum: state.setAlbum,
     }),
     shallow,
   );
   const generateGradient = useGradientStore((state) => state.generateGradient);
   const localAudioRef = useRef<HTMLAudioElement>(null);
+  const [audioSrc, setAudioSrc] = useState('');
+  const currentSongFile = currentSong?.fileSrc;
 
   // Get Album details
   const { data: album } = useGetAlbum<Album>(currentSong?.albumId ?? '', {
@@ -30,6 +31,27 @@ function MusicPlayer() {
     }
   }, [initializeAudioRef]);
 
+  // Songs are streamed through a short-lived signed URL
+  useEffect(() => {
+    if (!currentSongFile) {
+      setAudioSrc('');
+      return;
+    }
+
+    let cancelled = false;
+    getSignedSongStreamUrl({ filePath: currentSongFile, isWeb: true, expiresIn: '2m' })
+      .then((url) => {
+        if (!cancelled) setAudioSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setAudioSrc('');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSongFile]);
+
   // Handle gradient background
   useEffect(() => {
     if (album) {
@@ -38,12 +60,11 @@ function MusicPlayer() {
     }
   }, [album, generateGradient, setAlbum]);
 
-  if (!album || !currentSong) return null;
-
+  // The element is always mounted so the store can attach its listeners to it once
   return (
     <audio
       ref={localAudioRef}
-      src={`/api/${getAudioSrc()}`}
+      src={audioSrc || undefined}
       onError={(e) => console.error('Audio loading error:', e)}
       autoPlay
     >
