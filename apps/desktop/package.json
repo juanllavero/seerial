@@ -11,7 +11,8 @@
 		"preview": "vite preview",
 		"lint": "biome check . && tsc --noEmit",
 		"lint:fix": "biome check --write .",
-		"tauri": "tauri"
+		"tauri": "tauri",
+		"dev:app": "node scripts/tauri-dev.mjs"
 	},
 	"dependencies": {
 		"@noriginmedia/norigin-spatial-navigation": "^3.0.0",

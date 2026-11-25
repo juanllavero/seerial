@@ -1,10 +1,13 @@
 mod video;
 mod audio;
+#[cfg(target_os = "macos")]
+mod macos_video;
 
 use tauri::{Manager, window::Color};
 
+#[cfg(not(target_os = "macos"))]
+use video::bind_mpv_to_window;
 use video::{
-    bind_mpv_to_window,
     exit_app,
     MpvState,
     // Playback
@@ -54,13 +57,34 @@ async fn main() {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 let state = app.state::<MpvState>();
+                #[cfg(not(target_os = "macos"))]
                 if let Err(error) = bind_mpv_to_window(&window, &state) {
                     eprintln!("Failed to bind MPV to window: {error}");
+                }
+
+                #[cfg(target_os = "macos")]
+                if let Ok(ns_window) = window.ns_window() {
+                    state.macos_bind(app.handle().clone(), ns_window);
                 }
             }
 
             let main_window = app.get_webview_window("main")
                 .ok_or_else(|| "Failed to find the main window")?;
+
+            // macOS: the webview must not paint an opaque background so the
+            // video view underneath (see macos_video.rs) shows through.
+            #[cfg(target_os = "macos")]
+            {
+                let _ = main_window.with_webview(|wv| unsafe {
+                    use objc2::runtime::{AnyClass, AnyObject, Bool};
+                    use objc2::msg_send;
+                    use objc2_foundation::NSString;
+                    let wk = wv.inner() as *mut AnyObject;
+                    let num: *mut AnyObject = msg_send![AnyClass::get(c"NSNumber").unwrap(), numberWithBool: Bool::NO];
+                    let key = NSString::from_str("drawsBackground");
+                    let _: () = msg_send![wk, setValue: num, forKey: &*key];
+                });
+            }
 
             // Windows-specific
             #[cfg(target_os = "windows")]
@@ -70,6 +94,14 @@ async fn main() {
             }
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_)) {
+                window.state::<MpvState>().macos_sync();
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (window, event);
         })
         .invoke_handler(tauri::generate_handler![
             // --- MPV Commands (Video and Normal Playback) ---

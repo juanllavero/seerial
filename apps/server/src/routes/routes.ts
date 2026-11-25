@@ -5575,6 +5575,36 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsServersController_getPublicInfo: Record<string, TsoaRoute.ParameterSchema> = {
+        };
+        app.get('/api/servers/public',
+            authenticateMiddleware([{"public":[]}]),
+            ...(fetchMiddlewares<RequestHandler>(ServersController)),
+            ...(fetchMiddlewares<RequestHandler>(ServersController.prototype.getPublicInfo)),
+
+            async function ServersController_getPublicInfo(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsServersController_getPublicInfo, request, response });
+
+                const controller = new ServersController();
+
+              await templateService.apiHandler({
+                methodName: 'getPublicInfo',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsServersController_getServerStatus: Record<string, TsoaRoute.ParameterSchema> = {
         };
         app.get('/api/servers',

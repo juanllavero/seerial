@@ -37,6 +37,13 @@ export interface ServerStatusResponse {
   users: ServerUserDTO[];
 }
 
+/** What an unauthenticated client may learn about a server (discovery + profile picker) */
+export interface ServerPublicInfoResponse {
+  id: string;
+  name: string;
+  users: ServerUserDTO[];
+}
+
 export interface ServerConfigDTO {
   autoScan: boolean;
   autoScanPeriod: string;

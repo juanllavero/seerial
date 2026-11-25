@@ -10,6 +10,7 @@ import { messages } from '@/config/messages';
 import type {
   ServerConfigDTO,
   ServerConfigResponse,
+  ServerPublicInfoResponse,
   ServerStatusResponse,
   ServerUserDTO,
   UpdateServerConfigDTO,
@@ -57,6 +58,25 @@ function loadServerConfig(): { file: string; config: Record<string, unknown> } {
 @Route('servers')
 @Tags('Servers')
 export class ServersController extends Controller {
+  /**
+   * Minimal public server info, used by clients before login to detect the server and show the
+   * profile picker. Deliberately exposes nothing else (no API key status, no config).
+   */
+  @Get('public')
+  @Security('public')
+  public async getPublicInfo(): Promise<ApiResponse<ServerPublicInfoResponse>> {
+    const allUsers: User[] = await useCases.getAllUsers().execute();
+
+    return ApiResponse.success(
+      {
+        id: ServerConfigService.serverConfig.id,
+        name: ServerConfigService.serverConfig.name,
+        users: allUsers.map((u) => ({ id: u.id, username: u.username, avatar: u.avatar })),
+      },
+      messages.success.fetch,
+    );
+  }
+
   /**
    * Get server status
    */

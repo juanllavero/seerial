@@ -44,16 +44,10 @@ fn get_window_id<W: HasWindowHandle>(window: &W) -> Option<i64> {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        if let raw_window_handle::RawWindowHandle::AppKit(handle) = raw_handle {
-            return Some(handle.ns_window.as_ptr() as i64);
-        }
-    }
-
     None
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn bind_mpv_to_window<W: HasWindowHandle>(window: &W, state: &MpvState) -> Result<(), String> {
     let Some(wid) = get_window_id(window) else {
         return Ok(());
@@ -166,9 +160,20 @@ pub fn set_video_quality(state: State<MpvState>, quality: VideoQuality) -> Resul
     })
 }
 
+/// macOS: pointers (as usize) of the app window and of mpv's own window.
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+pub struct MacVideo {
+    pub app: Option<AppHandle>,
+    pub parent: usize,
+    pub child: usize,
+}
+
 pub struct MpvState {
     pub mpv: Arc<Mutex<Option<Mpv>>>,
     pub window_id: Arc<Mutex<Option<i64>>>,
+    #[cfg(target_os = "macos")]
+    pub mac: Arc<Mutex<MacVideo>>,
 }
 
 impl MpvState {
@@ -177,37 +182,137 @@ impl MpvState {
         MpvState { 
             mpv: Arc::new(Mutex::new(Some(mpv))),
             window_id: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "macos")]
+            mac: Arc::new(Mutex::new(MacVideo::default())),
+        }
+    }
+
+    /// Remembers the app window (call once, main thread).
+    #[cfg(target_os = "macos")]
+    pub fn macos_bind(&self, app: AppHandle, ns_window: *mut std::ffi::c_void) {
+        unsafe { crate::macos_video::prepare_parent(ns_window) };
+        if let Ok(mut mac) = self.mac.lock() {
+            mac.app = Some(app);
+            mac.parent = ns_window as usize;
+        }
+    }
+
+    /// After a load, waits for mpv to create its window and glues it under the
+    /// app window.
+    #[cfg(target_os = "macos")]
+    pub fn macos_watch(&self) {
+        let mac = self.mac.clone();
+        let mpv = self.mpv.clone();
+        std::thread::spawn(move || {
+            for _ in 0..200 {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                let wid: Option<i64> = mpv
+                    .lock()
+                    .ok()
+                    .and_then(|g| g.as_ref().and_then(|m| m.get_property::<i64>("window-id").ok()));
+                let Some(wid) = wid.filter(|w| *w != 0) else { continue };
+                let (app, parent, current) = match mac.lock() {
+                    Ok(m) => (m.app.clone(), m.parent, m.child),
+                    Err(_) => return,
+                };
+                if current == wid as usize {
+                    return;
+                }
+                let Some(app) = app else { return };
+                let mac2 = mac.clone();
+                let _ = app.run_on_main_thread(move || {
+                    unsafe { crate::macos_video::attach_child(parent as *mut _, wid as *mut _) };
+                    if let Ok(mut m) = mac2.lock() {
+                        m.child = wid as usize;
+                    }
+                });
+                return;
+            }
+        });
+    }
+
+    /// Keeps mpv's window under the app window (main thread).
+    #[cfg(target_os = "macos")]
+    pub fn macos_sync(&self) {
+        if let Ok(m) = self.mac.lock() {
+            unsafe { crate::macos_video::sync_frame(m.parent as *mut _, m.child as *mut _) };
+        }
+    }
+
+    /// Forget mpv's window (it dies with its mpv instance).
+    #[cfg(target_os = "macos")]
+    fn macos_forget_child(&self) {
+        if let Ok(mut m) = self.mac.lock() {
+            m.child = 0;
         }
     }
 
     fn create_mpv_instance() -> Mpv {
         Mpv::with_initializer(|init| {
-            init.set_property("vo", "gpu-next")?;
-            init.set_property("gpu-api", "d3d11")?;
-            init.set_property("hwdec", "auto")?;
+            #[cfg(not(target_os = "macos"))]
+            {
+                init.set_property("vo", "gpu-next")?;
+                init.set_property("gpu-api", "d3d11")?;
+                init.set_property("hwdec", "auto")?;
 
-            init.set_property("d3d11-exclusive-fs", "yes")?;
+                init.set_property("d3d11-exclusive-fs", "yes")?;
 
-            init.set_property("target-colorspace-hint", "yes")?;
-            init.set_property("icc-profile-auto", false)?;
+                init.set_property("target-colorspace-hint", "yes")?;
+                init.set_property("icc-profile-auto", false)?;
 
-            init.set_property("video-output-levels", "auto")?;
+                init.set_property("video-output-levels", "auto")?;
 
-            // init.set_property("profile", "high-quality")?;
-            
-            init.set_property("fullscreen", "yes")?;
+                // init.set_property("profile", "high-quality")?;
+
+                init.set_property("fullscreen", "yes")?;
+            }
+
+            // macOS: mpv renders in its own window (Vulkan via Metal => real
+            // HDR/EDR). macos_video.rs glues it under the transparent app window.
+            #[cfg(target_os = "macos")]
+            {
+                init.set_property("vo", "gpu-next")?;
+                init.set_property("gpu-api", "vulkan")?;
+                init.set_property("gpu-context", "macvk")?;
+                init.set_property("hwdec", "videotoolbox")?;
+                init.set_property("target-colorspace-hint", "yes")?;
+                init.set_property("icc-profile-auto", false)?;
+                init.set_property("video-output-levels", "auto")?;
+
+                // The window is only a background: no chrome, no input, no focus.
+                init.set_property("border", false)?;
+                init.set_property("title-bar", false)?;
+                init.set_property("focus-on", "never")?;
+                init.set_property("input-cursor", false)?;
+                init.set_property("input-default-bindings", false)?;
+                init.set_property("input-vo-keyboard", false)?;
+                init.set_property("osc", false)?;
+                init.set_property("window-dragging", false)?;
+                init.set_property("auto-window-resize", false)?;
+                init.set_property("keepaspect-window", false)?;
+                init.set_property("macos-menu-shortcuts", false)?;
+                init.set_property("audio-display", "no")?;
+                init.set_property("force-window", "no")?;
+            }
+
             init.set_property("idle", "once")?;
             init.set_property("keep-open", "always")?;
             init.set_property("cursor-autohide", "100")?;
             init.set_property("msg-level", "all=debug")?;
             init.set_property("log-file", "./logs/mpv_log.txt")?;
-            init.set_property("force-window", "no")?;   // yes to open new window for MPV
-            init.set_property("wid", 0i64)?;
+            #[cfg(not(target_os = "macos"))]
+            {
+                init.set_property("force-window", "no")?;   // yes to open new window for MPV
+                init.set_property("wid", 0i64)?;
+            }
             Ok(())
         }).expect("Failed to initialize MPV")
     }
 
     fn recreate_mpv_instance(&self) -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        self.macos_forget_child();
+
         let mut mpv_guard = self.mpv.lock().map_err(|e| e.to_string())?;
         let window_id_guard = self.window_id.lock().map_err(|e| e.to_string())?;
         
@@ -221,6 +326,7 @@ impl MpvState {
         }
         
         *mpv_guard = Some(new_mpv);
+
         Ok(())
     }
 
@@ -239,7 +345,16 @@ impl MpvState {
 
 #[tauri::command]
 pub fn embed_mpv(window: Window, state: State<MpvState>) -> Result<(), String> {
-    bind_mpv_to_window(&window, &state)
+    #[cfg(not(target_os = "macos"))]
+    {
+        bind_mpv_to_window(&window, &state)
+    }
+    // On macOS the surface is created once at startup (main thread).
+    #[cfg(target_os = "macos")]
+    {
+        let _ = (&window, &state);
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -292,9 +407,12 @@ pub fn loadfile(state: State<MpvState>, file: String) -> Result<(), String> {
     let path_str = pathbuf.to_str().ok_or("Invalid path string")?.replace('\\', "/");
     let escaped_path = format!("\"{}\"", path_str);
 
-    state.with_mpv(|mpv| {
+    let result = state.with_mpv(|mpv| {
         mpv.command("loadfile", &[escaped_path.as_str(), "replace"])
-    })
+    });
+    #[cfg(target_os = "macos")]
+    state.macos_watch();
+    result
 }
 
 #[tauri::command]
@@ -304,9 +422,12 @@ pub fn load_url(state: State<MpvState>, url: String) -> Result<(), String> {
         return Err("Invalid URL: must start with http:// or https://".to_string());
     }
 
-    state.with_mpv(|mpv| {
+    let result = state.with_mpv(|mpv| {
         mpv.command("loadfile", &[url.as_str(), "replace"])
-    })
+    });
+    #[cfg(target_os = "macos")]
+    state.macos_watch();
+    result
 }
 
 #[tauri::command]

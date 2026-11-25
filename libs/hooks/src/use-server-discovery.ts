@@ -33,24 +33,17 @@ interface ProbeResult {
 }
 
 /**
- * Attempts to reach a server at `url`.
- * First calls /api/health for a quick reachability check,
- * then /api/servers to get name and users.
+ * Attempts to reach a server at `url` through the unauthenticated /api/servers/public
+ * endpoint (name + users for the profile picker). Everything else on the server requires a
+ * session, so this is the only thing a client can ask before login.
  * Returns null if the server is unreachable or times out.
  */
 async function probeServer(url: string, timeout = PROBE_TIMEOUT): Promise<ProbeResult | null> {
   const client = createServerClient(url)
 
   try {
-    // Quick reachability check
-    await Promise.race([
-      client.get('/health'),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout)),
-    ])
-
-    // Get server metadata (name + users)
     const { data } = await Promise.race([
-      client.get('/servers'),
+      client.get('/servers/public'),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout)),
     ])
 
