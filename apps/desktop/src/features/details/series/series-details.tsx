@@ -140,7 +140,7 @@ function buildDetailsInfoItems(selectedEpisode: Episode | null, seriesYear: stri
     seasonEpisodeLabel,
     formatDate(selectedEpisode ? String(selectedEpisode.year) : (seriesYear ?? '')),
     selectedEpisode ? formatTimeForView(selectedEpisode.video.runtime ?? 0) : '',
-  ];
+  ].filter(Boolean);
 }
 
 function getEpisodeAudioInfo(

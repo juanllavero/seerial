@@ -39,7 +39,7 @@ function DetailsSummary({
     <FlexBox gap={0.8} direction="column">
       {infoItems && infoItems.length > 0 ? (
         <FlexBox className="flex-row" gap={0.8} align="center">
-          {infoItems.map((item) => (
+          {infoItems.filter(Boolean).map((item) => (
             <Tertiary key={`info-item-${item}`}>{item}</Tertiary>
           ))}
 

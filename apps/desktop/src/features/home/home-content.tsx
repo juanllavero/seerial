@@ -15,9 +15,9 @@ function getSelectedInfoItems(selectedElement: ContinueWatchingVideoDTO | null) 
   const releaseDate = selectedElement.episodeId
     ? formatDate(selectedElement.date ?? '')
     : selectedElement.date.split('-')[0];
-  const remainingMinutes = `${(selectedElement.duration - selectedElement.timeWatched / 60).toFixed(0)} minutes remaining`;
 
-  return [episodeCode, releaseDate, remainingMinutes].filter(Boolean) as string[];
+  // The remaining time is shown by the progress circle
+  return [episodeCode, releaseDate].filter(Boolean) as string[];
 }
 
 interface HomePageContentProps {

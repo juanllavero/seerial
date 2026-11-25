@@ -8,7 +8,6 @@ import {
 } from '@seerial/api';
 import {
   type DetailsData,
-  formatDate,
   formatTimeForView,
   getAudioTrack,
   getMediaFormatBadges,
@@ -172,9 +171,9 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
           expandedTitle={details?.title ?? movie?.name}
           cast={movie?.cast}
           infoItems={[
-            formatDate(details?.year ?? movie?.year ?? ''),
+            (details?.year ?? movie?.year ?? '').split('-')[0],
             selectedVideo ? formatTimeForView(selectedVideo.runtime ?? 0) : '',
-          ]}
+          ].filter(Boolean)}
           audioInfo={movieAudioInfo}
           subtitleInfo={movieSubtitleInfo}
           videoInfo={effectiveVideo?.videoTracks?.[0]?.displayTitle}
