@@ -1,8 +1,8 @@
 import { useMusicStore } from '@seerial/stores';
 import { memo, useMemo } from 'react';
 import { shallow } from 'zustand/shallow';
-import FlexBox from '@/shared/components/ui/flex-box';
 import DolbyAtmosBadge from '@/shared/components/ui/dolby-atmos-badge';
+import FlexBox from '@/shared/components/ui/flex-box';
 import AnimatedSoundBars from './animated-sound-bars';
 
 function getArtistsText(artists?: string[]): string {
@@ -52,7 +52,9 @@ const SongInfo = () => {
       >
         {artistsText} - {album?.title}
       </span>
-      {!!currentSong.hasDolbyAtmos && <DolbyAtmosBadge className="mt-[0.8dvh] text-white/90" height="2.8dvh" />}
+      {!!currentSong.hasDolbyAtmos && (
+        <DolbyAtmosBadge className="mt-[0.8dvh] text-white/90" height="2dvh" />
+      )}
     </FlexBox>
   );
 };

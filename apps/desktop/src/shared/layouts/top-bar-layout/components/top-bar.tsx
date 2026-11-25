@@ -3,7 +3,7 @@ import { useGetLibraries, useGetPlaylists } from '@seerial/api';
 import { type Library, LibraryTypes, type PlayList } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
 import { AnimatePresence, domAnimation, LazyMotion, m } from 'framer-motion';
-import { ChevronUp, Settings } from 'lucide-react';
+import { Bookmark, ChevronUp, Search, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { SettingsPanel } from '@/features/settings';
@@ -281,9 +281,7 @@ function TopBar() {
                 <NavigationButton
                   customKey={NavigationFocusKeys.topBar.playlists}
                   disabled={!showPlaylists}
-                  selected={
-                    pathname === '/playlists' || pathname.startsWith('/details/playlist/')
-                  }
+                  selected={pathname === '/playlists' || pathname.startsWith('/details/playlist/')}
                   onFocus={handleNonLibraryFocus}
                   onClick={() => navigate('/playlists')}
                   text="Playlists"
@@ -294,17 +292,19 @@ function TopBar() {
                   selected={pathname === '/search'}
                   onFocus={handleNonLibraryFocus}
                   onClick={() => navigate('/search')}
-                  text="Search"
                   variant="ghost"
-                />
+                >
+                  <Search size={'3dvh'} />
+                </NavigationButton>
                 <NavigationButton
                   customKey={NavigationFocusKeys.topBar.toSee}
                   selected={pathname === '/see'}
                   onFocus={handleNonLibraryFocus}
                   onClick={() => navigate('/see')}
-                  text="To See"
                   variant="ghost"
-                />
+                >
+                  <Bookmark size={'3dvh'} />
+                </NavigationButton>
               </m.div>
             )}
           </AnimatePresence>
