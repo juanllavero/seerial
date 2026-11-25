@@ -24,36 +24,16 @@ function ServerLibraries() {
 
   const scanOptions = [
     {
-      key: 'never',
-      value: t('never'),
-    },
-    {
-      key: 'min15',
-      value: t('min15'),
-    },
-    {
-      key: 'min30',
-      value: t('min30'),
-    },
-    {
-      key: 'h1',
-      value: t('h1'),
-    },
-    {
-      key: 'h2',
-      value: t('h2'),
-    },
-    {
-      key: 'h6',
-      value: t('h6'),
-    },
-    {
-      key: 'h12',
-      value: t('h12'),
-    },
-    {
       key: 'daily',
       value: t('daily'),
+    },
+    {
+      key: 'weekly',
+      value: t('weekly'),
+    },
+    {
+      key: 'monthly',
+      value: t('monthly'),
     },
   ];
 
@@ -72,11 +52,12 @@ function ServerLibraries() {
     },
   ];
 
-  const [autoScan, setAutoScan] = useState<boolean>(
-    (serverSettings['autoScan'] as boolean) ?? false,
+  // The smart scan is on by default, and daily
+  const [smartScan, setSmartScan] = useState<boolean>(
+    (serverSettings['smartScan'] as boolean | undefined) ?? true,
   );
-  const [autoScanPeriod, setAutoScanPeriod] = useState<string>(
-    scanOptions.find((option) => option.key === serverSettings['autoScanPeriod'])?.key ??
+  const [smartScanPeriod, setSmartScanPeriod] = useState<string>(
+    scanOptions.find((option) => option.key === serverSettings['smartScanPeriod'])?.key ??
       scanOptions[0].key,
   );
   const [generateChapters, setGenerateThumbnails] = useState<string>(
@@ -84,13 +65,13 @@ function ServerLibraries() {
       chapterOptions[0].key,
   );
 
-  const handleAutoScanChange = (checked: boolean) => {
-    setAutoScan(checked);
+  const handleSmartScanChange = (checked: boolean) => {
+    setSmartScan(checked);
     setIsDirty(true);
   };
 
-  const handleAutoScanPeriodChange = (key: string) => {
-    setAutoScanPeriod(key);
+  const handleSmartScanPeriodChange = (key: string) => {
+    setSmartScanPeriod(key);
     setIsDirty(true);
   };
 
@@ -100,14 +81,14 @@ function ServerLibraries() {
   };
 
   const handleSave = () => {
-    setServerSetting('autoScan', autoScan);
-    setServerSetting('autoScanPeriod', autoScanPeriod);
+    setServerSetting('smartScan', smartScan);
+    setServerSetting('smartScanPeriod', smartScanPeriod);
     setServerSetting('generateChapters', generateChapters);
 
     setServerSettings({
       ...serverSettings,
-      autoScan: autoScan,
-      autoScanPeriod: autoScanPeriod,
+      smartScan: smartScan,
+      smartScanPeriod: smartScanPeriod,
       generateChapters: generateChapters,
     });
 
@@ -122,21 +103,19 @@ function ServerLibraries() {
 
   return (
     <ContentWrapper group={t('server')} section={t('libraries')}>
-      <LabeledInputWrapper
-        direction="row"
-        label={t('autoScan')}
-        //text={t('autoScanMessage')}
-      >
-        <Checkbox checked={autoScan} onCheckedChange={handleAutoScanChange} />
+      <LabeledInputWrapper direction="row" label={t('smartScan')} text={t('smartScanMessage')}>
+        <Checkbox checked={smartScan} onCheckedChange={handleSmartScanChange} />
       </LabeledInputWrapper>
 
-      <LabeledInputWrapper direction="row" label={t('scanOptions')}>
-        <SelectableWrapper
-          options={scanOptions}
-          defaultValue={scanOptions.find((option) => option.key === autoScanPeriod)?.value}
-          onValueChange={handleAutoScanPeriodChange}
-        />
-      </LabeledInputWrapper>
+      {smartScan && (
+        <LabeledInputWrapper direction="row" label={t('smartScanPeriod')}>
+          <SelectableWrapper
+            options={scanOptions}
+            defaultValue={scanOptions.find((option) => option.key === smartScanPeriod)?.value}
+            onValueChange={handleSmartScanPeriodChange}
+          />
+        </LabeledInputWrapper>
+      )}
 
       <LabeledInputWrapper direction="row" label={t('generateThumbnailsCheck')}>
         <SelectableWrapper

@@ -45,8 +45,8 @@ export interface ServerPublicInfoResponse {
 }
 
 export interface ServerConfigDTO {
-  autoScan: boolean;
-  autoScanPeriod: string;
+  smartScan: boolean;
+  smartScanPeriod: string;
   generateChapters: string;
   autoSelectTracks: boolean;
   preferAudioLan: string;
@@ -66,8 +66,8 @@ export interface ServerConfigResponse {
 }
 
 export interface UpdateServerConfigDTO {
-  autoScan?: boolean;
-  autoScanPeriod?: string;
+  smartScan?: boolean;
+  smartScanPeriod?: string;
   generateChapters?: string;
   autoSelectTracks?: boolean;
   preferAudioLan?: string;

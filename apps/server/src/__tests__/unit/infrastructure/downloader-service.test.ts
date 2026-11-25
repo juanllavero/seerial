@@ -118,22 +118,61 @@ describe('DownloaderServiceImpl', () => {
     spy.mockRestore();
   });
 
-  it('logs and continues when deleting existing output files fails', async () => {
+  it('does not delete an existing output file before downloading (a failed download keeps it)', async () => {
     const service = new DownloaderServiceImpl();
     container.fileSystemService.existsSync.mockReturnValue(true);
-    container.fileSystemService.deleteFile.mockImplementation(() => {
-      throw new Error('unlink failed');
-    });
     const contentSpy = spyOnDownloadContent(service);
 
     await service.downloadVideo('https://example.com/v', 'downloads', 'video-file');
     await service.downloadAudio('https://example.com/a', 'music', 'song-file');
 
-    expect(container.fileSystemService.deleteFile).toHaveBeenCalledTimes(2);
+    expect(container.fileSystemService.deleteFile).not.toHaveBeenCalled();
     expect(contentSpy).toHaveBeenCalledTimes(2);
 
     contentSpy.mockRestore();
-    container.fileSystemService.deleteFile.mockReset();
+  });
+
+  it('updates yt-dlp with its own updater when it is installed', async () => {
+    const service = new DownloaderServiceImpl();
+    container.fileSystemService.existsSync.mockReturnValue(true);
+    mockSpawnResult('Latest version: 2026.11.20, Current version: 2026.01.01', 0);
+
+    await service.updateYoutubeDownloader();
+
+    expect(spawnMock).toHaveBeenCalledWith(expect.stringContaining('yt-dlp'), ['-U'], {
+      shell: false,
+      windowsHide: true,
+    });
+  });
+
+  it('keeps going (never throws) when yt-dlp cannot be updated', async () => {
+    const service = new DownloaderServiceImpl();
+    container.fileSystemService.existsSync.mockReturnValue(true);
+    mockSpawnResult('', 1);
+
+    await expect(service.updateYoutubeDownloader()).resolves.toBeUndefined();
+  });
+
+  it('does not try to update a yt-dlp that is not installed yet', async () => {
+    const service = new DownloaderServiceImpl();
+    container.fileSystemService.existsSync.mockReturnValue(false);
+
+    await service.updateYoutubeDownloader();
+
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('does not download the theme again when it already exists', async () => {
+    const service = new DownloaderServiceImpl();
+    container.fileSystemService.existsSync.mockReturnValue(true);
+    const searchSpy = jest.spyOn(service, 'searchVideos');
+    const audioSpy = jest.spyOn(service, 'downloadAudio').mockResolvedValue(undefined);
+
+    await service.autoDownloadFirstAudioResult('query', 'element-1', { id: 'lib', name: 'Lib' });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(searchSpy).not.toHaveBeenCalled();
+    expect(audioSpy).not.toHaveBeenCalled();
   });
 
   it('auto-downloads first audio result when available', async () => {
@@ -152,7 +191,12 @@ describe('DownloaderServiceImpl', () => {
     await service.autoDownloadFirstAudioResult('query', 'element-1');
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(audioSpy).toHaveBeenCalledWith('https://example.com/a', expect.any(String), 'element-1');
+    expect(audioSpy).toHaveBeenCalledWith(
+      'https://example.com/a',
+      expect.any(String),
+      'element-1',
+      true,
+    );
   });
 
   it('does nothing when auto-download has no search results', async () => {
@@ -173,7 +217,8 @@ describe('DownloaderServiceImpl', () => {
 
     spawnMock.mockReturnValue(processEmitter);
 
-    await (service as unknown as DownloadContentHost).downloadContent(
+    // It resolves when the process closes
+    const finished = (service as unknown as DownloadContentHost).downloadContent(
       'yt-dlp',
       ['-f', 'best'],
       'media-file',
@@ -183,6 +228,7 @@ describe('DownloaderServiceImpl', () => {
     processEmitter.stderr.emit('data', Buffer.from('WARNING: test\nERROR: test-error\ninfo line'));
     processEmitter.emit('close', 0);
     processEmitter.emit('close', 1);
+    await finished;
 
     expect(spawnMock).toHaveBeenCalledWith('yt-dlp', ['-f', 'best'], {
       shell: false,

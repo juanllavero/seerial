@@ -4,6 +4,8 @@ import { fileSystemService } from '../di/container';
 
 const movieDbLogger = logger.child({ category: 'MovieDB' });
 
+const API_KEY_STATUS_TTL_MS = 10 * 60 * 1000;
+
 type TMDbApiResponse = {
   results: unknown[];
   cast: unknown[];
@@ -41,7 +43,28 @@ export class TMDbApiClient {
     return (await response.json()) as T;
   }
 
+  private apiKeyStatusCache: { token: string; valid: boolean; at: number } | null = null;
+
+  /**
+   * Whether the TMDB key is valid. The check is a request to TMDB (100-600 ms) and the clients ask
+   * for it on every page load, so a valid result is remembered for a few minutes.
+   */
   getAPIKeyStatus = async (): Promise<boolean> => {
+    const cached = this.apiKeyStatusCache;
+    if (
+      cached?.valid &&
+      cached.token === this.THEMOVIEDB_API_TOKEN &&
+      Date.now() - cached.at < API_KEY_STATUS_TTL_MS
+    ) {
+      return true;
+    }
+
+    const valid = await this.fetchAPIKeyStatus();
+    this.apiKeyStatusCache = { token: this.THEMOVIEDB_API_TOKEN, valid, at: Date.now() };
+    return valid;
+  };
+
+  private fetchAPIKeyStatus = async (): Promise<boolean> => {
     const url = `${this.BASE_URL}/authentication`;
     const options = {
       method: 'GET',
@@ -51,9 +74,14 @@ export class TMDbApiClient {
       },
     };
 
-    const response = await fetch(url, options);
-    const data = (await response.json()) as { success: boolean };
-    return data.success;
+    try {
+      const response = await fetch(url, options);
+      const data = (await response.json()) as { success: boolean };
+      return data.success === true;
+    } catch {
+      // No connection to TMDB: the key cannot be confirmed
+      return false;
+    }
   };
 
   async initialize(): Promise<boolean> {

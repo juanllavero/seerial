@@ -426,6 +426,10 @@ const models: TsoaRoute.Models = {
             "profile": {"dataType":"string","required":true},
             "refFrames": {"dataType":"string","required":true},
             "colorRange": {"dataType":"string","required":true},
+            "colorTransfer": {"dataType":"string"},
+            "hdrFormat": {"dataType":"string"},
+            "hasDolbyVision": {"dataType":"boolean"},
+            "hasHdr10Plus": {"dataType":"boolean"},
         },
         "additionalProperties": false,
     },
@@ -461,6 +465,8 @@ const models: TsoaRoute.Models = {
             "bitDepth": {"dataType":"string","required":true},
             "profile": {"dataType":"string","required":true},
             "samplingRate": {"dataType":"string","required":true},
+            "hasDolbyAtmos": {"dataType":"boolean"},
+            "hasDtsX": {"dataType":"boolean"},
         },
         "additionalProperties": false,
     },
@@ -1384,6 +1390,49 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ScanProgress": {
+        "dataType": "refObject",
+        "properties": {
+            "libraryId": {"dataType":"string","required":true},
+            "libraryName": {"dataType":"string","required":true},
+            "processed": {"dataType":"double","required":true},
+            "total": {"dataType":"double","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "MusicDownloadProgress": {
+        "dataType": "refObject",
+        "properties": {
+            "libraryId": {"dataType":"string","required":true},
+            "libraryName": {"dataType":"string","required":true},
+            "completed": {"dataType":"double","required":true},
+            "total": {"dataType":"double","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ScanActivity": {
+        "dataType": "refObject",
+        "properties": {
+            "scan": {"dataType":"union","subSchemas":[{"ref":"ScanProgress"},{"dataType":"enum","enums":[null]}],"required":true},
+            "music": {"dataType":"union","subSchemas":[{"ref":"MusicDownloadProgress"},{"dataType":"enum","enums":[null]}],"required":true},
+            "queued": {"dataType":"double","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ApiResponse_ScanActivity_": {
+        "dataType": "refObject",
+        "properties": {
+            "success": {"dataType":"boolean","required":true},
+            "message": {"dataType":"string","required":true},
+            "data": {"dataType":"union","subSchemas":[{"ref":"ScanActivity"},{"dataType":"enum","enums":[null]}],"required":true},
+            "timestamp": {"dataType":"string","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "ApiResponse_LibrarySummary_": {
         "dataType": "refObject",
         "properties": {
@@ -1838,6 +1887,27 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ServerPublicInfoResponse": {
+        "dataType": "refObject",
+        "properties": {
+            "id": {"dataType":"string","required":true},
+            "name": {"dataType":"string","required":true},
+            "users": {"dataType":"array","array":{"dataType":"refObject","ref":"ServerUserDTO"},"required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ApiResponse_ServerPublicInfoResponse_": {
+        "dataType": "refObject",
+        "properties": {
+            "success": {"dataType":"boolean","required":true},
+            "message": {"dataType":"string","required":true},
+            "data": {"dataType":"union","subSchemas":[{"ref":"ServerPublicInfoResponse"},{"dataType":"enum","enums":[null]}],"required":true},
+            "timestamp": {"dataType":"string","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "ServerStatusResponse": {
         "dataType": "refObject",
         "properties": {
@@ -1883,8 +1953,8 @@ const models: TsoaRoute.Models = {
     "ServerConfigDTO": {
         "dataType": "refObject",
         "properties": {
-            "autoScan": {"dataType":"boolean","required":true},
-            "autoScanPeriod": {"dataType":"string","required":true},
+            "smartScan": {"dataType":"boolean","required":true},
+            "smartScanPeriod": {"dataType":"string","required":true},
             "generateChapters": {"dataType":"string","required":true},
             "autoSelectTracks": {"dataType":"boolean","required":true},
             "preferAudioLan": {"dataType":"string","required":true},
@@ -1913,8 +1983,8 @@ const models: TsoaRoute.Models = {
     "UpdateServerConfigDTO": {
         "dataType": "refObject",
         "properties": {
-            "autoScan": {"dataType":"boolean"},
-            "autoScanPeriod": {"dataType":"string"},
+            "smartScan": {"dataType":"boolean"},
+            "smartScanPeriod": {"dataType":"string"},
             "generateChapters": {"dataType":"string"},
             "autoSelectTracks": {"dataType":"boolean"},
             "preferAudioLan": {"dataType":"string"},
@@ -4324,6 +4394,36 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
 
               await templateService.apiHandler({
                 methodName: 'getAll',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsLibrariesController_getScanActivity: Record<string, TsoaRoute.ParameterSchema> = {
+        };
+        app.get('/api/libraries/scan-activity',
+            authenticateMiddleware([{"adminAuth":[]}]),
+            ...(fetchMiddlewares<RequestHandler>(LibrariesController)),
+            ...(fetchMiddlewares<RequestHandler>(LibrariesController.prototype.getScanActivity)),
+
+            async function LibrariesController_getScanActivity(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsLibrariesController_getScanActivity, request, response });
+
+                const controller = new LibrariesController();
+
+              await templateService.apiHandler({
+                methodName: 'getScanActivity',
                 controller,
                 response,
                 next,

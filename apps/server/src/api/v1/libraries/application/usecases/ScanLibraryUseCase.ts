@@ -8,12 +8,11 @@ import {
   notificationService,
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import logger from '@/utils/logger';
+import { scanQueue } from '../services/ScanQueue';
 import type { Library } from '../../domain/Library';
 import type { LibrariesRepositoryPort } from '../ports/LibrariesRepositoryPort';
-
-/** Ids of the libraries being scanned right now (shared by every use case instance). */
-const activeScans = new Set<string>();
 
 export class ScanLibraryUseCase {
   constructor(
@@ -51,33 +50,29 @@ export class ScanLibraryUseCase {
       return undefined;
     }
 
-    // A second scan running at the same time would create duplicated albums, series and movies
-    if (activeScans.has(library.id)) {
-      logger.warn({ libraryId: library.id }, 'Library scan already in progress, ignoring request');
-      return library;
-    }
-    activeScans.add(library.id);
-
-    // Send SCAN_STARTED immediately
-    const message = {
-      header: 'SCAN_STARTED',
-      body: library.id,
-    };
-    notificationService.broadcast(JSON.stringify(message));
-    notificationService.mutateLibrary(library.id);
-
-    // Fire and forget - processing continues in background
-    this.executeScan(library, addNewLibrary)
-      .catch((error) => {
-        logger.error({ libraryId: library.id, error }, 'Scan execution failed');
-        // Clients are waiting for this to stop showing the library as scanning
-        notificationService.broadcast(
-          JSON.stringify({ header: 'SCAN_COMPLETE', body: { libraryId: library.id } }),
-        );
-      })
-      .finally(() => activeScans.delete(library.id));
+    // Scans never run in parallel (a second one would create duplicated albums, series and
+    // movies): this one waits for its turn in the queue, and the caller does not wait for it.
+    scanQueue.enqueue(library.id, () => this.runQueuedScan(library, addNewLibrary));
 
     return library;
+  }
+
+  private async runQueuedScan(library: Library, addNewLibrary: boolean): Promise<void> {
+    scanActivity.startScan(library.id, library.name);
+    notificationService.broadcast(JSON.stringify({ header: 'SCAN_STARTED', body: library.id }));
+    notificationService.mutateLibrary(library.id);
+
+    try {
+      await this.executeScan(library, addNewLibrary);
+    } catch (error) {
+      logger.error({ libraryId: library.id, error }, 'Scan execution failed');
+      // Clients are waiting for this to stop showing the library as scanning
+      notificationService.broadcast(
+        JSON.stringify({ header: 'SCAN_COMPLETE', body: { libraryId: library.id } }),
+      );
+    } finally {
+      scanActivity.finishScan();
+    }
   }
 
   private async executeScan(library: Library, addNewLibrary: boolean): Promise<void> {
@@ -90,7 +85,7 @@ export class ScanLibraryUseCase {
 
     const foldersToScan = await this.resolveAccessibleFolders(library, addNewLibrary);
 
-    const tasks: Promise<void>[] = [];
+    const files: { filePath: string; isPlaylistsFolder: boolean }[] = [];
 
     for (const rootFolder of foldersToScan) {
       logger.info(
@@ -104,34 +99,42 @@ export class ScanLibraryUseCase {
       const filesInFolder = await this.filesManager.getFilesInFolder(rootFolder);
 
       for (const file of filesInFolder) {
-        const filePath = path.join(file.parentPath, file.name);
-
-        const task = limit(async () => {
-          try {
-            if (library.type === 'Shows') {
-              await useCases.scanSeries().execute(library, filePath);
-            } else if (library.type === 'Movies') {
-              await useCases.scanMovie().execute(library, filePath);
-            } else if (file.isDirectory() && isPlaylistsFolderName(file.name)) {
-              await useCases.scanPlayListFolders().execute(library, filePath);
-            } else {
-              await useCases.scanMusic().execute(library, filePath);
-            }
-          } catch (error) {
-            logger.error(
-              {
-                libraryId: library.id,
-                filePath,
-                libraryType: library.type,
-                error: error instanceof Error ? error.message : String(error),
-              },
-              'Failed to process file',
-            );
-          }
+        files.push({
+          filePath: path.join(file.parentPath, file.name),
+          isPlaylistsFolder: file.isDirectory() && isPlaylistsFolderName(file.name),
         });
-        tasks.push(task);
       }
     }
+
+    scanActivity.setScanTotal(files.length);
+
+    const tasks = files.map(({ filePath, isPlaylistsFolder }) =>
+      limit(async () => {
+        try {
+          if (library.type === 'Shows') {
+            await useCases.scanSeries().execute(library, filePath);
+          } else if (library.type === 'Movies') {
+            await useCases.scanMovie().execute(library, filePath);
+          } else if (isPlaylistsFolder) {
+            await useCases.scanPlayListFolders().execute(library, filePath);
+          } else {
+            await useCases.scanMusic().execute(library, filePath);
+          }
+        } catch (error) {
+          logger.error(
+            {
+              libraryId: library.id,
+              filePath,
+              libraryType: library.type,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            'Failed to process file',
+          );
+        } finally {
+          scanActivity.advanceScan();
+        }
+      }),
+    );
 
     // Wait for all tasks to complete
     await Promise.all(tasks);

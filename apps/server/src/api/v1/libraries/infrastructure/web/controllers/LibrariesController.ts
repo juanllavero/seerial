@@ -1,4 +1,4 @@
-import type { LibraryItem, LibrarySummary } from '@seerial/domain';
+import type { LibraryItem, LibrarySummary, ScanActivity } from '@seerial/domain';
 import type { Request as ExpressRequest } from 'express';
 import {
   Body,
@@ -15,6 +15,7 @@ import {
   Tags,
 } from 'tsoa';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import {
   NotFoundException,
@@ -57,6 +58,16 @@ export class LibrariesController extends Controller {
       visible.map((library) => toLibrarySummary(library, isAdmin)),
       messages.success.fetch,
     );
+  }
+
+  /**
+   * What the server is scanning or downloading in the background right now.
+   * Declared before the `{id}` routes so it is not captured as an id.
+   */
+  @Get('scan-activity')
+  @Security('adminAuth')
+  public async getScanActivity(): Promise<ApiResponse<ScanActivity>> {
+    return ApiResponse.success(scanActivity.snapshot(), messages.success.fetch);
   }
 
   /**

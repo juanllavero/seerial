@@ -1199,6 +1199,22 @@
 					},
 					"colorRange": {
 						"type": "string"
+					},
+					"colorTransfer": {
+						"type": "string",
+						"description": "Transfer characteristic reported by ffprobe (smpte2084 = PQ/HDR10, arib-std-b67 = HLG)."
+					},
+					"hdrFormat": {
+						"type": "string",
+						"description": "HDR flavour deduced from the color information: 'HDR10', 'HLG' or empty for SDR."
+					},
+					"hasDolbyVision": {
+						"type": "boolean",
+						"description": "True when the picture carries a Dolby Vision configuration record."
+					},
+					"hasHdr10Plus": {
+						"type": "boolean",
+						"description": "True when the picture carries HDR10+ dynamic metadata (SMPTE 2094-40)."
 					}
 				},
 				"required": [
@@ -1303,6 +1319,14 @@
 					},
 					"samplingRate": {
 						"type": "string"
+					},
+					"hasDolbyAtmos": {
+						"type": "boolean",
+						"description": "True when this track carries Dolby Atmos (E-AC-3 JOC or TrueHD Atmos)."
+					},
+					"hasDtsX": {
+						"type": "boolean",
+						"description": "True when this DTS-HD MA track carries the DTS:X object layer."
 					}
 				},
 				"required": [
@@ -3758,6 +3782,125 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"ScanProgress": {
+				"description": "Progress of the library scan that is running right now.",
+				"properties": {
+					"libraryId": {
+						"type": "string"
+					},
+					"libraryName": {
+						"type": "string"
+					},
+					"processed": {
+						"type": "number",
+						"format": "double",
+						"description": "Files analysed so far."
+					},
+					"total": {
+						"type": "number",
+						"format": "double",
+						"description": "Files to analyse in this library."
+					}
+				},
+				"required": [
+					"libraryId",
+					"libraryName",
+					"processed",
+					"total"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"MusicDownloadProgress": {
+				"description": "Progress of the background music (themes) download of a library.",
+				"properties": {
+					"libraryId": {
+						"type": "string"
+					},
+					"libraryName": {
+						"type": "string"
+					},
+					"completed": {
+						"type": "number",
+						"format": "double"
+					},
+					"total": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"libraryId",
+					"libraryName",
+					"completed",
+					"total"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ScanActivity": {
+				"description": "What the server is doing in the background: scans and music downloads.",
+				"properties": {
+					"scan": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/ScanProgress"
+							}
+						],
+						"nullable": true
+					},
+					"music": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/MusicDownloadProgress"
+							}
+						],
+						"nullable": true
+					},
+					"queued": {
+						"type": "number",
+						"format": "double",
+						"description": "Scans waiting for the current one to finish."
+					}
+				},
+				"required": [
+					"scan",
+					"music",
+					"queued"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ApiResponse_ScanActivity_": {
+				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
+				"properties": {
+					"success": {
+						"type": "boolean"
+					},
+					"message": {
+						"type": "string"
+					},
+					"data": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/ScanActivity"
+							}
+						],
+						"nullable": true
+					},
+					"timestamp": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"data",
+					"timestamp"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"ApiResponse_LibrarySummary_": {
 				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
 				"properties": {
@@ -4924,6 +5067,60 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"ServerPublicInfoResponse": {
+				"description": "What an unauthenticated client may learn about a server (discovery + profile picker)",
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"users": {
+						"items": {
+							"$ref": "#/components/schemas/ServerUserDTO"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"users"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ApiResponse_ServerPublicInfoResponse_": {
+				"description": "Standard API Response structure.\nThis class creates a consistent envelope for all API responses.",
+				"properties": {
+					"success": {
+						"type": "boolean"
+					},
+					"message": {
+						"type": "string"
+					},
+					"data": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/ServerPublicInfoResponse"
+							}
+						],
+						"nullable": true
+					},
+					"timestamp": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"data",
+					"timestamp"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"ServerStatusResponse": {
 				"properties": {
 					"id": {
@@ -5023,10 +5220,10 @@
 			},
 			"ServerConfigDTO": {
 				"properties": {
-					"autoScan": {
+					"smartScan": {
 						"type": "boolean"
 					},
-					"autoScanPeriod": {
+					"smartScanPeriod": {
 						"type": "string"
 					},
 					"generateChapters": {
@@ -5063,8 +5260,8 @@
 					}
 				},
 				"required": [
-					"autoScan",
-					"autoScanPeriod",
+					"smartScan",
+					"smartScanPeriod",
 					"generateChapters",
 					"autoSelectTracks",
 					"preferAudioLan",
@@ -5111,10 +5308,10 @@
 			},
 			"UpdateServerConfigDTO": {
 				"properties": {
-					"autoScan": {
+					"smartScan": {
 						"type": "boolean"
 					},
-					"autoScanPeriod": {
+					"smartScanPeriod": {
 						"type": "string"
 					},
 					"generateChapters": {
@@ -8237,6 +8434,33 @@
 				}
 			}
 		},
+		"/libraries/scan-activity": {
+			"get": {
+				"operationId": "GetScanActivity",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_ScanActivity_"
+								}
+							}
+						}
+					}
+				},
+				"description": "What the server is scanning or downloading in the background right now.\nDeclared before the `{id}` routes so it is not captured as an id.",
+				"tags": [
+					"Libraries"
+				],
+				"security": [
+					{
+						"adminAuth": []
+					}
+				],
+				"parameters": []
+			}
+		},
 		"/libraries/{id}": {
 			"get": {
 				"operationId": "GetById",
@@ -9767,13 +9991,13 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"type": "object"
+									"$ref": "#/components/schemas/ApiResponse_ServerPublicInfoResponse_"
 								}
 							}
 						}
 					}
 				},
-				"description": "Minimal public server info (id, name, users) used by clients before login.",
+				"description": "Minimal public server info, used by clients before login to detect the server and show the\r\nprofile picker. Deliberately exposes nothing else (no API key status, no config).",
 				"tags": [
 					"Servers"
 				],
@@ -9925,7 +10149,7 @@
 						}
 					}
 				},
-				"description": "Update server configuration.\nDeclared after the static `config` routes: otherwise `PATCH /servers/config` would be\ncaptured by this `{id}` route.",
+				"description": "Update server configuration.\r\nDeclared after the static `config` routes: otherwise `PATCH /servers/config` would be\r\ncaptured by this `{id}` route.",
 				"tags": [
 					"Servers"
 				],

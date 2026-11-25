@@ -7,6 +7,7 @@ import {
   notificationService,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { resolveFfmpegPath } from '@/api/v1/shared/infrastructure/adapters/ffmpeg/nativeFfmpeg';
+import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import { WriteQueue } from '@/api/v1/shared/infrastructure/services/WriteQueue';
 import type { MediaSearchResult } from '@/data/interfaces/SearchResults';
 import logger from '@/utils/logger';
@@ -43,7 +44,13 @@ if (!ffmpegStaticExists && ffmpegPathFinal && !systemFfmpegPath) {
 // runs at a time, preventing unbounded memory usage during library scans.
 const autoDownloadQueue = new WriteQueue();
 
+// Themes whose download failed (no results, YouTube refusing...) are not tried again until the
+// server restarts, so the periodic scans do not repeat the same failing downloads over and over.
+const failedThemeDownloads = new Set<string>();
+
 const MAX_SEARCH_QUERY_LENGTH = 300;
+
+const YT_DLP_UPDATE_TIMEOUT_MS = 60_000;
 
 function normalizeSearchQuery(input: string): string {
   return input.trim().replace(/\s+/g, ' ').slice(0, MAX_SEARCH_QUERY_LENGTH);
@@ -122,6 +129,30 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       downloaderLogger.warn({ err }, 'Could not delete existing yt-dlp binary before re-download');
     }
     await this.downloadYoutubeDownloader();
+  }
+
+  /**
+   * Updates yt-dlp to the latest release with its own updater (`yt-dlp -U`). YouTube changes often
+   * and an old binary ends up refused (HTTP 403), which breaks every download. It never throws:
+   * with no connection, or if the update fails, the current binary is kept.
+   */
+  async updateYoutubeDownloader(timeoutMs = YT_DLP_UPDATE_TIMEOUT_MS): Promise<void> {
+    const ytDlpPath = this.getYtDlpPath();
+    if (!fileSystemService.existsSync(ytDlpPath)) return;
+
+    try {
+      const output = await Promise.race([
+        runProcessCaptureStdout(ytDlpPath, ['-U']),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('yt-dlp update timed out')), timeoutMs).unref?.(),
+        ),
+      ]);
+      // The last line says what happened (already up to date / updated to ...)
+      const lastLine = output.trim().split(String.fromCharCode(10)).pop()?.trim() ?? '';
+      downloaderLogger.info({ result: lastLine }, 'yt-dlp update check done');
+    } catch (error) {
+      downloaderLogger.warn({ error }, 'Could not update yt-dlp, keeping the current version');
+    }
   }
 
   /**
@@ -288,14 +319,8 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
     // Make sure the download path has a trailing slash
     const outputPath = path.join(folder, `${fileName}.webm`);
 
-    // Remove if exists
-    if (fileSystemService.existsSync(outputPath)) {
-      try {
-        fileSystemService.deleteFile(outputPath);
-      } catch (error) {
-        downloaderLogger.error({ error, outputPath }, 'File not removed');
-      }
-    }
+    // An existing file is not removed first: `--force-overwrite` replaces it only when the new
+    // download succeeds, so a failed download (YouTube refusing, no connection) does not lose it.
 
     const command = downloaderService.getYtDlpPath();
     const args = ['-f', 'bestvideo*+bestaudio/best', '-o', outputPath, url, '-q', '--progress', '--force-overwrite'];
@@ -313,7 +338,16 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
     this.downloadContent(command, args, fileName);
   }
 
-  public async downloadAudio(url: string, downloadFolder: string, fileName: string): Promise<void> {
+  /**
+   * Downloads the audio of a URL. The download runs in the background unless `waitForCompletion`
+   * is set, which resolves once yt-dlp has finished (used by the queued automatic downloads).
+   */
+  public async downloadAudio(
+    url: string,
+    downloadFolder: string,
+    fileName: string,
+    waitForCompletion = false,
+  ): Promise<void> {
     if (!isSafeMediaUrl(url)) {
       throw new Error('Invalid media URL');
     }
@@ -328,14 +362,8 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
     // Make sure the download path has a trailing slash
     const outputPath = path.join(folder, `${fileName}.opus`);
 
-    // Remove if exists
-    if (fileSystemService.existsSync(outputPath)) {
-      try {
-        fileSystemService.deleteFile(outputPath);
-      } catch (error) {
-        downloaderLogger.error({ error, outputPath }, 'File not removed');
-      }
-    }
+    // An existing file is not removed first: `--force-overwrite` replaces it only when the new
+    // download succeeds, so a failed download (YouTube refusing, no connection) does not lose it.
 
     const command = downloaderService.getYtDlpPath();
     const args = ['-f', 'bestaudio/best', '-o', outputPath, url, '-q', '--progress', '--force-overwrite'];
@@ -350,10 +378,16 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       args.push('--js-runtimes', 'node');
     }
 
-    this.downloadContent(command, args, fileName);
+    const finished = this.downloadContent(command, args, fileName);
+    if (waitForCompletion) await finished;
   }
 
-  private async downloadContent(command: string, args: string[], fileName: string) {
+  private downloadContent(command: string, args: string[], fileName: string): Promise<void> {
+    let finish: () => void = () => {};
+    const finished = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+
     try {
       const process = spawn(command, args, {
         shell: false,
@@ -401,7 +435,13 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
         }
       });
 
+      process.on('error', (error) => {
+        downloaderLogger.error(error, 'yt-dlp could not be started');
+        finish();
+      });
+
       process.on('close', (code: number) => {
+        finish();
         if (code === 0) {
           // Generate message for WebSockets
           const message = {
@@ -424,10 +464,29 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       });
     } catch (error) {
       downloaderLogger.error(error, 'Error executing yt-dlp');
+      finish();
     }
+
+    return finished;
   }
 
-  public autoDownloadFirstAudioResult(query: string, elementId: string): Promise<void> {
+  public autoDownloadFirstAudioResult(
+    query: string,
+    elementId: string,
+    library?: { id: string; name: string },
+  ): Promise<void> {
+    // Themes that were already downloaded are kept: scans run often and must not download (and
+    // replace) the theme of every movie and series again each time
+    const themePath = path.join(
+      fileSystemService.getExternalPath(fileSystemService.join('resources', 'music', elementId)),
+      `${elementId}.opus`,
+    );
+    if (fileSystemService.existsSync(themePath) || failedThemeDownloads.has(elementId)) {
+      return Promise.resolve();
+    }
+
+    if (library) scanActivity.musicQueued(library.id, library.name);
+
     // Enqueue so downloads run sequentially in the background, avoiding
     // spawning a yt-dlp process per item during large scans.
     autoDownloadQueue.enqueue(async () => {
@@ -435,14 +494,20 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
 
       if (result.length === 0) {
         downloaderLogger.warn({ query }, 'No results found for auto-download');
+        failedThemeDownloads.add(elementId);
         return;
       }
 
       const video = result[0];
       const downloadFolder = fileSystemService.join('resources', 'music', elementId);
 
-      await this.downloadAudio(video.url, downloadFolder, elementId);
-    });
+      await this.downloadAudio(video.url, downloadFolder, elementId, true);
+      if (!fileSystemService.existsSync(themePath)) failedThemeDownloads.add(elementId);
+    })
+      .catch((error) => downloaderLogger.error({ error, query }, 'Auto-download failed'))
+      .finally(() => {
+        if (library) scanActivity.musicSettled(library.id);
+      });
 
     // Return immediately — the caller (scan use-case) does not need to await this.
     return Promise.resolve();

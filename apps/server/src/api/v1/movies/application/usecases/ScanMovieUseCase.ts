@@ -223,7 +223,10 @@ export class ScanMovieUseCase {
     this.notificationService.mutateMovie(movie);
 
     // Download main theme in parallel
-    downloaderService.autoDownloadFirstAudioResult(`${movie.name} main theme`, movie.id);
+    downloaderService.autoDownloadFirstAudioResult(`${movie.name} main theme`, movie.id, {
+      id: library.id,
+      name: library.name,
+    });
 
     // Process videos sequentially (already in queue)
     const allFiles = [...mainFiles, ...extraFiles];

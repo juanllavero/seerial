@@ -18,7 +18,11 @@ import {
   fileSystemService,
   notificationService,
   tmdbApiClient,
+  useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { SmartScanScheduler } from '@/api/v1/libraries/application/services/SmartScanScheduler';
+import { loadServerConfig } from '@/api/v1/servers/infrastructure/services/ServerSettings';
+import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import * as ConfigManager from '@/api/v1/shared/infrastructure/services/ConfigService';
 import swaggerDocument from '../swagger.json';
 import { ServerConfigService } from './api/v1/servers/infrastructure/services/ServerConfigService';
@@ -81,7 +85,7 @@ function isTrustedCorsOrigin(origin: string): boolean {
     return true;
   }
 
-  if (hostname.endsWith('.local')) {
+  if (hostname.endsWith('.local') || hostname.endsWith('.localhost')) {
     return true;
   }
 
@@ -165,17 +169,34 @@ appServer.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles required by some UI libs
-        imgSrc: ["'self'", 'data:', 'blob:'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://image.tmdb.org'], // TMDB posters and backdrops
         mediaSrc: ["'self'", 'blob:'],
         connectSrc: ["'self'", 'ws:', 'wss:'],
         fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'self'"],
+        // Helmet adds `upgrade-insecure-requests` by default: opened over plain HTTP from another
+        // computer of the network (http://192.168.x.x:34200) the browser would upgrade every
+        // request of the page to HTTPS, which the server does not serve, and nothing would load.
+        upgradeInsecureRequests: null,
       },
     },
+    strictTransportSecurity: false, // Sent below, only over HTTPS
+    // Images and media are loaded by other origins too (desktop client, dev web client)
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    // Both are ignored (and only log warnings) when the page is opened over plain HTTP from the
+    // local network
+    crossOriginOpenerPolicy: false,
+    originAgentCluster: false,
     crossOriginEmbedderPolicy: false, // Avoid problems with video streaming
   }),
 );
+
+// HSTS only makes sense (and is only honoured) over HTTPS
+appServer.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
 
 appServer.use(express.json({ limit: '50mb' }));
 appServer.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -228,6 +249,8 @@ if (hasSingleInstanceLock) {
     s.start('Initializing Youtube Downloader...');
 
     await downloaderService.downloadYoutubeDownloader();
+    // Before anything can use it: the binary is replaced while updating
+    await downloaderService.updateYoutubeDownloader();
 
     s.stop('Youtube Downloader Initialized');
 
@@ -283,6 +306,33 @@ if (hasSingleInstanceLock) {
 
     // Initialize NotificationService through DI container
     notificationService.init(ServerConfigService.mainServer);
+
+    // Clients show what the server is scanning / downloading in the background
+    scanActivity.subscribe((activity) =>
+      notificationService.broadcast(JSON.stringify({ header: 'SCAN_ACTIVITY', body: activity })),
+    );
+
+    // Smart scan: all the libraries now and then every day / week / month (see the settings)
+    let smartScanRuns = 0;
+    new SmartScanScheduler({
+      getSettings: () => {
+        const { config } = loadServerConfig();
+        return {
+          enabled: config.smartScan !== false,
+          period: String(config.smartScanPeriod ?? 'daily'),
+        };
+      },
+      scanAllLibraries: async () => {
+        // yt-dlp breaks when YouTube changes: keep it up to date for long-running servers too
+        // (the startup already updated it, so the first scan does not repeat it)
+        if (smartScanRuns++ > 0) await downloaderService.updateYoutubeDownloader();
+
+        const libraries = await useCases.getLibraries().execute();
+        for (const library of libraries) {
+          await useCases.scanLibrary().execute(library, false);
+        }
+      },
+    }).start();
 
     // Create tray
     createTray();

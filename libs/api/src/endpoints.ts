@@ -113,6 +113,7 @@ export const API = {
         delete: (id: string) => `/libraries/${id}`,
         content: (id: string) => `/libraries/${id}/content`,
         scan: (id: string) => `/libraries/${id}/scan`,
+        scanActivity: '/libraries/scan-activity',
         reorder: '/libraries/order',
         reorderItems: (id: string) => `/libraries/${id}/order`,
     },

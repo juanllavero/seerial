@@ -1,5 +1,5 @@
 import { API, api, seerialQueryClient } from '@seerial/api';
-import { MessageType } from '@seerial/domain';
+import { MessageType, type ScanActivity } from '@seerial/domain';
 import { createWithEqualityFn } from 'zustand/traditional';
 
 function getBodyString(body: unknown, key: string): string | null {
@@ -21,6 +21,12 @@ type WebSocketSet = (
   partial: Partial<WebSocketState> | ((state: WebSocketState) => Partial<WebSocketState>),
 ) => void;
 type WebSocketGet = () => WebSocketState;
+
+const IDLE_SCAN_ACTIVITY: ScanActivity = { scan: null, music: null, queued: 0 };
+
+function isScanActivity(body: unknown): body is ScanActivity {
+  return !!body && typeof body === 'object' && 'scan' in body && 'music' in body;
+}
 
 function handleScanComplete(body: unknown, set: WebSocketSet): void {
   set({ analyzing: false, analyzingLibraryId: null });
@@ -195,6 +201,9 @@ function handleWebSocketMessage(
     case MessageType.SCAN_COMPLETE:
       handleScanComplete(message.body, set);
       break;
+    case MessageType.SCAN_ACTIVITY:
+      if (isScanActivity(message.body)) set({ scanActivity: message.body });
+      break;
     case MessageType.MUTATE_LIBRARIES:
       handleMutateLibraries(message.body);
       break;
@@ -237,6 +246,8 @@ interface WebSocketState {
   downloadPercentage: number;
   analyzing: boolean;
   analyzingLibraryId: string | null;
+  /** What the server is scanning / downloading in the background (reported by the server). */
+  scanActivity: ScanActivity;
   wsConnected: boolean;
   messageQueue: WebSocketMessage[];
   setDownloading: (value: boolean) => void;
@@ -244,6 +255,7 @@ interface WebSocketState {
   setDownloadPercentage: (value: number) => void;
   setAnalyzing: (value: boolean, libraryId: string) => void;
   connectWS: () => Promise<void>;
+  loadScanActivity: () => Promise<void>;
   downloadAudio: (
     elementId: string,
     url: string,
@@ -269,6 +281,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
   downloaded: false,
   downloadingElementId: null,
   analyzingLibraryId: null,
+  scanActivity: IDLE_SCAN_ACTIVITY,
   errorDownloading: false,
   downloading: false,
   downloadPercentage: 0,
@@ -283,6 +296,14 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
       messageQueue: [...state.messageQueue, message],
     })),
   clearMessageQueue: () => set({ messageQueue: [] }),
+
+  loadScanActivity: async () => {
+    try {
+      set({ scanActivity: await api.get<ScanActivity>(API.libraries.scanActivity) });
+    } catch {
+      // Only admins can read it; the indicator just stays hidden
+    }
+  },
 
   connectWS: async () => {
     set({ downloaded: false });
@@ -318,6 +339,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
             downloading: false,
             downloadingElementId: null,
             analyzing: false,
+            scanActivity: IDLE_SCAN_ACTIVITY,
           });
         };
 
