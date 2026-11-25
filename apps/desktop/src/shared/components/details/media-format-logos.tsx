@@ -58,7 +58,7 @@ const LOGOS: Record<MediaFormatBadge, LogoSpec> = {
     src: '/img/logos/video/hdr.svg',
     alt: 'HDR',
     imageRatio: 1,
-    ink: { x: 0.125, y: 0.375, w: 0.75, h: 0.25 },
+    ink: { x: 0.025, y: 0.375, w: 0.75, h: 0.25 },
     height: 2.2,
     flat: true,
   },
@@ -125,8 +125,8 @@ const LOGOS: Record<MediaFormatBadge, LogoSpec> = {
 const IMDB_LOGO: LogoSpec = {
   src: '/img/logos/imdb.svg',
   alt: 'IMDb Logo',
-  imageRatio: 1.4,
-  ink: { x: 0.1786, y: 0.2833, w: 0.6429, h: 0.4333 },
+  imageRatio: 1.5,
+  ink: { x: 0.1, y: 0.2733, w: 0.6429, h: 0.4333 },
   height: 2.4,
   flat: false,
 };
