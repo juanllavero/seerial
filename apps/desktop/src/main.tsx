@@ -25,6 +25,11 @@ function App() {
 
   useFeedbackSounds();
 
+  // Check the persisted server at startup; if it is unreachable, Root sends us back to the login
+  useEffect(() => {
+    void useServerStore.getState().initializeStatusChecks();
+  }, []);
+
   useEffect(() => {
     init({
       //debug: true, // Enable debug mode for spatial navigation

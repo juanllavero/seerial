@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use libmpv2::{Mpv, mpv_node::MpvNode};
 use serde::Serialize;
@@ -179,6 +180,9 @@ pub struct MacVideo {
 pub struct MpvState {
     pub mpv: Arc<Mutex<Option<Mpv>>>,
     pub window_id: Arc<Mutex<Option<i64>>>,
+    /// Audio passthrough preference. `stop` recreates the mpv instance, so it has to be
+    /// remembered here and re-applied to every new instance.
+    pub exclusive_audio: Arc<AtomicBool>,
     #[cfg(target_os = "macos")]
     pub mac: Arc<Mutex<MacVideo>>,
 }
@@ -189,6 +193,7 @@ impl MpvState {
         MpvState { 
             mpv: Arc::new(Mutex::new(Some(mpv))),
             window_id: Arc::new(Mutex::new(None)),
+            exclusive_audio: Arc::new(AtomicBool::new(false)),
             #[cfg(target_os = "macos")]
             mac: Arc::new(Mutex::new(MacVideo::default())),
         }
@@ -359,7 +364,12 @@ impl MpvState {
             let _ = new_mpv.set_property("wid", wid);
             let _ = new_mpv.set_property("force-window", "yes");
         }
-        
+
+        // A fresh instance knows nothing about the user's audio passthrough preference
+        if self.exclusive_audio.load(Ordering::SeqCst) {
+            let _ = apply_audio_passthrough(&new_mpv, true);
+        }
+
         let old_mpv = mpv_guard.replace(new_mpv);
 
         // Dropping an Mpv waits for its VO thread to tear down; on macOS that
@@ -634,13 +644,23 @@ pub fn set_audio_normalize(state: State<MpvState>, enabled: bool) -> Result<(), 
 #[cfg_attr(not(target_os = "macos"), tauri::command)]
 #[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_audio_exclusive(state: State<MpvState>, enabled: bool) -> Result<(), String> {
-    state.with_mpv(|mpv| {
-        mpv.set_property("audio-exclusive", enabled)?;
-        mpv.set_property(
-            "audio-spdif",
-            if enabled { "ac3,dts,eac3,dts-hd,truehd" } else { "" },
-        )
-    })
+    state.exclusive_audio.store(enabled, Ordering::SeqCst);
+    state.with_mpv(|mpv| apply_audio_passthrough(mpv, enabled))
+}
+
+/// Codecs sent bit-for-bit to the receiver. TrueHD carries Dolby Atmos (MAT), E-AC-3 carries
+/// Dolby Digital Plus/Atmos (JOC) and DTS-HD also covers DTS:X. `dts-hd` implies the DTS core.
+const PASSTHROUGH_CODECS: &str = "ac3,eac3,dts,dts-hd,truehd";
+
+fn apply_audio_passthrough(mpv: &Mpv, enabled: bool) -> Result<(), libmpv2::Error> {
+    // Passthrough needs exclusive access to the device (WASAPI exclusive / CoreAudio hog mode),
+    // and must not be combined with audio filters that would force a decode.
+    mpv.set_property("audio-exclusive", enabled)?;
+    mpv.set_property("audio-spdif", if enabled { PASSTHROUGH_CODECS } else { "" })?;
+    if enabled {
+        mpv.set_property("af", "")?;
+    }
+    Ok(())
 }
 
 // ─── Subtitles ───────────────────────────────────────────────────────────────

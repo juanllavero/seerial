@@ -90,7 +90,8 @@ export const useServerStore = createWithEqualityFn<AuthState>((set) => ({
     } else {
       remove(KEYS.SERVER);
     }
-    set({ selectedServer: server });
+    // The previous server's status says nothing about the new one: check again
+    set({ selectedServer: server, serverOnline: null, serverCheckError: null });
   },
 
   setCurrentUser: (user) => {
