@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 type MockProcess = EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
 
@@ -118,22 +121,124 @@ describe('DownloaderServiceImpl', () => {
     spy.mockRestore();
   });
 
-  it('logs and continues when deleting existing output files fails', async () => {
+  it('does not delete an existing output file before downloading (a failed download keeps it)', async () => {
     const service = new DownloaderServiceImpl();
     container.fileSystemService.existsSync.mockReturnValue(true);
-    container.fileSystemService.deleteFile.mockImplementation(() => {
-      throw new Error('unlink failed');
-    });
     const contentSpy = spyOnDownloadContent(service);
 
     await service.downloadVideo('https://example.com/v', 'downloads', 'video-file');
     await service.downloadAudio('https://example.com/a', 'music', 'song-file');
 
-    expect(container.fileSystemService.deleteFile).toHaveBeenCalledTimes(2);
+    expect(container.fileSystemService.deleteFile).not.toHaveBeenCalled();
     expect(contentSpy).toHaveBeenCalledTimes(2);
 
     contentSpy.mockRestore();
-    container.fileSystemService.deleteFile.mockReset();
+  });
+
+  describe('updateYoutubeDownloader', () => {
+    const originalFetch = global.fetch;
+    let tmp: string;
+    let binary: string;
+
+    beforeEach(() => {
+      tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdlp-'));
+      fs.mkdirSync(path.join(tmp, 'resources', 'lib'), { recursive: true });
+      binary = path.join(tmp, 'resources', 'lib', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+      fs.writeFileSync(binary, 'old binary');
+      container.fileSystemService.getExternalPath.mockImplementation((p: string) => path.join(tmp, p));
+      container.fileSystemService.existsSync.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+      container.fileSystemService.getExternalPath.mockImplementation((p: string) => `/ext/${p}`);
+      fs.rmSync(tmp, { recursive: true, force: true });
+    });
+
+    const latestRelease = (tag: string) => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({ tag_name: tag }) }) as unknown as typeof fetch;
+    };
+
+    it('replaces an outdated yt-dlp with the latest release', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.03.17', 0);
+      latestRelease('2026.11.20');
+      const download = jest
+        .spyOn(service as unknown as { downloadBinary: (d: string) => Promise<void> }, 'downloadBinary')
+        .mockImplementation(async (destination: string) => {
+          fs.writeFileSync(destination, Buffer.alloc(2_000_000, 1));
+        });
+
+      await service.updateYoutubeDownloader();
+
+      expect(download).toHaveBeenCalledTimes(1);
+      expect(fs.statSync(binary).size).toBe(2_000_000);
+      expect(fs.readdirSync(path.dirname(binary))).toHaveLength(1); // no .new / .old left behind
+    });
+
+    it('does nothing when yt-dlp is already the latest version', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.11.20', 0);
+      latestRelease('2026.11.20');
+      const download = jest.spyOn(
+        service as unknown as { downloadBinary: (d: string) => Promise<void> },
+        'downloadBinary',
+      );
+
+      await service.updateYoutubeDownloader();
+
+      expect(download).not.toHaveBeenCalled();
+      expect(fs.readFileSync(binary, 'utf8')).toBe('old binary');
+    });
+
+    it('keeps the current yt-dlp (never throws) when the download is not a real binary', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.03.17', 0);
+      latestRelease('2026.11.20');
+      jest
+        .spyOn(service as unknown as { downloadBinary: (d: string) => Promise<void> }, 'downloadBinary')
+        .mockImplementation(async (destination: string) => {
+          fs.writeFileSync(destination, '<html>rate limited</html>');
+        });
+
+      await expect(service.updateYoutubeDownloader()).resolves.toBeUndefined();
+
+      expect(fs.readFileSync(binary, 'utf8')).toBe('old binary');
+      expect(fs.readdirSync(path.dirname(binary))).toHaveLength(1);
+    });
+
+    it('keeps the current yt-dlp (never throws) when GitHub cannot be reached', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.03.17', 0);
+      global.fetch = jest.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+
+      await expect(service.updateYoutubeDownloader()).resolves.toBeUndefined();
+      expect(fs.readFileSync(binary, 'utf8')).toBe('old binary');
+    });
+  });
+
+  it('does not try to update a yt-dlp that is not installed yet', async () => {
+    const service = new DownloaderServiceImpl();
+    container.fileSystemService.existsSync.mockReturnValue(false);
+
+    await service.updateYoutubeDownloader();
+
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('does not download the theme again when it already exists', async () => {
+    const service = new DownloaderServiceImpl();
+    container.fileSystemService.existsSync.mockReturnValue(true);
+    const searchSpy = jest.spyOn(service, 'searchVideos');
+    const audioSpy = jest.spyOn(service, 'downloadAudio').mockResolvedValue(undefined);
+
+    await service.autoDownloadFirstAudioResult('query', 'element-1', { id: 'lib', name: 'Lib' });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(searchSpy).not.toHaveBeenCalled();
+    expect(audioSpy).not.toHaveBeenCalled();
   });
 
   it('auto-downloads first audio result when available', async () => {
@@ -152,7 +257,12 @@ describe('DownloaderServiceImpl', () => {
     await service.autoDownloadFirstAudioResult('query', 'element-1');
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(audioSpy).toHaveBeenCalledWith('https://example.com/a', expect.any(String), 'element-1');
+    expect(audioSpy).toHaveBeenCalledWith(
+      'https://example.com/a',
+      expect.any(String),
+      'element-1',
+      true,
+    );
   });
 
   it('does nothing when auto-download has no search results', async () => {
@@ -173,7 +283,8 @@ describe('DownloaderServiceImpl', () => {
 
     spawnMock.mockReturnValue(processEmitter);
 
-    await (service as unknown as DownloadContentHost).downloadContent(
+    // It resolves when the process closes
+    const finished = (service as unknown as DownloadContentHost).downloadContent(
       'yt-dlp',
       ['-f', 'best'],
       'media-file',
@@ -183,6 +294,7 @@ describe('DownloaderServiceImpl', () => {
     processEmitter.stderr.emit('data', Buffer.from('WARNING: test\nERROR: test-error\ninfo line'));
     processEmitter.emit('close', 0);
     processEmitter.emit('close', 1);
+    await finished;
 
     expect(spawnMock).toHaveBeenCalledWith('yt-dlp', ['-f', 'best'], {
       shell: false,

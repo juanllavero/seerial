@@ -265,8 +265,8 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
       }),
       AlbumModel.find({
         where: { collectionId },
-        relations: ['songs'],
-        relationLoadStrategy: 'query',
+        // Only the number of songs is needed to list the albums: load their ids, not the songs
+        loadRelationIds: { relations: ['songs'] },
         order: { collectionOrder: 'ASC' },
       }),
     ]);
@@ -405,8 +405,8 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
           type,
           albums: await AlbumModel.find({
             where: albumWhere,
-            relations: ['songs'],
-            relationLoadStrategy: 'query',
+            // Only the number of songs is needed to list the albums: load their ids, not the songs
+            loadRelationIds: { relations: ['songs'] },
             order: { order: 'ASC' },
           }),
         };

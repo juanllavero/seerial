@@ -250,7 +250,7 @@ describe('Servers, Series and Video Streaming controllers', () => {
     it('reads a single config key and returns null when key is missing', async () => {
       container.fileSystemService.getExternalPath.mockReturnValue('/tmp/serverConfig.json');
       container.fileSystemService.existsSync.mockReturnValue(false);
-      container.fileSystemService.readFileSync.mockReturnValue(JSON.stringify({ autoScan: true }));
+      container.fileSystemService.readFileSync.mockReturnValue(JSON.stringify({ smartScan: true }));
 
       const response = await new ServersController().getServerConfigKey('unknownKey');
 
@@ -263,34 +263,34 @@ describe('Servers, Series and Video Streaming controllers', () => {
       container.fileSystemService.createJSONFile.mockClear();
       container.fileSystemService.getExternalPath.mockReturnValue('/tmp/serverConfig.json');
       container.fileSystemService.existsSync.mockReturnValue(true);
-      container.fileSystemService.readFileSync.mockReturnValue(JSON.stringify({ autoScan: true }));
+      container.fileSystemService.readFileSync.mockReturnValue(JSON.stringify({ smartScan: true }));
 
       const response = await new ServersController().getServerConfig();
 
       expect(container.fileSystemService.createJSONFile).not.toHaveBeenCalled();
-      expect(response.data).toMatchObject({ autoScan: true, transcodeBuffer: 60 });
+      expect(response.data).toMatchObject({ smartScan: true, transcodeBuffer: 60 });
     });
 
     it('merges and persists updated server config values', async () => {
       container.fileSystemService.getExternalPath.mockReturnValue('/tmp/serverConfig.json');
       container.fileSystemService.existsSync.mockReturnValue(true);
       container.fileSystemService.readFileSync.mockReturnValue(
-        JSON.stringify({ autoScan: false, transcodeBuffer: 60, preferAudioLan: 'en' }),
+        JSON.stringify({ smartScan: false, transcodeBuffer: 60, preferAudioLan: 'en' }),
       );
 
       const response = await new ServersController().updateServerConfig({
-        autoScan: true,
+        smartScan: true,
         transcodeBuffer: 120,
       } as never);
 
       const [file, written] = container.fileSystemService.writeFileSync.mock.calls.at(-1);
       expect(file).toBe('/tmp/serverConfig.json');
       expect(JSON.parse(written)).toMatchObject({
-        autoScan: true,
+        smartScan: true,
         transcodeBuffer: 120,
         preferAudioLan: 'en',
       });
-      expect(response.data).toMatchObject({ autoScan: true, transcodeBuffer: 120 });
+      expect(response.data).toMatchObject({ smartScan: true, transcodeBuffer: 120 });
     });
   });
 

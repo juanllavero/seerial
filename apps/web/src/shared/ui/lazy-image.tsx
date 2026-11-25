@@ -133,7 +133,7 @@ const LazyImage: React.FC<ImageProps> = ({
   height,
   style,
   objectFit = 'cover',
-  tmdbSize = 'original',
+  tmdbSize = 'w500',
   className = '',
 }) => {
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
@@ -234,20 +234,6 @@ const LazyImage: React.FC<ImageProps> = ({
       }
     }
   };
-
-  return (
-    <div
-      ref={containerRef}
-      className={`relative overflow-hidden ${className} transition-all duration-500 ease-in-out`}
-      style={{
-        width,
-        height,
-        aspectRatio,
-      }}
-    >
-      <Skeleton className="absolute inset-0 h-full w-full" />
-    </div>
-  );
 
   return (
     <div

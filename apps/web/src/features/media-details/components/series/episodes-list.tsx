@@ -1,7 +1,7 @@
 import { API, useCreate } from '@seerial/api';
 import type { Episode } from '@seerial/domain';
 import { t } from 'i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
 import { useDialogStore } from '@/features/management';
 import FlexBox from '@/shared/ui/flex-box';
@@ -18,11 +18,13 @@ interface EpisodesListProps {
 
 function EpisodesList({ episodes, distribution, seriesId, seasonId, mutate }: EpisodesListProps) {
   const navigate = useNavigate();
+  const { libraryId } = useParams();
   const { openDialog } = useDialogStore((state) => ({ openDialog: state.openDialog }), shallow);
   const { create } = useCreate<unknown>();
 
   const goToEpisodePage = (episode: Episode) => {
-    navigate(`/episode/${episode.id}`);
+    // The episode route lives under its library: `/episode/:id` matches no route
+    navigate(`/library/${libraryId}/episode/${episode.id}`);
   };
 
   const getEpisodeMenu = (episode: Episode) => {

@@ -1,99 +1,36 @@
-import axios from 'axios';
+import path from 'node:path';
+import { LOCAL_DATA_PATH } from '@/utils/constants';
 import logger from '@/utils/logger';
 import type { IMDBScoreServicePort } from '../../../application/ports/IMDBScoreServicePort';
+import { ImdbRatingsDataset } from './ImdbRatingsDataset';
 
 const imdbLogger = logger.child({ category: 'IMDB Score' });
 
-const parseRatingValue = (value: unknown): number | null => {
-  if (typeof value !== 'number' && typeof value !== 'string') {
-    return null;
-  }
-
-  const parsed = Number(value.toString().replace(',', '.'));
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return parsed;
-};
-
-interface ImdbApiResponse {
-  rating?: {
-    aggregateRating?: unknown;
-  };
-}
-
-const isTransientImdbError = (error: unknown): boolean => {
-  if (!axios.isAxiosError(error)) {
-    return false;
-  }
-
-  if (error.code === 'ECONNABORTED') {
-    return true;
-  }
-
-  const status = error.response?.status;
-  return status === 429 || status === 502 || status === 503 || status === 504;
-};
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
+/**
+ * IMDb ratings from IMDb's own public dataset (https://datasets.imdbws.com, for personal and
+ * non-commercial use). The third-party API this used (api.imdbapi.dev) no longer exists: its
+ * domain does not resolve anymore.
+ */
 export class IMDBScoreServiceImpl implements IMDBScoreServicePort {
-  private readonly imdbApiBaseUrl = 'https://api.imdbapi.dev/titles';
+  constructor(
+    private readonly dataset = new ImdbRatingsDataset(() =>
+      path.join(LOCAL_DATA_PATH, 'resources', 'cache', 'imdb', 'title.ratings.tsv'),
+    ),
+  ) {}
 
-  axiosClient = axios.create({
-    timeout: 10000,
-  });
-
-  private async fetchImdbData(url: string): Promise<ImdbApiResponse> {
-    const maxAttempts = 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const { data } = await this.axiosClient.get<ImdbApiResponse>(url);
-        return data;
-      } catch (error: unknown) {
-        const isLastAttempt = attempt === maxAttempts;
-        const transient = isTransientImdbError(error);
-
-        if (!transient || isLastAttempt) {
-          throw error;
-        }
-
-        await sleep(attempt * 300);
-      }
-    }
-
-    throw new Error('Unable to fetch IMDb page after retries');
-  }
-
+  /** The rating (0-10), or -1 when it is unknown or the dataset cannot be read. */
   async getIMDBScore(imdbID: string): Promise<number> {
     try {
-      const url = `${this.imdbApiBaseUrl}/${imdbID}`;
-      const data = await this.fetchImdbData(url);
-      const rating = parseRatingValue(data.rating?.aggregateRating);
+      const rating = await this.dataset.getRating(imdbID);
+      if (rating !== null) return rating;
 
-      if (rating !== null) {
-        return rating;
-      }
-
-      imdbLogger.warn({ imdbID }, 'IMDb score not found in API payload');
+      imdbLogger.warn({ imdbID }, 'IMDb score not found in the ratings dataset');
       return -1;
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        imdbLogger.warn(
-          {
-            imdbID,
-            code: error.code,
-            status: error.response?.status,
-            message: error.message,
-          },
-          'IMDb score request failed',
-        );
-      } else {
-        imdbLogger.warn({ imdbID, error }, 'IMDb score parsing failed');
-      }
-
+      imdbLogger.warn(
+        { imdbID, message: error instanceof Error ? error.message : String(error) },
+        'IMDb score request failed',
+      );
       return -1;
     }
   }

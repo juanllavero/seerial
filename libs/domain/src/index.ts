@@ -5,6 +5,7 @@ export * from "./interfaces/domain-user";
 export * from "./interfaces/media-core";
 export * from "./interfaces/media-info";
 export * from "./interfaces/media-dtos";
+export * from "./interfaces/scan-activity";
 export * from "./interfaces/server-discovery";
 export * from "./interfaces/utils";
 export * from "./mappers/user";

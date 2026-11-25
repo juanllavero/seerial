@@ -16,7 +16,7 @@ function MusicPlayerCover() {
           alt={'Song Cover Image'}
           aspectRatio={1}
           className={`h-full w-full rounded-2xl object-cover shadow-2xl shadow-black/20`}
-          fallbackSrc={'local/img/songDefault.png'}
+          fallbackSrc={'/img/songDefault.png'}
         />
       </div>
     </div>

@@ -192,11 +192,6 @@ export class ScanMovieUseCase {
     const movie = await this.getOrCreateMovie(library, folderPath);
     if (!movie) return;
 
-    // Link to collection if it exists
-    if (collection) {
-      await this.collectionRepo.addMovie(collection.id, movie.id).catch((e) => logger.warn(e));
-    }
-
     // Search Metadata (if not locked or if it's new)
     const nameAndYear = extractNameAndYear(getFileName(folderPath));
 
@@ -223,7 +218,10 @@ export class ScanMovieUseCase {
     this.notificationService.mutateMovie(movie);
 
     // Download main theme in parallel
-    downloaderService.autoDownloadFirstAudioResult(`${movie.name} main theme`, movie.id);
+    downloaderService.autoDownloadFirstAudioResult(`${movie.name} main theme`, movie.id, {
+      id: library.id,
+      name: library.name,
+    });
 
     // Process videos sequentially (already in queue)
     const allFiles = [...mainFiles, ...extraFiles];
@@ -238,6 +236,13 @@ export class ScanMovieUseCase {
 
     // Update movie in DB
     await this.movieRepository.update(movie.id, movie);
+
+    // Link to the collection AFTER the updates above: they save the whole movie as it was read
+    // (without collection), and used to overwrite this link, leaving the movies of every collection
+    // folder as standalone movies
+    if (collection) {
+      await this.collectionRepo.addMovie(collection.id, movie.id).catch((e) => logger.warn(e));
+    }
 
     // Mutate content on clients
     this.notificationService.mutateMovie(movie);

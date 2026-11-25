@@ -121,7 +121,10 @@ export class ScanSeriesUseCase {
     }
 
     // Download main theme in parallel
-    downloaderService.autoDownloadFirstAudioResult(`${show.name} main theme`, show.id);
+    downloaderService.autoDownloadFirstAudioResult(`${show.name} main theme`, show.id, {
+      id: library.id,
+      name: library.name,
+    });
 
     // Update series analyzing status
     await this.writeQueue.enqueue(async () => {

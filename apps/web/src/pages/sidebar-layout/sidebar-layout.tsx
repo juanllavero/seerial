@@ -1,6 +1,6 @@
 import { useMusicStore } from '@seerial/stores';
 import { Outlet, useLocation } from 'react-router-dom';
-import { AppSidebar, CardWidthSlider } from '@/features/shell';
+import { AppSidebar, CardWidthSlider, ScanActivityIndicator } from '@/features/shell';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useIsTablet } from '@/shared/hooks/use-tablet';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/shared/ui/sidebar';
@@ -38,6 +38,7 @@ const SideBarLayout = () => {
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <ScanActivityIndicator />
     </div>
   );
 };
