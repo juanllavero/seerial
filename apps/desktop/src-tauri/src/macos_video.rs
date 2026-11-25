@@ -61,3 +61,41 @@ pub unsafe fn sync_frame(parent: *mut c_void, child: *mut c_void) {
     let _: () = msg_send![child, setFrame: frame, display: Bool::YES];
 }
 
+
+/// Finds the window mpv created, without asking mpv (reading `window-id` goes
+/// through mpv's VO thread, which itself waits on the main thread -> deadlock).
+/// It is the only visible, normal-level window that is not the app window nor
+/// one of its helper children. Main thread only.
+pub unsafe fn find_mpv_window(parent: *mut c_void) -> Option<*mut c_void> {
+    let parent = parent as *mut AnyObject;
+    let app: *mut AnyObject = msg_send![AnyClass::get(c"NSApplication").unwrap(), sharedApplication];
+    let windows: *mut AnyObject = msg_send![app, windows];
+    let count: usize = msg_send![windows, count];
+    for i in 0..count {
+        let w: *mut AnyObject = msg_send![windows, objectAtIndex: i];
+        if w == parent {
+            continue;
+        }
+        let visible: Bool = msg_send![w, isVisible];
+        let level: isize = msg_send![w, level];
+        let its_parent: *mut AnyObject = msg_send![w, parentWindow];
+        if visible.as_bool() && level == 0 && its_parent != parent {
+            return Some(w as *mut c_void);
+        }
+    }
+    None
+}
+
+/// Detaches the app window from mpv's window and brings it back to the front.
+/// Must run *before* mpv's window is destroyed: closing a parent window also
+/// orders out its child windows, which would leave the app invisible and
+/// unresponsive. Main thread only.
+pub unsafe fn detach_child(parent: *mut c_void, child: *mut c_void) {
+    let parent = parent as *mut AnyObject;
+    let child = child as *mut AnyObject;
+    if parent.is_null() || child.is_null() {
+        return;
+    }
+    let _: () = msg_send![child, removeChildWindow: parent];
+    let _: () = msg_send![parent, makeKeyAndOrderFront: std::ptr::null_mut::<AnyObject>()];
+}

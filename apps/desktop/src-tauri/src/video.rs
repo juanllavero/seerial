@@ -102,6 +102,12 @@ fn map_ff_index_to_mpv_track_id(mpv: &Mpv, track_type: &str, ff_index: i64) -> R
     Ok(ff_index)
 }
 
+// NOTE on the `tauri::command(async)` pairs below (macOS only):
+// plain `fn` commands run on the *main* thread, but on macOS mpv creates and
+// destroys its window with DispatchQueue.main.sync from its own threads. Any
+// mpv call made from the main thread while that happens deadlocks the whole app
+// (black screen + beachball). `command(async)` runs them on a worker thread.
+// Windows keeps the original `#[tauri::command]` behaviour.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackStatus {
@@ -123,7 +129,8 @@ pub enum VideoQuality {
     Maximum,
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_video_quality(state: State<MpvState>, quality: VideoQuality) -> Result<(), String> {
     state.with_mpv(|mpv| {
         match quality {
@@ -198,35 +205,44 @@ impl MpvState {
     }
 
     /// After a load, waits for mpv to create its window and glues it under the
-    /// app window.
+    /// app window. Never touches the mpv instance (see `find_mpv_window`).
     #[cfg(target_os = "macos")]
     pub fn macos_watch(&self) {
         let mac = self.mac.clone();
-        let mpv = self.mpv.clone();
         std::thread::spawn(move || {
             for _ in 0..200 {
                 std::thread::sleep(std::time::Duration::from_millis(50));
-                let wid: Option<i64> = mpv
-                    .lock()
-                    .ok()
-                    .and_then(|g| g.as_ref().and_then(|m| m.get_property::<i64>("window-id").ok()));
-                let Some(wid) = wid.filter(|w| *w != 0) else { continue };
                 let (app, parent, current) = match mac.lock() {
                     Ok(m) => (m.app.clone(), m.parent, m.child),
                     Err(_) => return,
                 };
-                if current == wid as usize {
-                    return;
+                if current != 0 {
+                    return; // already attached to this mpv instance
                 }
                 let Some(app) = app else { return };
+
+                let (tx, rx) = std::sync::mpsc::channel::<bool>();
                 let mac2 = mac.clone();
-                let _ = app.run_on_main_thread(move || {
-                    unsafe { crate::macos_video::attach_child(parent as *mut _, wid as *mut _) };
-                    if let Ok(mut m) = mac2.lock() {
-                        m.child = wid as usize;
+                let queued = app.run_on_main_thread(move || {
+                    let found = unsafe {
+                        crate::macos_video::find_mpv_window(parent as *mut _).map(|w| {
+                            crate::macos_video::attach_child(parent as *mut _, w);
+                            w as usize
+                        })
+                    };
+                    if let Some(w) = found {
+                        if let Ok(mut m) = mac2.lock() {
+                            m.child = w;
+                        }
                     }
+                    let _ = tx.send(found.is_some());
                 });
-                return;
+                if queued.is_err() {
+                    return;
+                }
+                if rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap_or(false) {
+                    return;
+                }
             }
         });
     }
@@ -239,11 +255,30 @@ impl MpvState {
         }
     }
 
-    /// Forget mpv's window (it dies with its mpv instance).
+    /// Releases the app window from mpv's window before that one is destroyed
+    /// (called from a worker thread; waits for the main thread to do it).
     #[cfg(target_os = "macos")]
-    fn macos_forget_child(&self) {
-        if let Ok(mut m) = self.mac.lock() {
-            m.child = 0;
+    fn macos_detach(&self) {
+        let (app, parent, child) = match self.mac.lock() {
+            Ok(mut m) => {
+                let child = std::mem::take(&mut m.child);
+                (m.app.clone(), m.parent, child)
+            }
+            Err(_) => return,
+        };
+        let Some(app) = app else { return };
+        if child == 0 {
+            return;
+        }
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        if app
+            .run_on_main_thread(move || {
+                unsafe { crate::macos_video::detach_child(parent as *mut _, child as *mut _) };
+                let _ = tx.send(());
+            })
+            .is_ok()
+        {
+            let _ = rx.recv_timeout(std::time::Duration::from_secs(2));
         }
     }
 
@@ -311,7 +346,7 @@ impl MpvState {
 
     fn recreate_mpv_instance(&self) -> Result<(), String> {
         #[cfg(target_os = "macos")]
-        self.macos_forget_child();
+        self.macos_detach();
 
         let mut mpv_guard = self.mpv.lock().map_err(|e| e.to_string())?;
         let window_id_guard = self.window_id.lock().map_err(|e| e.to_string())?;
@@ -325,7 +360,13 @@ impl MpvState {
             let _ = new_mpv.set_property("force-window", "yes");
         }
         
-        *mpv_guard = Some(new_mpv);
+        let old_mpv = mpv_guard.replace(new_mpv);
+
+        // Dropping an Mpv waits for its VO thread to tear down; on macOS that
+        // needs the main thread, so it must happen with no lock held.
+        drop(mpv_guard);
+        drop(window_id_guard);
+        drop(old_mpv);
 
         Ok(())
     }
@@ -343,7 +384,8 @@ impl MpvState {
     }
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn embed_mpv(window: Window, state: State<MpvState>) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -357,17 +399,20 @@ pub fn embed_mpv(window: Window, state: State<MpvState>) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn play(state: State<MpvState>) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("pause", false))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn pause(state: State<MpvState>) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("pause", true))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn toggle_play_pause(state: State<MpvState>) -> Result<(), String> {
     state.with_mpv(|mpv| {
         let is_paused: bool = mpv.get_property("pause")?;
@@ -375,7 +420,8 @@ pub fn toggle_play_pause(state: State<MpvState>) -> Result<(), String> {
     })
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn stop(state: State<MpvState>) -> Result<(), String> {
     // Stop current playback first.
     let _ = state.with_mpv(|mpv| mpv.command("stop", &[]));
@@ -386,7 +432,8 @@ pub fn stop(state: State<MpvState>) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn exit_app(app: AppHandle, state: State<MpvState>) -> Result<(), String> {
     let _ = state.with_mpv(|mpv| mpv.command("quit", &[]));
 
@@ -395,7 +442,8 @@ pub fn exit_app(app: AppHandle, state: State<MpvState>) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn loadfile(state: State<MpvState>, file: String) -> Result<(), String> {
     use std::path::PathBuf;
 
@@ -415,7 +463,8 @@ pub fn loadfile(state: State<MpvState>, file: String) -> Result<(), String> {
     result
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn load_url(state: State<MpvState>, url: String) -> Result<(), String> {
     // Basic URL validation
     if !url.starts_with("http://") && !url.starts_with("https://") {
@@ -430,22 +479,26 @@ pub fn load_url(state: State<MpvState>, url: String) -> Result<(), String> {
     result
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn get_position(state: State<MpvState>) -> Result<f64, String> {
     state.with_mpv(|mpv| mpv.get_property("time-pos"))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_position(state: State<MpvState>, position: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("time-pos", position))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn get_duration(state: State<MpvState>) -> Result<f64, String> {
     state.with_mpv(|mpv| mpv.get_property("duration"))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn get_playback_status(state: State<MpvState>) -> Result<PlaybackStatus, String> {
     state.with_mpv(|mpv| {
         Ok(PlaybackStatus {
@@ -459,19 +512,22 @@ pub fn get_playback_status(state: State<MpvState>) -> Result<PlaybackStatus, Str
     })
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_volume(state: State<MpvState>, volume: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("volume", volume))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn get_volume(state: State<MpvState>) -> Result<f64, String> {
     state.with_mpv(|mpv| mpv.get_property("volume"))
 }
 
 /// Set audio track. Incoming track_id is an ffprobe stream index.
 /// We map it to mpv `track-list/N/id` through `track-list/N/ff-index`.
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_audio_track(state: State<MpvState>, track_id: i64) -> Result<(), String> {
     state.with_mpv(|mpv| {
         let resolved_track_id = if track_id <= 0 {
@@ -486,7 +542,8 @@ pub fn set_audio_track(state: State<MpvState>, track_id: i64) -> Result<(), Stri
 
 /// Set subtitle track. Incoming track_id is an ffprobe stream index.
 /// We map it to mpv `track-list/N/id` through `track-list/N/ff-index`.
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_track(state: State<MpvState>, track_id: i64) -> Result<(), String> {
     state.with_mpv(|mpv| {
         let resolved_track_id = if track_id <= 0 {
@@ -500,42 +557,50 @@ pub fn set_subtitle_track(state: State<MpvState>, track_id: i64) -> Result<(), S
 }
 
 /// Set zoom level. 0 = no zoom, positive values zoom in, negative values zoom out.
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_zoom(state: State<MpvState>, zoom_level: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("video-zoom", zoom_level))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_audio_delay(state: State<MpvState>, delay: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("audio-delay", delay))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_delay(state: State<MpvState>, delay: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("sub-delay", delay))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_font_size(state: State<MpvState>, size: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("sub-font-size", size))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_color(state: State<MpvState>, color: String) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("sub-color", color.as_str()))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_border_size(state: State<MpvState>, size: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("sub-border-size", size))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_shadow_offset(state: State<MpvState>, offset: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("sub-shadow-offset", offset))
 }
 
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_position(state: State<MpvState>, position: i64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("sub-pos", position))
 }
@@ -544,7 +609,8 @@ pub fn set_subtitle_position(state: State<MpvState>, position: i64) -> Result<()
 
 /// Toggles hardware-accelerated decoding. When enabled, uses the best
 /// available decoder automatically (NVDEC, DXVA2, VAAPI, etc.).
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_hwdec(state: State<MpvState>, enabled: bool) -> Result<(), String> {
     state.with_mpv(|mpv| {
         mpv.set_property("hwdec", if enabled { "auto" } else { "no" })
@@ -555,7 +621,8 @@ pub fn set_hwdec(state: State<MpvState>, enabled: bool) -> Result<(), String> {
 
 /// Normalizes multichannel audio when downmixing to stereo,
 /// preventing volume spikes on surround content.
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_audio_normalize(state: State<MpvState>, enabled: bool) -> Result<(), String> {
     state.with_mpv(|mpv| {
         mpv.set_property("audio-normalize-downmix", enabled)
@@ -564,7 +631,8 @@ pub fn set_audio_normalize(state: State<MpvState>, enabled: bool) -> Result<(), 
 
 /// Enables S/PDIF passthrough for lossless and lossy surround formats
 /// (AC3, DTS, E-AC3, DTS-HD MA, TrueHD). When disabled, MPV decodes internally.
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_audio_exclusive(state: State<MpvState>, enabled: bool) -> Result<(), String> {
     state.with_mpv(|mpv| {
         mpv.set_property("audio-exclusive", enabled)?;
@@ -579,7 +647,8 @@ pub fn set_audio_exclusive(state: State<MpvState>, enabled: bool) -> Result<(), 
 
 /// Sets subtitle text color using a predefined palette.
 /// Colors are expressed as RGBA hex strings (`#RRGGBBAA`).
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_color_preset(state: State<MpvState>, color: SubtitleColor) -> Result<(), String> {
     let hex = match color {
         SubtitleColor::White   => "#FFFFFFFF",
@@ -600,7 +669,8 @@ pub fn set_subtitle_color_preset(state: State<MpvState>, color: SubtitleColor) -
 
 /// Maps a named size preset to a concrete `sub-font-size` value.
 /// Values are tuned for a typical 1080p/4K living-room viewing distance.
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_size_preset(state: State<MpvState>, size: SubtitleSize) -> Result<(), String> {
     let value: f64 = match size {
         SubtitleSize::Tiny   => 18.0,
@@ -614,7 +684,8 @@ pub fn set_subtitle_size_preset(state: State<MpvState>, size: SubtitleSize) -> R
 
 /// Positions subtitles using a combination of `sub-pos` (vertical %, 0 = top),
 /// `sub-align-x` (horizontal alignment), and `sub-align-y` (vertical anchor).
-#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_subtitle_position_preset(state: State<MpvState>, position: SubtitlePosition) -> Result<(), String> {
     state.with_mpv(|mpv| {
         let (pos, align_x, align_y) = match position {
