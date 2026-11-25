@@ -333,6 +333,10 @@
 					"localId": {
 						"type": "string"
 					},
+					"collectionId": {
+						"type": "string",
+						"description": "Music collection the file belongs to (its extras). Lets users stream extras that are not library videos."
+					},
 					"start": {
 						"type": "number",
 						"format": "double",

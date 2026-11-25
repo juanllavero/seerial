@@ -7,6 +7,7 @@ import { MusicExtraCardFocusProvider, useMusicExtraCardFocus } from './music-ext
 
 interface MusicExtraCardProps {
   src: string;
+  collectionId?: string;
   title: string;
   subtitle?: string;
   customKey: string;
@@ -18,6 +19,7 @@ interface MusicExtraCardProps {
 
 function MusicExtraCardComponent({
   src,
+  collectionId,
   title,
   subtitle,
   customKey,
@@ -85,6 +87,7 @@ function MusicExtraCardComponent({
     const generateThumbnail = async () => {
       const signedUrl = await getSignedVideoStreamUrlPassthrough({
         filePath: src,
+        collectionId,
       });
       if (cancelled || !signedUrl) return;
 
@@ -124,7 +127,7 @@ function MusicExtraCardComponent({
         videoRef.current = null;
       }
     };
-  }, [ref, src, serverUrl]);
+  }, [ref, src, collectionId, serverUrl]);
 
   return (
     <FlexBox

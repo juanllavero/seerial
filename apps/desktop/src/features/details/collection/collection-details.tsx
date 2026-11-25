@@ -541,6 +541,7 @@ function CollectionDetailsContent({
                     key={`extra-${extra.src}`}
                     customKey={`extra-${index}`}
                     src={extra.src}
+                    collectionId={collectionId}
                     title={extra.title}
                     subtitle={extra.type}
                     width="30vh"
@@ -558,7 +559,7 @@ function CollectionDetailsContent({
                     }
                     action={() =>
                       navigate(
-                        `/video-player/file?path=${encodeURIComponent(extra.src)}&title=${encodeURIComponent(`${collection?.title ? `${collection.title} - ` : ''}${extra.title}`)}`,
+                        `/video-player/file?path=${encodeURIComponent(extra.src)}&collectionId=${encodeURIComponent(collectionId ?? '')}&title=${encodeURIComponent(`${collection?.title ? `${collection.title} - ` : ''}${extra.title}`)}`,
                       )
                     }
                   />

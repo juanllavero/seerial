@@ -1,9 +1,9 @@
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useGetContinueWatching } from '@seerial/api';
 import type { ContinueWatchingVideoDTO } from '@seerial/domain';
-import { useServerStore } from '@seerial/stores';
+import { useDataStore, useServerStore } from '@seerial/stores';
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HomePageContent } from '@/features/home';
 import AppAlertDialog from '@/shared/components/app-alert-dialog';
 import Loading from '@/shared/components/loading';
@@ -17,6 +17,10 @@ function Home() {
   const serverUrl = selectedServer?.url ?? '';
   const [selectedElement, setSelectedElement] = useState<ContinueWatchingVideoDTO | null>(null);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
+  // Element the user navigated from: coming back from a details page, focus it again
+  const lastFocusedElementId = useDataStore((state) => state.lastFocusedElementId);
+  const lastFocusedElementIdRef = useRef(lastFocusedElementId);
+  lastFocusedElementIdRef.current = lastFocusedElementId;
 
   useKeyboardBack({
     preAction: () => setIsExitDialogOpen(true),
@@ -35,8 +39,11 @@ function Home() {
     let frameId = 0;
 
     if (continueWatching && continueWatching.length > 0) {
+      const focusId = continueWatching.some((e) => e.id === lastFocusedElementIdRef.current)
+        ? (lastFocusedElementIdRef.current as string)
+        : continueWatching[0].id;
       frameId = window.requestAnimationFrame(() => {
-        setFocus(continueWatching[0].id);
+        setFocus(focusId);
       });
     } else {
       frameId = window.requestAnimationFrame(() => {
@@ -51,7 +58,10 @@ function Home() {
 
   useEffect(() => {
     if (continueWatching && continueWatching.length > 0) {
-      setSelectedElement(continueWatching[0]);
+      setSelectedElement(
+        continueWatching.find((e) => e.id === lastFocusedElementIdRef.current) ??
+          continueWatching[0],
+      );
       return;
     }
 

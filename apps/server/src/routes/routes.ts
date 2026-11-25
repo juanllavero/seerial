@@ -182,6 +182,7 @@ const models: TsoaRoute.Models = {
         "properties": {
             "filePath": {"dataType":"string","required":true},
             "localId": {"dataType":"string"},
+            "collectionId": {"dataType":"string"},
             "start": {"dataType":"double"},
             "audio": {"dataType":"double"},
             "expiresIn": {"dataType":"union","subSchemas":[{"dataType":"double"},{"dataType":"string"}]},

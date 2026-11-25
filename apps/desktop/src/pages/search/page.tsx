@@ -383,7 +383,7 @@ function SearchPage() {
   }, [query]);
 
   return (
-    <Page padding="2dvh 4dvh 3dvh 4dvh" fullScreen>
+    <Page padding="2dvh 4dvh 3dvh 4dvh">
       <NavigationContainer className="h-full w-full" customFocusKey="search-page-container">
         <FlexBox width="100%" height="100%" gap={2.5} className="pr-[2dvh]">
           <SearchInputPanel

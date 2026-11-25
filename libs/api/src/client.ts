@@ -336,6 +336,8 @@ export async function patchServerConfig(
 interface SignedStreamUrlRequest {
     filePath: string
     localId?: string
+    /** Music collection the file is an extra of (lets the server authorize a non-library file) */
+    collectionId?: string
     start?: number
     audio?: number
     expiresIn?: string

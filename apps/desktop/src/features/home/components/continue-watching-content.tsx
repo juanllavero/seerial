@@ -1,7 +1,7 @@
 import { getCurrentFocusKey } from '@noriginmedia/norigin-spatial-navigation';
 import { API, apiClient } from '@seerial/api';
 import type { ContinueWatchingVideoDTO } from '@seerial/domain';
-import { useServerStore } from '@seerial/stores';
+import { useDataStore, useServerStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,11 +26,30 @@ function ContinueWatchingContent({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useServerStore((state) => state.currentUser);
+  const setLastFocusedElementId = useDataStore((state) => state.setLastFocusedElementId);
 
   const [contextMenuElement, setContextMenuElement] = useState<ContinueWatchingVideoDTO | null>(
     null,
   );
   const [previousFocusKey, setPreviousFocusKey] = useState<string | undefined>(undefined);
+
+  const handleOpenDetails = useCallback(
+    (element: ContinueWatchingVideoDTO) => {
+      setLastFocusedElementId(element.id);
+      navigate(
+        `/details/${element.seriesId ? 'series' : 'movie'}/${element.seriesId ?? element.movieId}`,
+        {
+          state: {
+            cachedDetails: element.details,
+            // Series: open on the season and episode the user is watching
+            focusEpisodeId: element.episodeId,
+            currentSeasonNumber: element.seasonNumber,
+          },
+        },
+      );
+    },
+    [navigate, setLastFocusedElementId],
+  );
 
   const handleLongPress = useCallback((element: ContinueWatchingVideoDTO) => {
     setPreviousFocusKey(getCurrentFocusKey() ?? element.id);
@@ -72,14 +91,12 @@ function ContinueWatchingContent({
             customKey={element.id}
             width={'28dvh'}
             noInfo
-            onFocus={() => setSelectedElement(element)}
+            onFocus={() => {
+              setSelectedElement(element);
+              setLastFocusedElementId(element.id);
+            }}
             aspectRatio="2/3"
-            action={() =>
-              navigate(
-                `/details/${element.seriesId ? 'series' : 'movie'}/${element.seriesId ? element.seriesId : element.movieId}`,
-                { state: { cachedDetails: element.details } },
-              )
-            }
+            action={() => handleOpenDetails(element)}
             duration={element.duration}
             timeWatched={element.timeWatched}
             onLongPress={() => handleLongPress(element)}
@@ -99,11 +116,7 @@ function ContinueWatchingContent({
             },
             {
               label: t('goToContent'),
-              action: () =>
-                navigate(
-                  `/details/${contextMenuElement.seriesId ? 'series' : 'movie'}/${contextMenuElement.seriesId ? contextMenuElement.seriesId : contextMenuElement.movieId}`,
-                  { state: { cachedDetails: contextMenuElement.details } },
-                ),
+              action: () => handleOpenDetails(contextMenuElement),
             },
             {
               label: t('markAsWatched'),

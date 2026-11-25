@@ -10,6 +10,7 @@ import {
   useCases,
   videoProcessingService,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { findMusicExtras } from '@/api/v1/shared/infrastructure/services/MediaDetailsService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
 import { messages } from '@/config/messages';
@@ -38,15 +39,37 @@ export class VideoStreamingController extends Controller {
     return ip.startsWith('127.');
   }
 
+  private async findCollectionExtraPath(
+    filePath: string,
+    collectionId: string,
+    req: ExpressRequest,
+  ): Promise<string | null> {
+    if (!req.user) return null;
+    await AccessControlService.assertAccess(req.user, 'collection', collectionId);
+
+    const normalize = (value: string) => path.resolve(value).toLowerCase();
+    const wanted = normalize(filePath);
+    const extras = await findMusicExtras(collectionId);
+    return extras.find((extra) => normalize(extra.src) === wanted)?.src ?? null;
+  }
+
   private async resolveVideoPath(
     filePath: string,
     localId?: string,
     req?: ExpressRequest,
+    collectionId?: string,
   ): Promise<string | null> {
     if (!localId) {
       const normalizedPath = (filePath || '').trim();
       if (!normalizedPath || normalizedPath === 'none') {
         return null;
+      }
+
+      // Extras of a music collection are plain files, not library videos: accept the path only
+      // when it is one of the extras of a collection the user can read.
+      if (collectionId && req?.user) {
+        const extraPath = await this.findCollectionExtraPath(normalizedPath, collectionId, req);
+        if (extraPath) return extraPath;
       }
 
       // Prefer known library media paths for any client.
@@ -170,9 +193,9 @@ export class VideoStreamingController extends Controller {
     @Request() req: ExpressRequest,
   ): Promise<ApiResponse<string | null>> {
     const userId = (req as AuthenticatedRequest).user?.id as string;
-    const { filePath, localId, expiresIn } = body;
+    const { filePath, localId, collectionId, expiresIn } = body;
 
-    const path = await this.resolveVideoPath(filePath, localId, req);
+    const path = await this.resolveVideoPath(filePath, localId, req, collectionId);
 
     if (!path) {
       return ApiResponse.success(null, messages.success.fetch);

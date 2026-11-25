@@ -62,6 +62,7 @@ function buildMinimalVideo(filePath: string, title: string): Video {
 function VideoPlayerFilePage() {
   const [searchParams] = useSearchParams();
   const filePath = searchParams.get('path') ?? '';
+  const collectionId = searchParams.get('collectionId') ?? undefined;
   const title = searchParams.get('title') ?? filePath.split(/[\\/]/).pop() ?? '';
 
   const navigate = useNavigate();
@@ -106,6 +107,7 @@ function VideoPlayerFilePage() {
       try {
         const url = await getSignedVideoStreamUrlPassthrough({
           filePath,
+          collectionId: collectionId || undefined,
           expiresIn: '2m',
         });
         // The server answers with an empty URL when the file is unknown or not accessible
@@ -144,7 +146,7 @@ function VideoPlayerFilePage() {
         }
       }
     },
-    [filePath, serverUrl, mpv.loadUrl, mpv.setPosition, mpv.waitForReady, mpv.play],
+    [filePath, collectionId, serverUrl, mpv.loadUrl, mpv.setPosition, mpv.waitForReady, mpv.play],
   );
 
   useEffect(() => {
