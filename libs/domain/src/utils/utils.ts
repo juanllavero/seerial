@@ -155,7 +155,7 @@ function findSubtitleByLang(
         }
     }
 
-    return tracks.findLast((t) => t.languageTag === targetLang);
+    return tracks.find((t) => t.languageTag === targetLang);
 }
 
 function getSpanishVariantPreference(appLanguage?: string): SpanishVariantPreference {
@@ -165,15 +165,16 @@ function getSpanishVariantPreference(appLanguage?: string): SpanishVariantPrefer
 }
 
 export const getSubtitleTrack = (prefSubsLan: string, subsMode: string, video: Video, appLanguage?: string) => {
-    if (!video.subtitleTracks || video.subtitleTracks.length === 0) return null;
+    const offTrack = 'Off'
+    if (!video.subtitleTracks || video.subtitleTracks.length === 0) return offTrack;
 
     const stored = resolveStoredSubtitleTrack(video);
     if (stored !== undefined) return stored;
 
     const targetLang = iso1to3[prefSubsLan] ?? prefSubsLan;
-    const defaultTrack = subsMode === 'alwaysSubs' ? (video.subtitleTracks[0] ?? null) : null;
+    const defaultTrack = subsMode === 'alwaysSubs' ? (video.subtitleTracks[0] ?? offTrack) : offTrack;
 
-    if (subsMode !== 'autoSubs' && subsMode !== 'alwaysSubs') return null;
+    if (subsMode !== 'autoSubs' && subsMode !== 'alwaysSubs') return offTrack;
 
     return findSubtitleByLang(video.subtitleTracks, targetLang, getSpanishVariantPreference(appLanguage)) ?? defaultTrack;
 };

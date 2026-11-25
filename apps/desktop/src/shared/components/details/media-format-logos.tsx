@@ -54,6 +54,14 @@ const LOGOS: Record<MediaFormatBadge, LogoSpec> = {
     height: 2.2,
     flat: true,
   },
+  'dolby-vision-atmos': {
+    src: '/img/logos/video/dolby-vision-atmos.png',
+    alt: 'Dolby Vision + Dolby Atmos',
+    imageRatio: 2.3256,
+    ink: { x: 0.0187, y: 0.0822, w: 0.9647, h: 0.8357 },
+    height: 3.6,
+    flat: true,
+  },
   hdr: {
     src: '/img/logos/video/hdr.svg',
     alt: 'HDR',

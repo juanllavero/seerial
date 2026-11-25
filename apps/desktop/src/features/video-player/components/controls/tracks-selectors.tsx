@@ -437,11 +437,13 @@ function TracksSelectors({
     );
     const selectedVideoTrackId = videoTracks[0]?.id ?? null;
     const selectedAudioTrackId = preferredAudioTrack?.id ?? null;
-    const selectedSubtitleTrackId = preferredSubtitleTrack?.id ?? null;
+    const selectedSubtitleTrackId =
+      typeof preferredSubtitleTrack === 'string' ? null : (preferredSubtitleTrack?.id ?? null);
 
     setTrackSelectorsState({
       selectedAudioTrack: preferredAudioTrack,
-      selectedSubtitleTrack: preferredSubtitleTrack,
+      selectedSubtitleTrack:
+        typeof preferredSubtitleTrack === 'string' ? null : preferredSubtitleTrack,
       tracks: {
         audioTracks: updateSelectedTrack(audioTracks, selectedAudioTrackId),
         subtitleTracks: updateSelectedTrack(subtitleTracks, selectedSubtitleTrackId),

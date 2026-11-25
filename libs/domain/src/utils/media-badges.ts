@@ -5,6 +5,7 @@ export type MediaFormatBadge =
     | "hd"
     | "4k"
     | "dolby-vision"
+    | "dolby-vision-atmos"
     | "hdr"
     | "hdr10plus"
     | "dolby-atmos"
@@ -122,11 +123,20 @@ export function getMediaFormatBadges(
     const resolution = getResolutionBadge(main);
     if (resolution) badges.push(resolution);
 
-    if (isDolbyVisionVideoTrack(main)) badges.push("dolby-vision");
+    const hasDolbyVision = isDolbyVisionVideoTrack(main);
+    const hasDolbyAtmos = isDolbyAtmosAudioTrack(selectedAudioTrack);
+
+    // Dolby Vision + Dolby Atmos share one combined logo instead of showing both
+    if (hasDolbyVision && hasDolbyAtmos) {
+        badges.push("dolby-vision-atmos");
+        return badges;
+    }
+
+    if (hasDolbyVision) badges.push("dolby-vision");
     else if (isHdr10PlusVideoTrack(main)) badges.push("hdr10plus");
     else if (isHdrVideoTrack(main)) badges.push("hdr");
 
-    if (isDolbyAtmosAudioTrack(selectedAudioTrack)) badges.push("dolby-atmos");
+    if (hasDolbyAtmos) badges.push("dolby-atmos");
     else if (isDtsXAudioTrack(selectedAudioTrack)) badges.push("dtsx");
     else if (isDtsHdMasterAudioTrack(selectedAudioTrack)) badges.push("dts-hd");
     else if (isDtsCoreAudioTrack(selectedAudioTrack)) badges.push("dts");

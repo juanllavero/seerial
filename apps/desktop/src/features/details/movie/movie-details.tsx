@@ -12,9 +12,9 @@ import {
   getAudioTrack,
   getMediaFormatBadges,
   getSubtitleTrack,
-  needsMediaFormatAnalysis,
   type LibraryType,
   type Movie,
+  needsMediaFormatAnalysis,
   type Video,
 } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
@@ -94,7 +94,10 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
     // Analyse the video when it has no tracks yet, or when it was analysed before Dolby Atmos
     // detection existed (its tracks carry no Atmos information)
     const hasTracks = !!selectedVideo?.audioTracks && selectedVideo.audioTracks.length > 0;
-    if (!selectedVideo?.id || (hasTracks && !needsMediaFormatAnalysis(selectedVideo.audioTracks, selectedVideo.videoTracks)))
+    if (
+      !selectedVideo?.id ||
+      (hasTracks && !needsMediaFormatAnalysis(selectedVideo.audioTracks, selectedVideo.videoTracks))
+    )
       return;
     if (resolvedVideoData.has(selectedVideo.id)) return;
 
@@ -131,12 +134,13 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
 
   const movieSubtitleInfo = useMemo(() => {
     if (!effectiveVideo || !library) return undefined;
-    return getSubtitleTrack(
+    const track = getSubtitleTrack(
       library.preferSubLan ?? '',
       library.subsMode ?? 'autoSubs',
       effectiveVideo,
       i18n.language,
-    )?.displayTitle;
+    );
+    return typeof track === 'string' ? track : track?.displayTitle;
   }, [effectiveVideo, library, i18n.language]);
 
   if (!isLoading && !movie) return <span>Movie not found</span>;

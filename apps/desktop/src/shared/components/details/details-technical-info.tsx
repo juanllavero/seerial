@@ -16,11 +16,6 @@ function DetailsTechnicalInfo({ videoInfo, audioInfo, subtitleInfo }: DetailsTec
 
   return (
     <FlexBox direction="row" gap={2}>
-      {videoInfo && (
-        <Card className="px-3 border-none bg-black/80">
-          <Tertiary className="text-stone-300!">{videoInfo}</Tertiary>
-        </Card>
-      )}
       {audioInfo && (
         <Card className="px-3 border-none flex items-center gap-3 bg-black/80">
           <Volume2 />

@@ -163,12 +163,13 @@ function getEpisodeSubtitleInfo(
     return undefined;
   }
 
-  return getSubtitleTrack(
+  const track = getSubtitleTrack(
     series?.preferSubLan ?? '',
     series?.subsMode ?? 'autoSubs',
     selectedEpisode.video,
     appLanguage,
-  )?.displayTitle;
+  );
+  return typeof track === 'string' ? track : track?.displayTitle;
 }
 
 function SeriesDetails({
