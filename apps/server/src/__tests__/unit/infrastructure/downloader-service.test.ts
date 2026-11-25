@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 type MockProcess = EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
 
@@ -132,25 +135,88 @@ describe('DownloaderServiceImpl', () => {
     contentSpy.mockRestore();
   });
 
-  it('updates yt-dlp with its own updater when it is installed', async () => {
-    const service = new DownloaderServiceImpl();
-    container.fileSystemService.existsSync.mockReturnValue(true);
-    mockSpawnResult('Latest version: 2026.11.20, Current version: 2026.01.01', 0);
+  describe('updateYoutubeDownloader', () => {
+    const originalFetch = global.fetch;
+    let tmp: string;
+    let binary: string;
 
-    await service.updateYoutubeDownloader();
-
-    expect(spawnMock).toHaveBeenCalledWith(expect.stringContaining('yt-dlp'), ['-U'], {
-      shell: false,
-      windowsHide: true,
+    beforeEach(() => {
+      tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdlp-'));
+      fs.mkdirSync(path.join(tmp, 'resources', 'lib'), { recursive: true });
+      binary = path.join(tmp, 'resources', 'lib', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+      fs.writeFileSync(binary, 'old binary');
+      container.fileSystemService.getExternalPath.mockImplementation((p: string) => path.join(tmp, p));
+      container.fileSystemService.existsSync.mockReturnValue(true);
     });
-  });
 
-  it('keeps going (never throws) when yt-dlp cannot be updated', async () => {
-    const service = new DownloaderServiceImpl();
-    container.fileSystemService.existsSync.mockReturnValue(true);
-    mockSpawnResult('', 1);
+    afterEach(() => {
+      global.fetch = originalFetch;
+      container.fileSystemService.getExternalPath.mockImplementation((p: string) => `/ext/${p}`);
+      fs.rmSync(tmp, { recursive: true, force: true });
+    });
 
-    await expect(service.updateYoutubeDownloader()).resolves.toBeUndefined();
+    const latestRelease = (tag: string) => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({ tag_name: tag }) }) as unknown as typeof fetch;
+    };
+
+    it('replaces an outdated yt-dlp with the latest release', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.03.17', 0);
+      latestRelease('2026.11.20');
+      const download = jest
+        .spyOn(service as unknown as { downloadBinary: (d: string) => Promise<void> }, 'downloadBinary')
+        .mockImplementation(async (destination: string) => {
+          fs.writeFileSync(destination, Buffer.alloc(2_000_000, 1));
+        });
+
+      await service.updateYoutubeDownloader();
+
+      expect(download).toHaveBeenCalledTimes(1);
+      expect(fs.statSync(binary).size).toBe(2_000_000);
+      expect(fs.readdirSync(path.dirname(binary))).toHaveLength(1); // no .new / .old left behind
+    });
+
+    it('does nothing when yt-dlp is already the latest version', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.11.20', 0);
+      latestRelease('2026.11.20');
+      const download = jest.spyOn(
+        service as unknown as { downloadBinary: (d: string) => Promise<void> },
+        'downloadBinary',
+      );
+
+      await service.updateYoutubeDownloader();
+
+      expect(download).not.toHaveBeenCalled();
+      expect(fs.readFileSync(binary, 'utf8')).toBe('old binary');
+    });
+
+    it('keeps the current yt-dlp (never throws) when the download is not a real binary', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.03.17', 0);
+      latestRelease('2026.11.20');
+      jest
+        .spyOn(service as unknown as { downloadBinary: (d: string) => Promise<void> }, 'downloadBinary')
+        .mockImplementation(async (destination: string) => {
+          fs.writeFileSync(destination, '<html>rate limited</html>');
+        });
+
+      await expect(service.updateYoutubeDownloader()).resolves.toBeUndefined();
+
+      expect(fs.readFileSync(binary, 'utf8')).toBe('old binary');
+      expect(fs.readdirSync(path.dirname(binary))).toHaveLength(1);
+    });
+
+    it('keeps the current yt-dlp (never throws) when GitHub cannot be reached', async () => {
+      const service = new DownloaderServiceImpl();
+      mockSpawnResult('2026.03.17', 0);
+      global.fetch = jest.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+
+      await expect(service.updateYoutubeDownloader()).resolves.toBeUndefined();
+      expect(fs.readFileSync(binary, 'utf8')).toBe('old binary');
+    });
   });
 
   it('does not try to update a yt-dlp that is not installed yet', async () => {
