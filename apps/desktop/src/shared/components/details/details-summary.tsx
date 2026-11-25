@@ -36,12 +36,16 @@ function DetailsSummary({
   const descriptionText = customDescription || details?.description;
 
   return (
-    <FlexBox gap={0.8} direction="column">
+    <FlexBox gap={0.6} direction="column">
       {infoItems && infoItems.length > 0 ? (
-        <FlexBox className="flex-row" gap={0.8} align="center">
+        <FlexBox gap={1.5} align="center">
           {infoItems.map((item) => (
             <Tertiary key={`info-item-${item}`}>{item}</Tertiary>
           ))}
+
+          {!!mediaFormatBadges && mediaFormatBadges.length > 0 && (
+            <MediaFormatLogos badges={mediaFormatBadges} className="py-[0.4dvh]" />
+          )}
 
           {hasWatchProgress && (
             <DetailsWatchProgressBadge
@@ -52,14 +56,12 @@ function DetailsSummary({
         </FlexBox>
       ) : null}
 
-      {!!mediaFormatBadges && mediaFormatBadges.length > 0 && (
-        <MediaFormatLogos badges={mediaFormatBadges} className="py-[0.4dvh]" />
-      )}
-
       <DetailsRating details={details} />
 
       {details?.genres && (
-        <Tertiary style={{ color: 'var(--text-secondary)' }}>{details.genres}</Tertiary>
+        <Tertiary className="text-[1.7vh]!" style={{ color: 'var(--text-secondary)' }}>
+          {details.genres}
+        </Tertiary>
       )}
 
       {descriptionText && (
