@@ -1,7 +1,8 @@
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import * as React from 'react';
+import { usePendingAction } from '@/shared/hooks/use-pending-action';
 import { cn } from '@/shared/lib/tailwind';
-import { buttonVariants } from '@/shared/ui/button';
+import { ButtonLoadingContent, buttonVariants } from '@/shared/ui/button';
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -82,9 +83,22 @@ AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayNam
 const AlertDialogAction = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants(), className)} {...props} />
-));
+>(({ className, onClick, children, ...props }, ref) => {
+  // Waits for the handler when it returns a promise (a call to the server)
+  const { pending, run } = usePendingAction(onClick);
+
+  return (
+    <AlertDialogPrimitive.Action
+      ref={ref}
+      className={cn(buttonVariants(), pending && 'relative cursor-wait', className)}
+      aria-busy={pending || undefined}
+      onClick={run}
+      {...props}
+    >
+      <ButtonLoadingContent busy={pending}>{children}</ButtonLoadingContent>
+    </AlertDialogPrimitive.Action>
+  );
+});
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName;
 
 const AlertDialogCancel = React.forwardRef<

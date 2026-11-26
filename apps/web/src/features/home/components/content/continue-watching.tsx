@@ -39,7 +39,7 @@ function ContinueWatching({ goToContent }: ContinueWatchingProps) {
               progress={getVideoProgress(video.duration, video.timeWatched)}
               title={`${video.title}`}
               subtitle={`${video.subtitle ? `${video.subtitle} - ` : video.date ? video.date.split('-')[0] : ''} ${
-                video.seasonNumber && video.episodeNumber
+                video.seasonNumber != null && video.episodeNumber != null
                   ? `${t('seasonLetter')}${video.seasonNumber} ${t('episodeLetter')}${
                       video.episodeNumber
                     }`

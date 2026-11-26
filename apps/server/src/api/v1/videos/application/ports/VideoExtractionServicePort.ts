@@ -9,6 +9,7 @@ export interface VideoExtractionServicePort {
     startTime: number,
     res: ExpressResponse,
   ): Promise<void>;
+  generateVideoThumbnail(videoId: string, videoPath: string, time: number): Promise<string>;
   generateChapterThumbnails(
     videoId: string,
     videoPath: string,

@@ -1,4 +1,5 @@
 import type { DropdownContent, LibraryItem, LibraryType } from '@seerial/domain';
+import { useIsAdmin } from '@seerial/hooks';
 import { useDataStore, useServerStore } from '@seerial/stores';
 import { Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +32,7 @@ function MediaCard({ item, libraryType, libraryId }: MediaCardProps) {
   const width = isMobile ? '100%' : `${cardWidth * 1.2}px`;
 
   const { user } = useServerStore((state) => ({ user: state.currentUser }), shallow);
+  const isAdmin = useIsAdmin();
   const { selectSeries, selectMovie, selectAlbum, selectCollection } = useDataStore(
     (state) => ({
       selectSeries: state.selectSeries,
@@ -63,6 +65,7 @@ function MediaCard({ item, libraryType, libraryId }: MediaCardProps) {
     item,
     t,
     userId: user?.id,
+    isAdmin,
     openDialog,
     actions: {
       refreshMetadata,

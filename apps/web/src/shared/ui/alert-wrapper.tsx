@@ -14,7 +14,8 @@ interface AlertWrapperProps {
   title: string;
   description: string;
   actionMessage: string;
-  action: () => void;
+  /** May return a promise: the button then shows a loader and ignores clicks until it settles. */
+  action: () => void | Promise<void>;
   openDialog?: boolean;
   isDeleteAlert?: boolean;
   closeDialog: () => void;
@@ -40,7 +41,7 @@ function AlertWrapper({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={closeDialog}>{t('cancelButton')}</AlertDialogCancel>
-          <AlertDialogAction onClick={action} className={isDeleteAlert ? 'bg-red-500' : ''}>
+          <AlertDialogAction onClick={action} className={isDeleteAlert ? 'bg-red-500 hover:bg-red-600' : ''}>
             {actionMessage}
           </AlertDialogAction>
         </AlertDialogFooter>

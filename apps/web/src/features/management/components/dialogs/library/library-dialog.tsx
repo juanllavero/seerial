@@ -166,7 +166,8 @@ function LibraryDialog() {
 
   const handleSaveOrNext = () => {
     if (id) {
-      handleAddEditLibrary();
+      // Returned so the button shows a loader while the library is saved
+      return handleAddEditLibrary();
     } else {
       setSelectedTab(t('folders'));
     }

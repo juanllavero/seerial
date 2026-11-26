@@ -27,7 +27,8 @@ interface ModalWrapperProps {
   button?: ReactNode;
   isOpen?: boolean;
   close?: () => void;
-  onAccept?: () => void;
+  /** May return a promise (a call to the server): the Save button waits for it. */
+  onAccept?: () => void | Promise<void>;
   openDialog?: () => void;
   activeTab?: string;
   width?: string;
@@ -165,9 +166,10 @@ export function ModalWrapper({
               </Button>
               <Button
                 className="w-full"
-                onClick={() => {
+                onClick={async () => {
+                  // Wait for the server: the button shows a loader meanwhile
                   if (onAccept) {
-                    onAccept();
+                    await onAccept();
                   }
 
                   if (close) {

@@ -6,6 +6,7 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     createFolder: jest.fn(),
     writeImage: jest.fn(),
     isFile: jest.fn(),
+    existsSync: jest.fn(),
     getExternalPath: jest.fn((p: string) => `/external/${p}`),
     join: jest.fn((...parts: string[]) => parts.join('/')),
   },
@@ -38,6 +39,7 @@ describe('ImagesController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     container.fileSystemService.isFile.mockResolvedValue(false);
+    container.fileSystemService.existsSync.mockReturnValue(true);
     container.useCases.getLibraries.mockReturnValue({
       execute: jest.fn().mockResolvedValue([]),
     });
@@ -96,6 +98,16 @@ describe('ImagesController', () => {
       '/media/posters',
     );
     expect(response.success).toBe(true);
+  });
+
+  it('returns an empty listing for a folder that does not exist yet', async () => {
+    container.fileSystemService.existsSync.mockReturnValue(false);
+
+    const response = await new ImagesController().getDirectoryListing('/series/media');
+
+    expect(response.success).toBe(true);
+    expect(response.data).toEqual([]);
+    expect(container.imageProcessingService.getDirectoryListing).not.toHaveBeenCalled();
   });
 
   it('streams local image with normalized dimensions', async () => {

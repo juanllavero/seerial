@@ -70,6 +70,9 @@ export interface Episode {
   episodeNumber: number;
   seasonNumber: number;
   order: number;
+  /** TMDb episode the metadata come from, when its numbers are not the ones of this episode */
+  metadataSeason?: number | null;
+  metadataEpisode?: number | null;
   video: Video;
 }
 

@@ -4,7 +4,7 @@ import { useWebSocketStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { showToast } from '@/shared/lib/react-utils';
 import AlertWrapper from '@/shared/ui/alert-wrapper';
 import { useDialogStore } from '../../../stores/dialog-store';
@@ -85,6 +85,7 @@ const deleteConfigMap: Record<DeleteDialogName, DeleteConfig> = {
 function DeleteDialog() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { deleteRequestWithResult } = useDelete();
   const connectWS = useWebSocketStore((state) => state.connectWS);
@@ -120,9 +121,13 @@ function DeleteDialog() {
 
         if (!result.ok) showToast('error', result.message || 'Error deleting item');
 
-        await queryClient.invalidateQueries({ queryKey: ['crud'] });
-        if (config.navigateTo) navigate(config.navigateTo);
+        // Leave right away: the page of the deleted item must not stay mounted, or it would keep
+        // asking the server for something that no longer exists. The lists refresh in the background.
         closeDialog();
+        // Only when the page being shown belongs to what was removed (a card of a list stays where it is)
+        const insideRemovedItem = dialogType === 'deleteLibrary' || location.pathname.includes(id);
+        if (result.ok && config.navigateTo && insideRemovedItem) navigate(config.navigateTo);
+        void queryClient.invalidateQueries();
       }}
       isDeleteAlert
       closeDialog={closeDialog}

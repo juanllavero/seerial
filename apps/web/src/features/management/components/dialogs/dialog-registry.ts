@@ -1,4 +1,7 @@
 import { lazy } from 'react';
+// Small and needed right when the user asks to remove something: loaded with the page instead of
+// when the button is pressed, so the confirmation never waits for (or fails on) a download
+import DeleteDialog from './delete/delete-dialog';
 
 export const dialogRegistry = {
   library: lazy(() => import('./library/library-dialog')),
@@ -13,15 +16,15 @@ export const dialogRegistry = {
   downloadMedia: lazy(() => import('./download-media/download-media-dialog')),
   identification: lazy(() => import('./identification/change-identification-dialog')),
   episodesGroup: lazy(() => import('./episodes-group/change-episodes-group-dialog')),
-  deleteSeries: lazy(() => import('./delete/delete-dialog')),
-  deleteMovie: lazy(() => import('./delete/delete-dialog')),
-  deleteSeason: lazy(() => import('./delete/delete-dialog')),
-  deleteEpisode: lazy(() => import('./delete/delete-dialog')),
-  deleteAlbum: lazy(() => import('./delete/delete-dialog')),
-  deleteSong: lazy(() => import('./delete/delete-dialog')),
-  deletePlaylist: lazy(() => import('./delete/delete-dialog')),
-  deleteCollection: lazy(() => import('./delete/delete-dialog')),
-  deleteLibrary: lazy(() => import('./delete/delete-dialog')),
+  deleteSeries: DeleteDialog,
+  deleteMovie: DeleteDialog,
+  deleteSeason: DeleteDialog,
+  deleteEpisode: DeleteDialog,
+  deleteAlbum: DeleteDialog,
+  deleteSong: DeleteDialog,
+  deletePlaylist: DeleteDialog,
+  deleteCollection: DeleteDialog,
+  deleteLibrary: DeleteDialog,
 } as const;
 
 export type DialogType = keyof typeof dialogRegistry;

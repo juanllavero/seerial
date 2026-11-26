@@ -199,6 +199,12 @@ apiClient.interceptors.request.use((config) => {
         headers.set('Authorization', `Bearer ${token}`)
     }
 
+    // The instance sends JSON by default, and with that header axios turns a FormData into JSON
+    // (a file becomes `{}`). Without it the request goes out as multipart with its boundary.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+        headers.delete('Content-Type')
+    }
+
     config.headers = headers
     config.withCredentials = true
     return config

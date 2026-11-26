@@ -16,7 +16,7 @@ interface AdvancedTabContentProps {
   subsMode: string;
   setSubsMode: (mode: string) => void;
   buttonDisabled: boolean;
-  handleAddLibrary: () => void;
+  handleAddLibrary: () => void | Promise<void>;
   close: () => void;
   edit?: boolean;
 }

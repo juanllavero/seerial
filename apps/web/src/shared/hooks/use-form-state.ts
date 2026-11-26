@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 type FormState<T> = {
   [K in keyof T]: T[K];
@@ -55,28 +55,32 @@ function useFormState<T extends object>(
   // (schema is typically an inline object literal — new reference every render)
   const schemaRef = useRef<T>(schema);
 
-  const setFormState = (values: Partial<T>) => {
+  // The functions are stable on purpose: components put them in the dependencies of effects that
+  // call them, so a new function on every render would make those effects loop forever.
+  const setFormState = useCallback((values: Partial<T>) => {
     setFormStateInternal((prev) => ({ ...prev, ...values }));
-  };
+  }, []);
 
-  const resetFormState = (values?: Partial<T>) => {
+  const resetFormState = useCallback((values?: Partial<T>) => {
     setFormStateInternal({
       ...schemaRef.current,
       ...values,
     });
-  };
+  }, []);
 
-  const setters = {} as FormSetters<T>;
-
-  for (const key of Object.keys(schema) as Array<Extract<keyof T, string>>) {
-    if (Object.hasOwn(schema, key)) {
+  const keysSignature = Object.keys(schema).join(',');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the setters only depend on the keys
+  const setters = useMemo(() => {
+    const result = {} as FormSetters<T>;
+    for (const key of keysSignature.split(',').filter(Boolean) as Array<Extract<keyof T, string>>) {
       const setterName = `set${key.charAt(0).toUpperCase()}${key.slice(1)}` as keyof FormSetters<T>;
       const setter = (value: T[typeof key]) => {
         setFormStateInternal((prev) => ({ ...prev, [key]: value }));
       };
-      setters[setterName] = setter as FormSetters<T>[typeof setterName];
+      result[setterName] = setter as FormSetters<T>[typeof setterName];
     }
-  }
+    return result;
+  }, [keysSignature]);
 
   return {
     ...formState,

@@ -1,7 +1,9 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Loader2 } from 'lucide-react';
 import * as React from 'react';
 
+import { usePendingAction } from '@/shared/hooks/use-pending-action';
 import { cn } from '@/shared/lib/tailwind';
 
 const buttonVariants = cva(
@@ -36,16 +38,55 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /**
+   * Shows a spinner instead of the content and ignores clicks. It is automatic when `onClick`
+   * returns a promise: the button waits for it. Use this prop when the wait is not that promise.
+   */
+  loading?: boolean;
+}
+
+/**
+ * Content of a button that is waiting for an answer: the spinner takes the place of the content,
+ * which stays in the layout (invisible) so the button does not change its size.
+ */
+function ButtonLoadingContent({ busy, children }: { busy: boolean; children?: React.ReactNode }) {
+  if (!busy) return <>{children}</>;
+
+  return (
+    <>
+      <span className="invisible contents">{children}</span>
+      <span className="absolute inset-0 flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      </span>
+    </>
+  );
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'button';
+  ({ className, variant, size, asChild = false, loading = false, onClick, children, ...props }, ref) => {
+    const { pending, run } = usePendingAction(onClick, loading);
+
+    if (asChild) {
+      return (
+        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} onClick={onClick} {...props}>
+          {children}
+        </Slot>
+      );
+    }
+
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <button
+        className={cn(buttonVariants({ variant, size, className }), pending && 'relative cursor-wait')}
+        ref={ref}
+        aria-busy={pending || undefined}
+        onClick={run}
+        {...props}
+      >
+        <ButtonLoadingContent busy={pending}>{children}</ButtonLoadingContent>
+      </button>
     );
   },
 );
 Button.displayName = 'Button';
 
-export { Button, buttonVariants };
+export { Button, ButtonLoadingContent, buttonVariants };

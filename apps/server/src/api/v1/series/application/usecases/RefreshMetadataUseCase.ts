@@ -70,15 +70,18 @@ export class RefreshMetadataUseCase {
         season.seasonNumber,
         language,
       );
-      if (!seasonTMDb?.episodes) continue;
 
       const episodes = await useCases.getEpisodesBySeasonId().execute(season.id);
       if (!episodes) continue;
 
       for (const episode of episodes) {
-        const episodeTMDb = seasonTMDb.episodes.find(
-          (e) => e.episode_number === episode.episodeNumber,
-        );
+        // Some episodes take their metadata from another one (a special of season 0)
+        const sourceSeason =
+          episode.metadataSeason != null
+            ? await this.metadataProvider.getSeason(themdbId, episode.metadataSeason, language)
+            : seasonTMDb;
+        const sourceNumber = episode.metadataEpisode ?? episode.episodeNumber;
+        const episodeTMDb = sourceSeason?.episodes?.find((e) => e.episode_number === sourceNumber);
         const video = await useCases.getVideoByEpisodeId().execute(episode.id);
 
         if (!episodeTMDb || !video) continue;

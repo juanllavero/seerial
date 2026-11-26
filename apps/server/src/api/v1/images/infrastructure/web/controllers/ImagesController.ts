@@ -206,7 +206,13 @@ export class ImagesController extends Controller {
       ? decodedImagesPath
       : fileSystemService.getExternalPath(decodedImagesPath);
 
-    const sanitizedPath = sanitizeDirectoryPath(resolvedImagesPath, getSystemAllowedPaths(), true);
+    const allowedPaths = getSystemAllowedPaths();
+    // A folder that does not exist yet (the media folder of a series is created with its first image)
+    // simply has no images
+    if (!fileSystemService.existsSync(sanitizeDirectoryPath(resolvedImagesPath, allowedPaths, false))) {
+      return ApiResponse.success([], messages.success.fetch);
+    }
+    const sanitizedPath = sanitizeDirectoryPath(resolvedImagesPath, allowedPaths, true);
 
     const images = await imageProcessingService.getDirectoryListing(sanitizedPath);
     return ApiResponse.success(images, messages.success.fetch);

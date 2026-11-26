@@ -1,3 +1,4 @@
+import path from 'node:path';
 import axios from 'axios';
 import { fileSystemService } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { isSafePublicHttpUrl } from '@/utils/network-security';
@@ -31,6 +32,9 @@ export const downloadImage = async (url: string, filePath: string) => {
       maxBodyLength: 50 * 1024 * 1024,
       maxRedirects: 3,
     });
+
+    // The folder may not exist yet (the media folder of a series is created with its first image)
+    fileSystemService.createFolder(path.dirname(filePath));
 
     return new Promise<void>((resolve, reject) => {
       const writer = fileSystemService.createWriteStream(filePath);

@@ -578,9 +578,12 @@ export class MetadataProviderImpl implements MetadataProviderPort {
     if (images?.stills) {
       video.imgUrls = images.stills.map((img) => `${this.BASE_URL}${img.file_path}`);
     }
-    video.imgSrc = episodeMetadata.still_path
-      ? `${this.BASE_URL}${episodeMetadata.still_path}`
-      : '';
+    if (episodeMetadata.still_path) {
+      video.imgSrc = `${this.BASE_URL}${episodeMetadata.still_path}`;
+    } else if (!video.imgSrc?.startsWith('resources/')) {
+      // A frame taken from the video itself is kept when TMDb has no image
+      video.imgSrc = '';
+    }
 
     await useCases.updateEpisode().execute(episode.id, episode);
     await useCases.updateVideo().execute(video.id, video);

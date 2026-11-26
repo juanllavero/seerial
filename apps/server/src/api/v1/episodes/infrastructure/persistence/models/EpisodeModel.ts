@@ -111,6 +111,14 @@ export class EpisodeModel extends BaseEntity {
   @Column({ type: 'integer', nullable: false, default: 0 })
   order!: number;
 
+  // TMDb episode the metadata come from when it is not the one with the same season and episode
+  // number: an episode 0 or a final one that TMDb keeps with the specials
+  @Column({ type: 'integer', nullable: true, name: 'metadata_season' })
+  metadataSeason?: number | null;
+
+  @Column({ type: 'integer', nullable: true, name: 'metadata_episode' })
+  metadataEpisode?: number | null;
+
   @OneToMany(
     () => WatchListModel,
     (watchList) => watchList.episode,

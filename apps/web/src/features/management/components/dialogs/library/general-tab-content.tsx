@@ -18,7 +18,7 @@ interface GeneralTabContentProps {
   setName: (name: string) => void;
   setLanguage: (language: string | undefined) => void;
   disableButton: boolean;
-  onSave: () => void;
+  onSave: () => void | Promise<void>;
   close: () => void;
   edit?: boolean;
 }

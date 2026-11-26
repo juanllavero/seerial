@@ -11,7 +11,7 @@ interface FoldersTabContentProps {
   setFolders: (folders: string[]) => void;
   close: () => void;
   buttonDisabled: boolean;
-  handleAddLibrary: () => void;
+  handleAddLibrary: () => void | Promise<void>;
   edit?: boolean;
 }
 

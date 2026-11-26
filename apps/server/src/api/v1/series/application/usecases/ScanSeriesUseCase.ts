@@ -13,15 +13,25 @@ import type { SeasonsRepositoryPort } from '@/api/v1/seasons/application/ports/S
 import type { Season } from '@/api/v1/seasons/domain/Season';
 import type { FileSystemServicePort } from '@/api/v1/shared/application/ports/FileSystemServicePort';
 import type { MetadataProviderPort } from '@/api/v1/shared/application/ports/MetadataProviderPort';
-import { getMediaInfo } from '@/api/v1/shared/infrastructure/adapters/ffmpeg/mediaInfo';
+import { getMediaInfo, getOnlyRuntime } from '@/api/v1/shared/infrastructure/adapters/ffmpeg/mediaInfo';
 import type { NotificationServicePort } from '@/api/v1/shared/application/ports/NotificationServicePort';
-import { downloaderService } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import {
+  downloaderService,
+  videoExtractionService,
+} from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { WriteQueue } from '@/api/v1/shared/infrastructure/services/WriteQueue';
 import type { VideoRepositoryPort } from '@/api/v1/videos/application/ports/VideosRepositoryPort';
 import logger from '@/utils/logger';
 import type { Episode as EpisodeLocal } from '../../../episodes/domain/Episode';
 import type { Series } from '../../domain/Series';
 import type { SeriesRepositoryPort } from '../ports/SeriesRepositoryPort';
+import { matchSpecialEpisode } from '../utils/matchSpecialEpisode';
+
+/** Season and episode written in the file name: S02E00 */
+const EXPLICIT_SEASON_EPISODE = /s\d{1,4}(?:[.]|[\s-]+)?ep?\d{1,4}/i;
+
+/** Point of the video where the thumbnail of an episode without images is taken */
+const THUMBNAIL_POSITION = 0.25;
 
 interface EpisodeResolution {
   videoSrc: string;
@@ -29,6 +39,8 @@ interface EpisodeResolution {
   episodeMetadata: Episode | null;
   realSeason?: number;
   realEpisode?: number;
+  /** Where the metadata come from when it is not the episode with the numbers of the file */
+  metadataSource?: 'special' | 'none';
 }
 
 interface EpisodeBatchUpdate {
@@ -463,7 +475,7 @@ export class ScanSeriesUseCase {
     let skippedFiles = 0;
     const batchUpdates: EpisodeBatchUpdate[] = [];
 
-    for (const resolution of resolutions) {
+    for (let resolution of resolutions) {
       const alreadyAnalyzed = library.analyzedFiles[resolution.videoSrc];
       const hasEpisode = alreadyAnalyzed
         ? await this.episodesRepo.findByVideoSrc(resolution.videoSrc)
@@ -472,6 +484,11 @@ export class ScanSeriesUseCase {
       if (alreadyAnalyzed && hasEpisode) {
         skippedFiles++;
         continue;
+      }
+
+      if (!resolution.seasonMetadata || !resolution.episodeMetadata) {
+        resolution =
+          (await this.resolveUnlistedEpisode(library, resolution, seasonsMetadata)) ?? resolution;
       }
 
       if (!resolution.seasonMetadata || !resolution.episodeMetadata) {
@@ -543,7 +560,8 @@ export class ScanSeriesUseCase {
     show: Series,
     resolution: EpisodeResolution,
   ): Promise<EpisodeBatchUpdate | null> {
-    const { videoSrc, seasonMetadata, episodeMetadata, realSeason, realEpisode } = resolution;
+    const { videoSrc, seasonMetadata, episodeMetadata, realSeason, realEpisode, metadataSource } =
+      resolution;
 
     if (!seasonMetadata || !episodeMetadata) {
       logger.warn(
@@ -579,6 +597,7 @@ export class ScanSeriesUseCase {
       realEpisode,
       library,
       videoSrc,
+      metadataSource === 'special' ? episodeMetadata : undefined,
     );
     if (!episode) {
       logger.error(
@@ -616,6 +635,15 @@ export class ScanSeriesUseCase {
 
     // Extract media info for new video (tracks, codec, runtime)
     await this.ensureMediaInfo(video, videoSrc);
+
+    // Without metadata there is nothing to download: only the thumbnail, taken from the video
+    if (metadataSource === 'none') {
+      await this.ensureFrameThumbnail(video, videoSrc);
+      return null;
+    }
+    if (metadataSource === 'special' && !episodeMetadata.still_path) {
+      await this.ensureFrameThumbnail(video, videoSrc);
+    }
 
     // Return data for batch update
     return {
@@ -720,6 +748,19 @@ export class ScanSeriesUseCase {
     }
   }
 
+  private async ensureFrameThumbnail(video: Video, filePath: string): Promise<void> {
+    if (video.imgSrc?.startsWith('resources/img/thumbnails/')) return;
+
+    // The runtime of a video is stored in minutes
+    const time = Math.floor((video.runtime ?? 0) * 60 * THUMBNAIL_POSITION);
+    const thumbnail = await videoExtractionService.generateVideoThumbnail(video.id, filePath, time);
+    if (!thumbnail) return;
+
+    video.imgSrc = thumbnail;
+    video.imgUrls = [thumbnail];
+    await this.videoRepo.update(video.id, video);
+  }
+
   //#endregion
 
   //#region SEASON & EPISODE DB HELPERS
@@ -772,15 +813,18 @@ export class ScanSeriesUseCase {
     realEpisode: number | undefined,
     library: Library,
     videoSrc: string,
+    special?: Episode,
   ): Promise<EpisodeLocal | null> {
     const episodes = await this.episodesRepo.findAllBySeasonId(season.id);
 
+    // The number of the file wins over the one of the metadata. 0 is a valid number (S02E00)
+    const episodeNumber =
+      realEpisode !== undefined && realEpisode !== -1
+        ? realEpisode
+        : (episodeMetadata.episode_number ?? 0);
+
     let episode: EpisodeLocal | null =
-      episodes?.find((ep) =>
-        realEpisode && realEpisode !== -1
-          ? ep.episodeNumber === realEpisode
-          : ep.episodeNumber === episodeMetadata.episode_number,
-      ) ?? null;
+      episodes?.find((ep) => ep.episodeNumber === episodeNumber) ?? null;
 
     if (episode) return episode;
 
@@ -792,8 +836,11 @@ export class ScanSeriesUseCase {
       overview: episodeMetadata.overview ?? '',
       year: episodeMetadata.air_date ?? '',
       score: episodeMetadata.vote_average ? (episodeMetadata.vote_average * 10.0) / 10.0 : 0,
-      episodeNumber:
-        realEpisode && realEpisode !== -1 ? realEpisode : (episodeMetadata.episode_number ?? 0),
+      episodeNumber,
+      ...(special && {
+        metadataSeason: special.season_number,
+        metadataEpisode: special.episode_number,
+      }),
     });
 
     if (!episode) return null;
@@ -914,6 +961,51 @@ export class ScanSeriesUseCase {
     }
 
     return { seasonMetadata, episodeMetadata, realSeason, realEpisode };
+  }
+
+  /**
+   * Resolves a file whose season and episode are not in TMDb. The file is registered as it is
+   * numbered on disk, with the metadata of the special it corresponds to if there is a clear one.
+   */
+  private async resolveUnlistedEpisode(
+    library: Library,
+    resolution: EpisodeResolution,
+    seasonsMetadata: TvSeasonResponse[],
+  ): Promise<EpisodeResolution | null> {
+    const { videoSrc, realSeason, realEpisode } = resolution;
+    if (realSeason === undefined || realEpisode === undefined) return null;
+    // Only for explicit numbers: other names with two numbers are not a reliable season and episode
+    if (!EXPLICIT_SEASON_EPISODE.test(path.parse(videoSrc).name)) return null;
+
+    const seasonMetadata =
+      seasonsMetadata.find((s) => s.season_number === realSeason) ??
+      ({
+        season_number: realSeason,
+        name: `Season ${realSeason}`,
+        episodes: [],
+      } as TvSeasonResponse);
+
+    const special = matchSpecialEpisode(
+      seasonsMetadata,
+      realSeason,
+      realEpisode,
+      await getOnlyRuntime(videoSrc),
+    );
+    if (special) {
+      return { ...resolution, seasonMetadata, episodeMetadata: special, metadataSource: 'special' };
+    }
+
+    const label = library.language.startsWith('es') ? 'Episodio' : 'Episode';
+    return {
+      ...resolution,
+      seasonMetadata,
+      episodeMetadata: {
+        name: `${label} ${realEpisode}`,
+        season_number: realSeason,
+        episode_number: realEpisode,
+      },
+      metadataSource: 'none',
+    };
   }
 
   /**

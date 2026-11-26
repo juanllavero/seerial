@@ -32,6 +32,8 @@ interface MenuOptions {
   item: LibraryItem;
   t: Translate;
   userId?: string;
+  /** Removing from the library is an administrator action. */
+  isAdmin?: boolean;
   openDialog: OpenDialog;
   actions: MenuActions;
 }
@@ -86,7 +88,14 @@ export function createMediaCardAction(
   };
 }
 
-export function createMediaCardMenuContent({ item, t, userId, openDialog, actions }: MenuOptions) {
+const DELETE_DIALOG_BY_TYPE: Record<WebItemType, 'deleteSeries' | 'deleteMovie' | 'deleteAlbum' | 'deleteCollection'> = {
+  series: 'deleteSeries',
+  movie: 'deleteMovie',
+  album: 'deleteAlbum',
+  collection: 'deleteCollection',
+};
+
+export function createMediaCardMenuContent({ item, t, userId, isAdmin, openDialog, actions }: MenuOptions) {
   const isSeries = item.type === 'series';
   const isMovie = item.type === 'movie';
   const isAlbum = item.type === 'album';
@@ -148,22 +157,30 @@ export function createMediaCardMenuContent({ item, t, userId, openDialog, action
     });
   }
 
+  const deleteDialog = DELETE_DIALOG_BY_TYPE[item.type as WebItemType];
+  const removeGroup =
+    isAdmin && deleteDialog
+      ? [
+          { separator: true, items: [] },
+          {
+            separator: false,
+            items: [
+              {
+                title: t('removeButton'),
+                action: () => openDialog(deleteDialog, { id: item.id }),
+              },
+            ],
+          },
+        ]
+      : [];
+
   return {
     items: [
       {
         separator: false,
         items: mediaActions,
       },
-      { separator: true, items: [] },
-      {
-        separator: false,
-        items: [
-          {
-            title: t('removeButton'),
-            action: () => console.log('Remove clicked'),
-          },
-        ],
-      },
+      ...removeGroup,
     ],
   } satisfies DropdownContent;
 }

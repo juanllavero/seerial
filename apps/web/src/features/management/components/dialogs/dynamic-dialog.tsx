@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { type DialogType, dialogRegistry } from './dialog-registry';
 
 interface DynamicDialogProps {
@@ -10,7 +11,12 @@ function DynamicDialog({ type, isOpen }: DynamicDialogProps) {
 
   if (!isOpen || !DialogComponent) return null;
 
-  return <DialogComponent />;
+  // The lazy ones suspend while they download: without a boundary React keeps waiting silently
+  return (
+    <Suspense fallback={null}>
+      <DialogComponent />
+    </Suspense>
+  );
 }
 
 export default DynamicDialog;

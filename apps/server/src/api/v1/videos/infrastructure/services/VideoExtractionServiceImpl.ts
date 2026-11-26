@@ -81,6 +81,28 @@ async function extractThumbnails(videoPath: string, jobs: ThumbnailJob[]) {
 
 export class VideoExtractionServiceImpl implements VideoExtractionServicePort {
   /**
+   * Stores a frame of the video as its thumbnail, for the videos without images in TMDb.
+   * Returns the relative resource path, empty if it failed.
+   */
+  public async generateVideoThumbnail(
+    videoId: string,
+    videoPath: string,
+    time: number,
+  ): Promise<string> {
+    const relativePath = `resources/img/thumbnails/video/${videoId}/frame.jpg`;
+    const outputPath = fileSystemService.getExternalPath(relativePath);
+    fileSystemService.createFolder(nodePath.dirname(outputPath));
+
+    try {
+      await extractThumbnail(videoPath, { time, outputPath });
+    } catch (err) {
+      videoExtractionLogger.error({ err, outputPath }, 'Failed to generate video thumbnail');
+    }
+
+    return fileSystemService.existsSync(outputPath) ? relativePath : '';
+  }
+
+  /**
    * Extract video thumbnail and stream it to response
    */
   public async streamVideoThumbnail(
