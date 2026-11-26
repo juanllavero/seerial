@@ -19,6 +19,7 @@ export interface DetailsInfoProps {
   durationInfo?: number;
   timeWatchedInfo?: number;
   handlePlay?: () => void;
+  handlePlayFromStart?: () => void;
   handleMoreOptions?: () => void;
   handleMarkWatched?: () => void;
   handleToggleHideThumbnails?: () => void;

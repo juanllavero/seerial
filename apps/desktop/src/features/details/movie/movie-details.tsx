@@ -26,6 +26,7 @@ import { shallow } from 'zustand/shallow';
 import DetailsBackgroundLayers from '@/shared/components/details/details-background-layers';
 import DetailsBackgroundPlayback from '@/shared/components/details/details-background-playback';
 import DetailsInfo from '@/shared/components/details/details-info';
+import DetailsOptionsMenu from '@/shared/components/details/details-options-menu';
 import Page from '@/shared/components/page';
 import { formatAudioSummary, formatSubtitleSummary } from '@/shared/utils/track-labels';
 import { getWatchProgress } from '@/shared/utils/watch-progress';
@@ -44,6 +45,7 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
   const [selectedVideo, selectVideo] = useState<Video | null>(null);
   const [resolvedVideoData, setResolvedVideoData] = useState<Map<string, Video>>(new Map());
   const [isBackgroundVideoVisible, setIsBackgroundVideoVisible] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const backgroundImageSrc = details?.backgroundSrc ?? movie?.backgroundSrc ?? movie?.coverSrc;
   const queryClient = useQueryClient();
   const { currentUser } = useServerStore(
@@ -70,6 +72,12 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
   const handlePlay = useCallback(() => {
     if (selectedVideo) {
       navigate(`/video-player/${selectedVideo.id}`);
+    }
+  }, [navigate, selectedVideo]);
+
+  const handlePlayFromStart = useCallback(() => {
+    if (selectedVideo) {
+      navigate(`/video-player/${selectedVideo.id}`, { state: { fromStart: true } });
     }
   }, [navigate, selectedVideo]);
 
@@ -193,12 +201,29 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
           videoInfo={effectiveVideo?.videoTracks?.[0]?.displayTitle}
           mediaFormatBadges={mediaFormatBadges}
           handlePlay={handlePlay}
+          handlePlayFromStart={handlePlayFromStart}
           handleMarkWatched={handleMarkWatched}
+          handleMoreOptions={() => setIsOptionsOpen(true)}
           displayOptions={{
             isWatched,
           }}
         />
       </Page>
+      {isOptionsOpen && (
+        <DetailsOptionsMenu
+          title={details?.title ?? movie?.name}
+          video={effectiveVideo}
+          preferences={{
+            preferAudioLan: library?.preferAudioLan ?? '',
+            preferSubLan: library?.preferSubLan ?? '',
+            subsMode: library?.subsMode ?? 'autoSubs',
+          }}
+          onVideoChange={(video) =>
+            setResolvedVideoData((prev) => new Map(prev).set(video.id, video))
+          }
+          onClose={() => setIsOptionsOpen(false)}
+        />
+      )}
     </DetailsWithRelatedContent>
   );
 }

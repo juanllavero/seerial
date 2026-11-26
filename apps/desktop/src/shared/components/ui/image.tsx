@@ -33,6 +33,8 @@ interface ImageProps {
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   /** Controls the TMDB CDN size used for remote TMDB URLs. Defaults to 'w500'. */
   tmdbSize?: TmdbImageSize;
+  /** Placeholder while loading. Disable it for images with transparency, where it shows through. */
+  showSkeleton?: boolean;
   style?: React.CSSProperties;
   className?: string;
 }
@@ -134,6 +136,7 @@ const Image: React.FC<ImageProps> = ({
   style,
   objectFit = 'cover',
   tmdbSize = 'original',
+  showSkeleton = true,
   className = '',
 }) => {
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
@@ -245,7 +248,7 @@ const Image: React.FC<ImageProps> = ({
         aspectRatio,
       }}
     >
-      {isLoading && <Skeleton className="absolute inset-0 h-full w-full" />}
+      {showSkeleton && isLoading && <Skeleton className="absolute inset-0 h-full w-full" />}
 
       {isInView && imageSrc && (
         <img

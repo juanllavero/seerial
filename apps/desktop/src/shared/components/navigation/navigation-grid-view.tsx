@@ -52,7 +52,6 @@ const NavigationGridView = ({
         }}
         className={`
           flex flex-row flex-wrap overflow-y-auto hide-scrollbar
-          ${isRestoringFocus ? 'scroll-auto' : 'scroll-smooth'}
           ${className || ''}
         `}
         style={style}

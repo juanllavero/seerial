@@ -148,7 +148,7 @@ export default function VideoPlayer({ video, trackSelection, onSeekCommitted }: 
             className="w-full overflow-hidden transition-all duration-500 ease-in-out"
             style={{
               maxHeight: chaptersExpanded ? '32vh' : '4vh',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 100%)',
+              background: 'rgba(0,0,0,0.95)',
               pointerEvents: isVisible ? 'auto' : 'none',
             }}
           >

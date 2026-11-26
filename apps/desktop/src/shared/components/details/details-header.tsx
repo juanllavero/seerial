@@ -1,4 +1,5 @@
 import type { DetailsData } from '@seerial/domain';
+import { useTranslation } from 'react-i18next';
 import Subtitle from '../text/subtitle';
 import Title from '../text/title';
 import AlignedImage from './aligned-image';
@@ -9,6 +10,8 @@ interface DetailsHeaderProps {
 }
 
 function DetailsHeader({ details, subtitle }: DetailsHeaderProps) {
+  const { t } = useTranslation();
+
   return (
     <>
       <span className="text-[1.5vh] italic">
@@ -26,9 +29,9 @@ function DetailsHeader({ details, subtitle }: DetailsHeaderProps) {
       {details?.subtitle && <Subtitle>{subtitle ?? details.subtitle}</Subtitle>}
 
       {details?.createdBy ? (
-        <span className="text-[1.5vh] italic mb-5">{`Created by ${details.createdBy}`}</span>
+        <span className="text-[1.5vh] italic mb-5">{`${t('createdBy')} ${details.createdBy}`}</span>
       ) : details?.directedBy ? (
-        <span className="text-[1.5vh] italic mb-5">{`Directed by ${details.directedBy}`}</span>
+        <span className="text-[1.5vh] italic mb-5">{`${t('directedBy')} ${details.directedBy}`}</span>
       ) : null}
     </>
   );

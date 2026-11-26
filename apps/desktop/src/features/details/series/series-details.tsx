@@ -32,6 +32,7 @@ import { useSeriesDetailsFocusStore } from '@/features/details/series/stores/ser
 import DetailsBackgroundLayers from '@/shared/components/details/details-background-layers';
 import DetailsBackgroundPlayback from '@/shared/components/details/details-background-playback';
 import DetailsInfo from '@/shared/components/details/details-info';
+import DetailsOptionsMenu from '@/shared/components/details/details-options-menu';
 import Page from '@/shared/components/page';
 import { formatAudioSummary, formatSubtitleSummary } from '@/shared/utils/track-labels';
 import { getWatchProgress } from '@/shared/utils/watch-progress';
@@ -227,6 +228,7 @@ function SeriesDetails({
   const [resolvedVideoData, setResolvedVideoData] = useState<Map<string, Video>>(new Map());
   const [isBackgroundVideoVisible, setIsBackgroundVideoVisible] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const prevSelectedSeasonIdRef = useRef<string | null>(null);
   const isMarkingWatchedRef = useRef(false);
   const [hideUnwatchedThumbnails, setHideUnwatchedThumbnails] = useLocalStorage<boolean>(
@@ -315,6 +317,12 @@ function SeriesDetails({
     }
   }, [selectedEpisode, navigate]);
 
+  const handlePlayFromStart = useCallback(() => {
+    if (selectedEpisode) {
+      navigate(`/video-player/${selectedEpisode.video.id}`, { state: { fromStart: true } });
+    }
+  }, [selectedEpisode, navigate]);
+
   const isWatched =
     useMemo(() => {
       return (
@@ -368,6 +376,30 @@ function SeriesDetails({
     }
   }, [queryClient, selectedEpisode, series, setEpisodeWatchState]);
 
+  // The server marks the whole series when it is its last season
+  const markSeasonWatched = useCallback(async () => {
+    if (selectedSeason) {
+      await apiClient.post(API.seasons.setWatchState(selectedSeason.id), { watched: true });
+    }
+  }, [selectedSeason]);
+
+  const markSeriesWatched = useCallback(async () => {
+    if (series) await apiClient.post(API.series.setWatchState(series.id), { watched: true });
+  }, [series]);
+
+  const refreshAfterMarking = useCallback(
+    async (mark: () => Promise<void>) => {
+      try {
+        await mark();
+      } finally {
+        queryClient.removeQueries({ queryKey: ['videos', 'get'] });
+        await queryClient.invalidateQueries({ queryKey: ['series'] });
+        await queryClient.invalidateQueries({ queryKey: ['continueWatching'] });
+      }
+    },
+    [queryClient],
+  );
+
   const handleToggleHideThumbnails = useCallback(() => {
     setHideUnwatchedThumbnails((prev) => !prev);
   }, [setHideUnwatchedThumbnails]);
@@ -417,8 +449,10 @@ function SeriesDetails({
           audioInfo={episodeAudioInfo}
           subtitleInfo={episodeSubtitleInfo}
           handlePlay={handlePlay}
+          handlePlayFromStart={handlePlayFromStart}
           handleMarkWatched={handleMarkWatched}
           handleToggleHideThumbnails={handleToggleHideThumbnails}
+          handleMoreOptions={() => setIsOptionsOpen(true)}
           displayOptions={{
             isWatched,
             hideUnwatchedThumbnails,
@@ -448,6 +482,31 @@ function SeriesDetails({
           </>
         )}
       </Page>
+      {isOptionsOpen && (
+        <DetailsOptionsMenu
+          title={selectedEpisode?.name}
+          video={episodeForTrackInfo?.video}
+          preferences={{
+            preferAudioLan: trackPreferences.preferAudioLan ?? '',
+            preferSubLan: trackPreferences.preferSubLan ?? '',
+            subsMode: trackPreferences.subsMode ?? 'autoSubs',
+          }}
+          actions={[
+            {
+              label: t('markSeasonWatched'),
+              run: () => refreshAfterMarking(markSeasonWatched),
+            },
+            {
+              label: t('markSeriesWatched'),
+              run: () => refreshAfterMarking(markSeriesWatched),
+            },
+          ]}
+          onVideoChange={(video) =>
+            setResolvedVideoData((prev) => new Map(prev).set(video.id, video))
+          }
+          onClose={() => setIsOptionsOpen(false)}
+        />
+      )}
     </DetailsWithRelatedContent>
   );
 }

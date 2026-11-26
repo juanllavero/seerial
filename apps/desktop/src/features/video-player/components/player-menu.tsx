@@ -2,15 +2,6 @@ import { AnimatePresence, domAnimation, LazyMotion, m } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { NavigationContainer } from '@/shared/components/navigation';
 
-/** Keeps the focused row visible: spatial navigation does not scroll by itself. */
-export function scrollFocusedRowIntoView(focusKey: string) {
-  document.querySelector(`[data-focus-key="${focusKey}"]`)?.scrollIntoView({ block: 'nearest' });
-}
-
-/** Shared look of the rows of the player menus (overrides the size and radius of the button). */
-export const PLAYER_MENU_ROW_CLASS =
-  'mb-[0.6dvh] h-auto max-h-none! w-full shrink-0 justify-start! whitespace-normal! rounded-[1.4dvh]! px-[1.8dvh]! py-[1.4dvh]! text-left hover:ring-2 hover:ring-white/50';
-
 /** Panel that opens above a player button. Sized in dvh to be readable from the sofa. */
 export default function PlayerMenu({
   open,

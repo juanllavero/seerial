@@ -1,25 +1,23 @@
-import type { Library, LibraryTypes } from '@seerial/domain';
 import { AnimatePresence, domAnimation, LazyMotion, m } from 'framer-motion';
 import { useNavigate } from 'react-router';
 import { NavigationButton, NavigationContainer } from '@/shared/components/navigation';
 
+export interface TopBarSubmenuItem {
+  /** Also its focus key. */
+  id: string;
+  label: string;
+  path: string;
+}
+
 interface LibrariesListProps {
-  type: LibraryTypes;
-  libraries: Library[];
+  items: TopBarSubmenuItem[];
   show: boolean;
   hide: () => void;
   hideWithoutFocusRestore: () => void;
 }
 
-function LibrariesList({
-  type,
-  libraries,
-  show,
-  hide,
-  hideWithoutFocusRestore,
-}: LibrariesListProps) {
+function LibrariesList({ items, show, hide, hideWithoutFocusRestore }: LibrariesListProps) {
   const navigate = useNavigate();
-  if (!libraries) return null;
 
   return (
     <LazyMotion features={domAnimation}>
@@ -33,10 +31,10 @@ function LibrariesList({
               transition={{ duration: 0.15, ease: 'easeInOut' }}
               className="flex justify-center overflow-x-auto p-3 rounded-xl gap-2"
             >
-              {libraries.map((library) => (
+              {items.map((item) => (
                 <NavigationButton
-                  key={library.id}
-                  customKey={library.id}
+                  key={item.id}
+                  customKey={item.id}
                   onArrowPress={(direction) => {
                     if (direction === 'up') {
                       hide();
@@ -51,9 +49,9 @@ function LibrariesList({
                   }}
                   onClick={() => {
                     hide();
-                    navigate(`/library/${library.id}/${type}`);
+                    navigate(item.path);
                   }}
-                  text={library.name}
+                  text={item.label}
                   variant="ghost"
                 />
               ))}

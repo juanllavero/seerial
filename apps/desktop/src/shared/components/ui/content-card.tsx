@@ -72,7 +72,7 @@ interface CardProps {
 function ContentCard({
   imgSrc,
   collageImages,
-  defaultImageSrc: _defaultImageSrc = '/img/fileNotFound.jpg',
+  defaultImageSrc = '/img/fileNotFound.jpg',
   aspectRatio = '2/3',
   width = 'auto',
   title,
@@ -221,6 +221,7 @@ function ContentCard({
             // />
             <Image
               url={collageImages[0]} // TODO: implement actual collage layout instead of just using the first image
+              fallbackSrc={defaultImageSrc}
               height="100%"
               width="100%"
               tmdbSize="w500"
@@ -230,6 +231,7 @@ function ContentCard({
           ) : (
             <Image
               url={imgSrc}
+              fallbackSrc={defaultImageSrc}
               height="100%"
               width="100%"
               tmdbSize="w500"

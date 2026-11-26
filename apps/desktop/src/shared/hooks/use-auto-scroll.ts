@@ -1,4 +1,9 @@
 import { useEffect, useRef } from 'react';
+import {
+  getScrollDestination,
+  scrollSmoothlyTo,
+  stopScrollAnimation,
+} from '../utils/scroll-follower';
 
 export type ScrollMode = 'start' | 'center';
 export type ScrollAxis = 'vertical' | 'horizontal';
@@ -50,8 +55,9 @@ function calculateCenterModeScroll(focusedElement: HTMLElement, container: HTMLD
 
   // Skip scroll if already within tolerance, but not when at a boundary (first/last item)
   const isAtBoundary = targetScrollTop === 0 || targetScrollTop === maxScroll;
-  if (!isAtBoundary && Math.abs(container.scrollTop - targetScrollTop) <= CENTER_SCROLL_TOLERANCE) {
-    return container.scrollTop;
+  const destination = getScrollDestination(container, 'scrollTop');
+  if (!isAtBoundary && Math.abs(destination - targetScrollTop) <= CENTER_SCROLL_TOLERANCE) {
+    return destination;
   }
 
   return targetScrollTop;
@@ -97,11 +103,9 @@ function calculateHorizontalCenterModeScroll(
 
   // Skip scroll if already within tolerance, but not when at a boundary (first/last item)
   const isAtBoundary = targetScrollLeft === 0 || targetScrollLeft === maxScroll;
-  if (
-    !isAtBoundary &&
-    Math.abs(container.scrollLeft - targetScrollLeft) <= CENTER_SCROLL_TOLERANCE
-  ) {
-    return container.scrollLeft;
+  const destination = getScrollDestination(container, 'scrollLeft');
+  if (!isAtBoundary && Math.abs(destination - targetScrollLeft) <= CENTER_SCROLL_TOLERANCE) {
+    return destination;
   }
 
   return targetScrollLeft;
@@ -218,21 +222,16 @@ function applyContainerScroll(
   targetScrollLeft: number,
   isRestoringFocus: boolean,
 ): void {
-  if (isRestoringFocus) {
-    if (scrollAxis === 'horizontal') {
-      container.scrollLeft = targetScrollLeft;
-      return;
-    }
+  const property = scrollAxis === 'horizontal' ? 'scrollLeft' : 'scrollTop';
+  const target = scrollAxis === 'horizontal' ? targetScrollLeft : targetScrollTop;
 
-    container.scrollTop = targetScrollTop;
+  if (isRestoringFocus) {
+    stopScrollAnimation(container);
+    container[property] = target;
     return;
   }
 
-  container.scrollTo({
-    top: scrollAxis === 'horizontal' ? container.scrollTop : targetScrollTop,
-    left: scrollAxis === 'horizontal' ? targetScrollLeft : container.scrollLeft,
-    behavior: 'smooth',
-  });
+  scrollSmoothlyTo(container, property, target);
 }
 
 /**

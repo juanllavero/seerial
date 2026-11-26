@@ -60,7 +60,6 @@ const NavigationScrollView = ({
         className={`
           flex h-fit hide-scrollbar
           ${direction === 'horizontal' ? 'flex-row overflow-x-auto overflow-y-hidden' : 'flex-col overflow-y-auto overflow-x-hidden'}
-          ${isRestoringFocus ? 'scroll-auto' : 'scroll-smooth'}
           ${className || ''}
         `}
         style={{

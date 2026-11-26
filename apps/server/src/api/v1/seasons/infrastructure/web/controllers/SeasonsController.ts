@@ -96,17 +96,7 @@ export class SeasonsController extends Controller {
       throw new NotFoundException(messages.errors.notFound.season);
     }
 
-    // Get first or last episode
-    const episodeIndex = watched === true ? season.episodes.length - 1 : 0;
-    const episode = season.episodes.sort((a, b) => a.episodeNumber - b.episodeNumber)[episodeIndex];
-
-    // A season without episodes has nothing to mark
-    if (!episode) {
-      return ApiResponse.success(null, messages.success.update);
-    }
-
-    // Set episode watched state
-    await useCases.setEpisodeWatchState().execute(episode.id, userId, watched);
+    await useCases.setSeasonWatchState().execute(id, userId, watched);
 
     return ApiResponse.success(null, messages.success.update);
   }

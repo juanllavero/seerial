@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import {
   AlbumDetails,
+  AlbumsPage,
   CollectionDetails,
   Home,
   Library,
@@ -33,6 +34,7 @@ export default function AppRoutes() {
           <Route path="details/album/:albumId" element={<AlbumDetails />} />
           <Route path="details/collection/:collectionId/:type" element={<CollectionDetails />} />
           <Route path="details/playlist/:playlistId" element={<PlaylistDetails />} />
+          <Route path="/albums" element={<AlbumsPage />} />
           <Route path="/playlists" element={<PlaylistsPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/see" element={<ToSeePage />} />

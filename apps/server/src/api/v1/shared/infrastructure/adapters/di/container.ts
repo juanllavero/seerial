@@ -34,6 +34,7 @@ import { DeleteEpisodeUseCase } from '@/api/v1/episodes/application/usecases/Del
 import { FindEpisodeByIdUseCase } from '@/api/v1/episodes/application/usecases/FindEpisodeByIdUseCase';
 import { FindEpisodeByPathUseCase } from '@/api/v1/episodes/application/usecases/FindEpisodeByPathUseCase';
 import { FindEpisodesBySeasonIdUseCase } from '@/api/v1/episodes/application/usecases/FindEpisodesBySeasonIdUseCase';
+import { SetSeasonWatchStateUseCase } from '@/api/v1/seasons/application/usecases/SetSeasonWatchStateUseCase';
 import { SetEpisodeWatchStateUseCase } from '@/api/v1/episodes/application/usecases/SetEpisodeWatchStateUseCase';
 import { UpdateEpisodeUseCase } from '@/api/v1/episodes/application/usecases/UpdateEpisodeUseCase';
 import { EpisodeRepositoryImpl } from '@/api/v1/episodes/infrastructure/persistence/repositories/EpisodeRepositoryImpl';
@@ -345,6 +346,9 @@ export const useCases = {
   getEpisodeByPath: () => new FindEpisodeByPathUseCase(episodesRepo),
   updateEpisode: () => new UpdateEpisodeUseCase(episodesRepo),
   deleteEpisode: () => new DeleteEpisodeUseCase(episodesRepo),
+
+  setSeasonWatchState: () =>
+    new SetSeasonWatchStateUseCase(seasonsRepo, seriesRepo, videosRepo, watchListRepo),
 
   setEpisodeWatchState: () =>
     new SetEpisodeWatchStateUseCase(

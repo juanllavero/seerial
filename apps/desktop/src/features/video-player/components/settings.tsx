@@ -2,6 +2,7 @@ import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { ChevronLeft, ChevronRight, SettingsIcon } from 'lucide-react';
 import { memo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MENU_ROW_CLASS, scrollFocusedRowIntoView } from '@/shared/components/menus/menu-row';
 import { NavigationButton } from '@/shared/components/navigation';
 import { useKeyboardShortcut } from '@/shared/hooks/use-keyboard-shortcut';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
@@ -11,7 +12,7 @@ import type {
   SubtitlePosition,
   SubtitleSize,
 } from '../hooks/use-player-settings';
-import PlayerMenu, { PLAYER_MENU_ROW_CLASS, scrollFocusedRowIntoView } from './player-menu';
+import PlayerMenu from './player-menu';
 import { SettingsPanelProvider, useSettingsPanel } from './settings-panel-context';
 
 const ZOOM_MIN = -3;
@@ -119,7 +120,7 @@ function SettingRow({
       variant="ghost"
       customKey={focusKey}
       disabled={disabled}
-      className={`${PLAYER_MENU_ROW_CLASS} disabled:opacity-40`}
+      className={`${MENU_ROW_CLASS} disabled:opacity-40`}
       onArrowPress={onArrowPress}
       onFocus={() => scrollFocusedRowIntoView(focusKey)}
     >

@@ -1,7 +1,7 @@
 import { getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { API, apiClient, useReorderLibraryItems } from '@seerial/api';
-import { useIsAdmin } from '@seerial/hooks';
 import { LibraryContentItemType, type LibraryItem, LibraryTypes } from '@seerial/domain';
+import { useIsAdmin } from '@seerial/hooks';
 import { useDataStore, useGradientStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
@@ -372,7 +372,7 @@ function LibraryContent({
   return (
     <Page padding="0 4dvh">
       <NavigationGridView
-        className="z-10 flex-1 gap-5 content-start pt-[2dvh] pb-[4dvh]"
+        className="z-10 w-full flex-1 gap-5 content-start pt-[2dvh] pb-[4dvh]"
         style={{ gap: `${GRID_GAP_REM}rem` }}
         scrollMode={scrollMode}
         focusedElementId={lastFocusedElementId}

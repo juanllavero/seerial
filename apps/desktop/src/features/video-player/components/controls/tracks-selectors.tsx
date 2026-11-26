@@ -1,8 +1,9 @@
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import type { AudioTrack, SubtitleTrack } from '@seerial/domain';
-import { Captions, Check, Music2 } from 'lucide-react';
+import { Captions, Music2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import MenuRow, { scrollFocusedRowIntoView } from '@/shared/components/menus/menu-row';
 import { NavigationButton } from '@/shared/components/navigation';
 import { useKeyboardShortcut } from '@/shared/hooks/use-keyboard-shortcut';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
@@ -13,7 +14,7 @@ import {
   isForcedTrack,
 } from '@/shared/utils/track-labels';
 import type { TrackSelection } from '../../hooks/use-track-selection';
-import PlayerMenu, { PLAYER_MENU_ROW_CLASS, scrollFocusedRowIntoView } from '../player-menu';
+import PlayerMenu from '../player-menu';
 
 type SelectorPanel = 'audio' | 'subtitle';
 
@@ -22,55 +23,6 @@ const SUBTITLE_NONE_FOCUS_KEY = 'subtitle-track-none';
 
 function getTrackFocusKey(panel: SelectorPanel, trackId: number) {
   return `${panel}-track-${trackId}`;
-}
-
-function TrackItem({
-  focusKey,
-  label,
-  detail,
-  badges = [],
-  isSelected,
-  onClick,
-}: {
-  focusKey: string;
-  label: string;
-  detail?: string;
-  badges?: string[];
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <NavigationButton
-      variant="ghost"
-      selected={isSelected}
-      customKey={focusKey}
-      className={`${PLAYER_MENU_ROW_CLASS} ${isSelected ? 'ring-2 ring-app-color' : ''}`}
-      onClick={onClick}
-      onFocus={() => scrollFocusedRowIntoView(focusKey)}
-    >
-      <div className="flex w-full items-center gap-[1.4dvh]">
-        <div className="flex w-[2.4dvh] shrink-0 justify-center">
-          {!!isSelected && <Check className="size-[2.4dvh]!" strokeWidth={3} />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="block font-semibold text-[2dvh] leading-snug">{label}</div>
-          {!!detail && (
-            <div className="wrap-break-word mt-[0.3dvh] block text-[1.6dvh] leading-snug opacity-75">
-              {detail}
-            </div>
-          )}
-        </div>
-        {badges.map((badge) => (
-          <div
-            key={badge}
-            className="shrink-0 rounded-[0.6dvh] border border-current px-[0.7dvh] py-[0.2dvh] font-semibold text-[1.3dvh] uppercase opacity-80"
-          >
-            {badge}
-          </div>
-        ))}
-      </div>
-    </NavigationButton>
-  );
 }
 
 function TracksSelectors({
@@ -165,7 +117,7 @@ function TracksSelectors({
   }
 
   const renderAudioTrack = (track: AudioTrack) => (
-    <TrackItem
+    <MenuRow
       key={track.id}
       focusKey={getTrackFocusKey('audio', track.id)}
       label={getLanguageName(track, titles[track.id], i18n.language) || `${t('audio')} ${track.id}`}
@@ -187,7 +139,7 @@ function TracksSelectors({
     const title = track.title || titles[track.id];
 
     return (
-      <TrackItem
+      <MenuRow
         key={track.id}
         focusKey={getTrackFocusKey('subtitle', track.id)}
         label={getLanguageName(track, title, i18n.language) || `${t('subs')} ${track.id}`}
@@ -240,7 +192,7 @@ function TracksSelectors({
         {openPanel === 'audio' && audioTracks.map(renderAudioTrack)}
         {openPanel === 'subtitle' && (
           <>
-            <TrackItem
+            <MenuRow
               focusKey={SUBTITLE_NONE_FOCUS_KEY}
               label={t('none')}
               isSelected={selectedSubtitle === null}

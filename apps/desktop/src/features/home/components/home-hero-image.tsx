@@ -30,6 +30,7 @@ function HomeHeroImage({ imageSrc }: HomeHeroImageProps) {
                 height="70vh"
                 width="70vw"
                 aspectRatio="2/3"
+                showSkeleton={false}
                 style={{
                   maskImage: `
       linear-gradient(to right, transparent 0%, black 80%),

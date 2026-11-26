@@ -28,7 +28,7 @@ function ChapterCard({ chapter, isActive, focusKey, onEnterPress, onFocus }: Cha
     <div
       ref={ref}
       onClick={onEnterPress}
-      className={`shrink-0 cursor-pointer flex flex-col overflow-hidden transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'} ${focused ? 'opacity-100' : ''}`}
+      className={`shrink-0 cursor-pointer flex flex-col overflow-hidden transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-80'} ${focused ? 'opacity-100' : ''}`}
       style={{ width: '22vh' }}
     >
       <div

@@ -21,7 +21,14 @@ const AlignedImage = ({ imageUrl, className }: { imageUrl: string; className?: s
 
   return (
     <div className={className} style={containerStyle}>
-      <Image url={imageUrl} width="100%" height="20dvh" style={imageStyle} alt="" />
+      <Image
+        url={imageUrl}
+        width="100%"
+        height="20dvh"
+        style={imageStyle}
+        alt=""
+        showSkeleton={false}
+      />
     </div>
   );
 };

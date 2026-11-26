@@ -29,6 +29,7 @@ function DetailsInfo({
   timeWatchedInfo,
   customDescription,
   handlePlay,
+  handlePlayFromStart,
   handleMoreOptions,
   handleMarkWatched,
   handleToggleHideThumbnails,
@@ -223,6 +224,7 @@ function DetailsInfo({
         >
           <DetailsActionButtons
             handlePlay={handlePlay}
+            handlePlayFromStart={handlePlayFromStart}
             handleMoreOptions={handleMoreOptions}
             handleMarkWatched={handleMarkWatched}
             handleToggleHideThumbnails={handleToggleHideThumbnails}

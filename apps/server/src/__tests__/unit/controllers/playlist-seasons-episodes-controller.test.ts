@@ -19,6 +19,7 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     updateSeason: jest.fn(),
     deleteSeason: jest.fn(),
     setEpisodeWatchState: jest.fn(),
+    setSeasonWatchState: jest.fn(),
     updateEpisode: jest.fn(),
     deleteEpisode: jest.fn(),
   },
@@ -178,56 +179,14 @@ describe('SeasonsController', () => {
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  it('sets episode watch state for the last episode when marking season as watched', async () => {
-    const episodeExec = jest.fn().mockResolvedValue(undefined);
-    const season = {
-      id: 'season-1',
-      episodes: [
-        { id: 'ep-1', episodeNumber: 1 },
-        { id: 'ep-2', episodeNumber: 2 },
-      ],
-    };
+  it.each([true, false])('sets the watch state of the season (watched: %s)', async (watched) => {
+    const execute = jest.fn().mockResolvedValue(undefined);
+    container.useCases.getSeasonById.mockReturnValue(uc({ id: 'season-1', episodes: [] }));
+    container.useCases.setSeasonWatchState.mockReturnValue({ execute });
 
-    container.useCases.getSeasonById
-      .mockReturnValueOnce(uc(season))
-      .mockReturnValueOnce(uc(season));
-    container.useCases.setEpisodeWatchState.mockReturnValue({
-      execute: episodeExec,
-    });
+    await new SeasonsController().setWatchState('season-1', { watched } as never, adminReq);
 
-    await new SeasonsController().setWatchState(
-      'season-1',
-      { watched: true } as never,
-      adminReq,
-    );
-
-    expect(episodeExec).toHaveBeenCalledWith('ep-2', 'user-1', true);
-  });
-
-  it('sets episode watch state for the first episode when marking season as not watched', async () => {
-    const episodeExec = jest.fn().mockResolvedValue(undefined);
-    const season = {
-      id: 'season-1',
-      episodes: [
-        { id: 'ep-1', episodeNumber: 1 },
-        { id: 'ep-2', episodeNumber: 2 },
-      ],
-    };
-
-    container.useCases.getSeasonById
-      .mockReturnValueOnce(uc(season))
-      .mockReturnValueOnce(uc(season));
-    container.useCases.setEpisodeWatchState.mockReturnValue({
-      execute: episodeExec,
-    });
-
-    await new SeasonsController().setWatchState(
-      'season-1',
-      { watched: false } as never,
-      adminReq,
-    );
-
-    expect(episodeExec).toHaveBeenCalledWith('ep-1', 'user-1', false);
+    expect(execute).toHaveBeenCalledWith('season-1', 'user-1', watched);
   });
 });
 

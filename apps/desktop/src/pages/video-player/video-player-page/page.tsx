@@ -7,7 +7,7 @@ import type { Video } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useReducer, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { VideoPlayer } from '@/features/video-player';
 import { useMpvPlayer } from '@/features/video-player/hooks/use-mpv-player';
 import { useTrackSelection } from '@/features/video-player/hooks/use-track-selection';
@@ -61,12 +61,15 @@ function useVideoPlayerPageController({
   serverUrl,
   currentUserId,
   navigate,
+  fromStart,
 }: {
   video?: Video;
   loadingVideo: boolean;
   serverUrl: string;
   currentUserId?: string;
   navigate: ReturnType<typeof useNavigate>;
+  /** Ignore the saved progress. */
+  fromStart: boolean;
 }) {
   const mpv = useMpvPlayer();
   const [playerViewState, setPlayerViewState] = useReducer(
@@ -109,10 +112,11 @@ function useVideoPlayerPageController({
 
   const getInitialPlaybackPosition = useCallback(
     (videoToPlay: Video) => {
+      if (fromStart) return 0;
       const watchList = videoToPlay.watchLists?.find((list) => list.userId === currentUserId);
       return resolveResumePosition(watchList?.timeWatched, videoToPlay.runtime);
     },
-    [currentUserId],
+    [currentUserId, fromStart],
   );
 
   const getSignedStreamUrl = useCallback(
@@ -473,6 +477,7 @@ function useVideoPlayerPageController({
 function VideoPlayerPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();
+  const fromStart = !!useLocation().state?.fromStart;
   const { serverUrl, currentUserId } = useServerStore((state) => ({
     serverUrl: state.selectedServer?.url ?? '',
     currentUserId: state.currentUser?.id,
@@ -504,6 +509,7 @@ function VideoPlayerPage() {
     serverUrl,
     currentUserId,
     navigate,
+    fromStart,
   });
 
   const trackSelection = useTrackSelection(video, videoLoaded);

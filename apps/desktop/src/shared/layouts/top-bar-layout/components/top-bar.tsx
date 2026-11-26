@@ -1,15 +1,16 @@
 import { getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
-import { useGetLibraries, useGetPlaylists } from '@seerial/api';
-import { type Library, LibraryTypes, type PlayList } from '@seerial/domain';
+import { useGetLibraries } from '@seerial/api';
+import { type Library, LibraryTypes } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
 import { AnimatePresence, domAnimation, LazyMotion, m } from 'framer-motion';
 import { Bookmark, ChevronUp, Search, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import { SettingsPanel } from '@/features/settings';
 import { NavigationButton, NavigationContainer } from '@/shared/components/navigation';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
-import LibrariesList from './libraries-list';
+import LibrariesList, { type TopBarSubmenuItem } from './libraries-list';
 
 const AUTO_OPEN_DELAY_MS = 1000;
 
@@ -19,15 +20,21 @@ const LIBRARY_TYPE_BUTTONS = {
   [LibraryTypes.MUSIC]: NavigationFocusKeys.topBar.music,
 } as const;
 
+const MUSIC_PATHS = ['/albums', '/playlists', '/details/playlist/', '/details/album/'];
+
+function isMusicPath(pathname: string): boolean {
+  return (
+    pathname.split('/').pop() === LibraryTypes.MUSIC ||
+    MUSIC_PATHS.some((path) => pathname.startsWith(path))
+  );
+}
+
 function getActiveButtonKeyForPath(pathname: string): string {
   const segment = pathname.split('/').pop();
 
   if (segment === LibraryTypes.MOVIES) return NavigationFocusKeys.topBar.movies;
   if (segment === LibraryTypes.SHOWS) return NavigationFocusKeys.topBar.shows;
-  if (segment === LibraryTypes.MUSIC) return NavigationFocusKeys.topBar.music;
-  if (pathname === '/playlists' || pathname.startsWith('/details/playlist/')) {
-    return NavigationFocusKeys.topBar.playlists;
-  }
+  if (isMusicPath(pathname)) return NavigationFocusKeys.topBar.music;
   if (pathname === '/search') return NavigationFocusKeys.topBar.search;
   if (pathname === '/see') return NavigationFocusKeys.topBar.toSee;
 
@@ -35,6 +42,7 @@ function getActiveButtonKeyForPath(pathname: string): string {
 }
 
 function TopBar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [showLibraries, setShowLibraries] = useState(false);
@@ -63,28 +71,30 @@ function TopBar() {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  // Playlists the user can read (own grants + those of the libraries they can access)
-  const { data: playlists } = useGetPlaylists<PlayList[]>({
-    enabled: serverUrl !== '',
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
-  });
-  const showPlaylists = (playlists?.length ?? 0) > 0;
-
   function getLibrariesByType(type: LibraryTypes) {
     return libraries?.filter((library) => library.type === type) ?? [];
   }
 
-  function getSingleLibraryByType(type: LibraryTypes) {
-    const librariesForType = getLibrariesByType(type);
+  /** What is shown under a section: its libraries, or the two views of the music. */
+  function getSubmenuItems(type: LibraryTypes): TopBarSubmenuItem[] {
+    if (type === LibraryTypes.MUSIC) {
+      return [
+        { id: 'music-albums', label: t('albums'), path: '/albums' },
+        { id: 'music-playlists', label: 'Playlists', path: '/playlists' },
+      ];
+    }
 
-    return librariesForType.length === 1 ? librariesForType[0] : null;
+    return getLibrariesByType(type).map((library) => ({
+      id: library.id,
+      label: library.name,
+      path: `/library/${library.id}/${type}`,
+    }));
   }
 
   const moviesLibraries = getLibrariesByType(LibraryTypes.MOVIES);
   const seriesLibraries = getLibrariesByType(LibraryTypes.SHOWS);
   const albumsLibraries = getLibrariesByType(LibraryTypes.MUSIC);
-  const selectedLibraries = getLibrariesByType(libraryType);
+  const submenuItems = getSubmenuItems(libraryType);
 
   const showMovies = moviesLibraries && moviesLibraries.length > 0;
   const showSeries = seriesLibraries && seriesLibraries.length > 0;
@@ -98,9 +108,7 @@ function TopBar() {
   }
 
   function openLibraries(nextType: LibraryTypes) {
-    const nextLibraries = getLibrariesByType(nextType);
-
-    if (nextLibraries.length === 0) {
+    if (getSubmenuItems(nextType).length === 0) {
       return;
     }
 
@@ -111,9 +119,7 @@ function TopBar() {
 
   function scheduleLibraryAutoOpen(nextType: LibraryTypes) {
     clearAutoOpenTimeout();
-    const nextLibraries = getLibrariesByType(nextType);
-
-    if (nextLibraries.length <= 1) {
+    if (getSubmenuItems(nextType).length <= 1) {
       return;
     }
 
@@ -148,11 +154,11 @@ function TopBar() {
   function handleLibraryTypePress(nextType: LibraryTypes) {
     setActiveLibraryButtonKey(LIBRARY_TYPE_BUTTONS[nextType]);
 
-    const singleLibrary = getSingleLibraryByType(nextType);
+    const items = getSubmenuItems(nextType);
 
-    if (singleLibrary) {
+    if (items.length === 1) {
       clearAutoOpenTimeout();
-      navigate(`/library/${singleLibrary.id}/${nextType}`);
+      navigate(items[0].path);
       return;
     }
 
@@ -186,6 +192,7 @@ function TopBar() {
     isInsideTopBarRef.current = false;
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the items are rebuilt on every render
   useEffect(() => {
     if (!showLibraries) {
       if (focusToRestoreRef.current) {
@@ -203,16 +210,19 @@ function TopBar() {
       return;
     }
 
-    if (selectedLibraries.length === 0) {
+    // The view being shown, or the first one
+    const target = submenuItems.find((item) => item.path === pathname) ?? submenuItems[0];
+
+    if (!target) {
       return;
     }
 
     const focusFrame = window.requestAnimationFrame(() => {
-      setFocus(selectedLibraries[0].id);
+      setFocus(target.id);
     });
 
     return () => window.cancelAnimationFrame(focusFrame);
-  }, [selectedLibraries, showLibraries]);
+  }, [submenuItems[0]?.id, showLibraries]);
 
   useEffect(() => {
     return () => {
@@ -245,7 +255,7 @@ function TopBar() {
               >
                 <NavigationButton
                   customKey={NavigationFocusKeys.topBar.home}
-                  text="Home"
+                  text={t('home')}
                   selected={pathname === '/home'}
                   onFocus={handleNonLibraryFocus}
                   onClick={() => navigate('/home')}
@@ -257,7 +267,7 @@ function TopBar() {
                   selected={pathname.split('/').pop() === LibraryTypes.MOVIES}
                   onFocus={() => handleLibraryTypeFocus(LibraryTypes.MOVIES)}
                   onClick={() => handleLibraryTypePress(LibraryTypes.MOVIES)}
-                  text="Movies"
+                  text={t('movies')}
                   variant="ghost"
                 />
                 <NavigationButton
@@ -266,25 +276,16 @@ function TopBar() {
                   selected={pathname.split('/').pop() === LibraryTypes.SHOWS}
                   onFocus={() => handleLibraryTypeFocus(LibraryTypes.SHOWS)}
                   onClick={() => handleLibraryTypePress(LibraryTypes.SHOWS)}
-                  text="Shows"
+                  text={t('shows')}
                   variant="ghost"
                 />
                 <NavigationButton
                   customKey={LIBRARY_TYPE_BUTTONS[LibraryTypes.MUSIC]}
                   disabled={!showMusic}
-                  selected={pathname.split('/').pop() === LibraryTypes.MUSIC}
+                  selected={isMusicPath(pathname)}
                   onFocus={() => handleLibraryTypeFocus(LibraryTypes.MUSIC)}
                   onClick={() => handleLibraryTypePress(LibraryTypes.MUSIC)}
-                  text="Music"
-                  variant="ghost"
-                />
-                <NavigationButton
-                  customKey={NavigationFocusKeys.topBar.playlists}
-                  disabled={!showPlaylists}
-                  selected={pathname === '/playlists' || pathname.startsWith('/details/playlist/')}
-                  onFocus={handleNonLibraryFocus}
-                  onClick={() => navigate('/playlists')}
-                  text="Playlists"
+                  text={t('music')}
                   variant="ghost"
                 />
                 <NavigationButton
@@ -338,8 +339,7 @@ function TopBar() {
         </AnimatePresence>
 
         <LibrariesList
-          type={libraryType}
-          libraries={selectedLibraries}
+          items={submenuItems}
           show={showLibraries}
           hide={hideLibraries}
           hideWithoutFocusRestore={hideLibrariesWithoutFocusRestore}
