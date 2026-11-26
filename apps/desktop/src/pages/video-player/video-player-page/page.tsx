@@ -104,7 +104,7 @@ function useVideoPlayerPageController({
   // Details and home show the progress: also runs after leaving the player
   const { mutate: updateWatchState } = useUpdateVideoWatchState({
     onSuccess: () => {
-      for (const queryKey of [['series'], ['movies'], ['continueWatching']]) {
+      for (const queryKey of [['series'], ['movies'], ['libraries'], ['continueWatching']]) {
         void queryClient.invalidateQueries({ queryKey });
       }
     },

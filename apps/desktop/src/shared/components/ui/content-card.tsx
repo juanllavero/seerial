@@ -3,7 +3,7 @@ import {
   setFocus,
   useFocusable,
 } from '@noriginmedia/norigin-spatial-navigation';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef } from 'react';
 import { shallow } from 'zustand/shallow';
 import { useSettingsStore } from '@/shared/stores';
@@ -38,6 +38,10 @@ export interface ReorderingArrows {
   right: boolean;
 }
 
+/** Round mark in the top right corner of a card. */
+const CARD_BADGE_CLASS =
+  'absolute top-[0.8dvh] right-[0.8dvh] flex h-[3.2dvh] min-w-[3.2dvh] items-center justify-center rounded-full bg-black/80 px-[0.8dvh] font-bold text-[1.7dvh] text-white shadow-md';
+
 interface CardProps {
   imgSrc: string;
   /** Up to 4 server image paths for collection collage. When provided with more than 1 entry, renders a 2×2 grid. */
@@ -57,6 +61,8 @@ interface CardProps {
   duration?: number;
   timeWatched?: number;
   remainingItems?: number;
+  /** Shows a tick instead of the remaining items. */
+  watched?: boolean;
   showRemainingItems?: boolean;
   /** When provided, holding Enter triggers this callback instead of immediate action on press. */
   onLongPress?: () => void;
@@ -85,6 +91,7 @@ function ContentCard({
   duration,
   timeWatched,
   remainingItems,
+  watched = false,
   showRemainingItems = true,
   onLongPress,
   isReordering = false,
@@ -244,10 +251,13 @@ function ContentCard({
           {hasWatchProgress && <WatchProgressBar duration={duration} timeWatched={timeWatched} />}
 
           {/* Remaining Items */}
-          {showRemainingItems && remainingItems !== undefined && remainingItems > 0 && (
-            <div className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1">
-              <span className="text-xs font-medium">{remainingItems}</span>
+          {!!watched && (
+            <div className={CARD_BADGE_CLASS}>
+              <Check className="size-[2dvh]" strokeWidth={3} />
             </div>
+          )}
+          {!watched && showRemainingItems && !!remainingItems && remainingItems > 0 && (
+            <div className={CARD_BADGE_CLASS}>{remainingItems}</div>
           )}
 
           {/* Reorder direction arrows */}

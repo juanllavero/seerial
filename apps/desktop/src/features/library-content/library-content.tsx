@@ -15,6 +15,7 @@ import ContentCard, { type ReorderingArrows } from '@/shared/components/ui/conte
 import type { ScrollMode } from '@/shared/hooks/use-auto-scroll';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
 import { useSettingsStore } from '@/shared/stores';
+import { getCardSubtitle, getCardWatchIndicator } from './card-info';
 
 const GRID_GAP_REM = 1.25;
 
@@ -157,6 +158,7 @@ function LibraryContent({
     setGradientImageSrc(src);
   }, [selectedElement, setGradientImageSrc]);
   const itemsPerRow = useSettingsStore((s) => s.settings.cardsPerRow);
+  const showWatchIndicator = useSettingsStore((s) => s.settings.watchedIndicator);
   const isMusicLibrary = libraryType === LibraryTypes.MUSIC;
   const finalItemsPerRow = isMusicLibrary ? itemsPerRow - 1 : itemsPerRow; // Music libraries have smaller cards, so we can fit more in the same space.
   const cardWidth = `calc((100% - ${(finalItemsPerRow - 1) * GRID_GAP_REM}rem) / ${finalItemsPerRow})`;
@@ -332,7 +334,8 @@ function LibraryContent({
             key={item.id}
             customKey={item.id}
             title={item.title}
-            subtitle={item.years}
+            subtitle={getCardSubtitle(item, libraryType, t)}
+            {...(showWatchIndicator ? getCardWatchIndicator(item) : {})}
             width={cardWidth}
             onFocus={() => handleFocus(item)}
             aspectRatio={getItemAspectRatio(isMusicLibrary, item.type)}
@@ -366,6 +369,9 @@ function LibraryContent({
       isReorderingMode,
       reorderingItemId,
       finalItemsPerRow,
+      libraryType,
+      showWatchIndicator,
+      t,
     ],
   );
 

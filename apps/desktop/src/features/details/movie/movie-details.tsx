@@ -98,6 +98,7 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
     await queryClient.invalidateQueries({
       queryKey: ['movies', 'get', movie.id],
     });
+    await queryClient.invalidateQueries({ queryKey: ['libraries'] });
   }, [movie, isUpdatingWatchState, isWatched, queryClient, setMovieWatchState]);
 
   useEffect(() => {

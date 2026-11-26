@@ -371,6 +371,7 @@ function SeriesDetails({
       await queryClient.invalidateQueries({
         queryKey: ['series', 'get', series.id],
       });
+      await queryClient.invalidateQueries({ queryKey: ['libraries'] });
     } finally {
       isMarkingWatchedRef.current = false;
     }
@@ -395,6 +396,7 @@ function SeriesDetails({
         queryClient.removeQueries({ queryKey: ['videos', 'get'] });
         await queryClient.invalidateQueries({ queryKey: ['series'] });
         await queryClient.invalidateQueries({ queryKey: ['continueWatching'] });
+        await queryClient.invalidateQueries({ queryKey: ['libraries'] });
       }
     },
     [queryClient],

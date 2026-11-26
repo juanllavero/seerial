@@ -342,7 +342,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
   private getStandaloneRelationsForLibraryType(type: Library['type']): string[] {
     switch (type) {
       case LibraryTypes.MOVIES:
-        return ['watchLists', 'videos'];
+        return ['watchLists', 'videos', 'videos.watchLists'];
       case LibraryTypes.SHOWS:
         return ['watchLists'];
       case LibraryTypes.MUSIC:
@@ -719,7 +719,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
           numberOfItems: movie.videos?.length || 0,
           order: movie.order,
           watched: movieWatched,
-          remainingItems: 0,
+          remainingItems: movieWatched ? 0 : this.countUnwatchedVideos(movie, userId),
           analyzingFiles: movie.analyzingFiles,
           type: 'movie' as const,
           collectionId: movie.collectionId ?? undefined,
@@ -1210,6 +1210,16 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
       movie.watchLists?.some((watchList) => watchList.userId === userId && watchList.watched) ??
       false
     );
+  }
+
+  /** Videos left to watch of a movie made of several. A single video has nothing to count. */
+  private countUnwatchedVideos(movie: MovieModel, userId: string): number {
+    const videos = movie.videos ?? [];
+    if (videos.length < 2) return 0;
+
+    return videos.filter(
+      (video) => !video.watchLists?.some((item) => item.userId === userId && item.watched),
+    ).length;
   }
 
   private isSeriesWatched(series: SeriesModel, userId: string): boolean {
