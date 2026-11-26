@@ -1,3 +1,4 @@
+import { artworkService } from '@/api/v1/shared/infrastructure/services/artwork/ArtworkService';
 import type { Video } from '@seerial/domain';
 import type {
   CreditsResponse,
@@ -438,9 +439,9 @@ export class MetadataProviderImpl implements MetadataProviderPort {
     // Update crew and credits
     await this.updateSeriesCredits(series, language);
 
-    // Assign remote image URLs (no local download — images are only saved to disk
-    // when the user explicitly changes them via the web client)
     await this.downloadSeriesImages(series);
+    // Local images win over the ones of internet, which are saved in local
+    await artworkService.sync('series', series);
 
     await seriesRepo.update(series.id, series);
     return series;
@@ -510,9 +511,11 @@ export class MetadataProviderImpl implements MetadataProviderPort {
       for (let i = 0; i < series.seasons.length; i++) {
         const s = series.seasons[i];
         if (s.backgroundSrc.length > 0) {
-          season.backgroundSrc = s.backgroundSrc;
+          // The address in internet, not the file of the other season
+          season.backgroundSrc = s.backgroundsUrls?.[0] ?? s.backgroundSrc;
           season.backgroundsUrls = s.backgroundsUrls;
 
+          await artworkService.sync('season', season);
           await seasonsRepo.update(season.id, season);
           return season;
         }
@@ -527,6 +530,7 @@ export class MetadataProviderImpl implements MetadataProviderPort {
         season.backgroundsUrls = backdrops.map((bg) => `${this.BASE_URL}${bg.file_path}`);
         season.backgroundSrc = season.backgroundsUrls[0];
       }
+      await artworkService.sync('season', season);
       await seasonsRepo.update(season.id, season);
     } catch (error) {
       metadataManagerLogger.error(error, `Error updating backgrounds for season ${season.id}`);
@@ -626,9 +630,9 @@ export class MetadataProviderImpl implements MetadataProviderPort {
     // Update cast and crew
     await this.updateMovieCredits(movie, movieMetadata.id ?? 0, language);
 
-    // Assign remote image URLs (no local download — images are only saved to disk
-    // when the user explicitly changes them via the web client)
     await this.downloadMovieImages(movie, collection);
+    // Local images win over the ones of internet, which are saved in local
+    await artworkService.sync('movie', movie);
 
     await moviesRepo.update(movie.id, movie);
     if (collection) {

@@ -1,4 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
+import { refreshChangedImages } from './images-changed';
 
 export type DialogPayloads = {
   // Libraries
@@ -51,5 +52,8 @@ export const useDialogStore = createWithEqualityFn<DialogState>((set) => ({
   open: null,
   payload: null,
   openDialog: (name, payload) => set({ open: name, payload }),
-  closeDialog: () => set({ open: null, payload: null }),
+  closeDialog: () => {
+    set({ open: null, payload: null });
+    refreshChangedImages();
+  },
 }));

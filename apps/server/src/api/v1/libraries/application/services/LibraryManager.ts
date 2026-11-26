@@ -1,3 +1,4 @@
+import { artworkService } from '@/api/v1/shared/infrastructure/services/artwork/ArtworkService';
 import * as fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { type LibraryType, LibraryTypes } from '@seerial/domain';
@@ -54,7 +55,13 @@ export const getCollectionImages = async (
   const backgroundSrc = collection.backgroundSrc !== '' ? collection.backgroundSrc : '';
 
   const items = getCollectionItemsByType(collection, type);
-  const { posterPath, backgroundPath } = await findCollectionImagesInCollectionRoot(items);
+  // The files of the collection, in its own folder or in the application, win
+  const local = await artworkService.find('collection', {
+    id: collection.id,
+    kind: type === LibraryTypes.MUSIC ? 'music' : 'video',
+  });
+  const posterPath = local.posterSrc ?? null;
+  const backgroundPath = local.backgroundSrc ?? null;
 
   const validatedCoverSrc =
     coverSrc !== '' && (await localFileExists(coverSrc)) ? coverSrc : '';
@@ -73,7 +80,11 @@ export const getCollectionImages = async (
 const localFileExists = async (relativePath: string): Promise<boolean> => {
   if (relativePath.startsWith('http')) return true;
   try {
-    await fsPromises.access(fileSystemService.getExternalPath(relativePath));
+    await fsPromises.access(
+      path.isAbsolute(relativePath)
+        ? relativePath
+        : fileSystemService.getExternalPath(relativePath),
+    );
     return true;
   } catch {
     return false;
@@ -104,14 +115,6 @@ const getCollectionItemsByType = (
   }
 };
 
-const findCollectionImagesInCollectionRoot = async (
-  items: CollectionImageSourceItem[],
-): Promise<{ posterPath: string | null; backgroundPath: string | null }> => {
-  const itemFolder = items.find((item) => Boolean(item.folder))?.folder;
-  const rootFolder = itemFolder ? path.dirname(itemFolder) : null;
-  return findImagesInFolder(rootFolder);
-};
-
 export const findImagesInFolder = async (
   folderPath: string | undefined | null,
 ): Promise<{ posterPath: string | null; backgroundPath: string | null }> => {
@@ -138,7 +141,7 @@ export const findImagesInFolder = async (
 
     return { posterPath, backgroundPath };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+    if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) {
       libraryManagerLogger.error(error, `Error reading folder ${folderPath}`);
     }
     return { posterPath: null, backgroundPath: null };

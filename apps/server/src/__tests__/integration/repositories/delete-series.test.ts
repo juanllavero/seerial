@@ -11,7 +11,7 @@ import { VideoModel } from '@/api/v1/videos/infrastructure/persistence/models/Vi
 import { LibraryTypes } from '@/data/interfaces/Media';
 import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../helpers/test-db';
 
-const mockCleanup = { cleanSeriesMedia: jest.fn(), cleanVideo: jest.fn() };
+const mockCleanup = { cleanVideo: jest.fn() };
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
   useCases: {},
   get contentCleanupService() {
@@ -91,7 +91,6 @@ describe('DeleteSeriesUseCase', () => {
     const library = (await LibraryModel.findOne({ where: { id: 'lib' } }))!;
     expect(library.analyzedFiles).toEqual({ '/other/file.mkv': 'other-episode' });
     expect(library.analyzedFolders).toEqual({ '/anime/other': 'other-series' });
-    expect(mockCleanup.cleanSeriesMedia).toHaveBeenCalledWith('/anime/S1');
     expect(mockCleanup.cleanVideo).toHaveBeenCalledTimes(40);
   });
 

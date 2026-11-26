@@ -41,6 +41,9 @@ export class PlayListModel extends BaseEntity {
   @Column({ type: 'varchar', nullable: true, default: '' })
   description?: string;
 
+  @Column({ type: 'varchar', nullable: true, default: '' })
+  coverSrc?: string;
+
   @OneToMany(
     () => PlayListItemModel,
     (item) => item.playList,

@@ -1,3 +1,4 @@
+import { applyUserImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import path from 'node:path';
 import type { Request as ExpressRequest } from 'express';
 import type { TvEpisodeGroupsResponse, TvResult } from 'moviedb-promise';
@@ -93,7 +94,8 @@ export class SeriesController extends Controller {
     @Path() id: string,
     @Body() body: UpdateSeriesDTO,
   ): Promise<ApiResponse<Series>> {
-    const result = await useCases.updateSeries().execute(id, body);
+    const data = await applyUserImages('series', id, body);
+    const result = await useCases.updateSeries().execute(id, data);
     return ApiResponse.success(result, messages.success.update);
   }
 
@@ -225,7 +227,7 @@ export class SeriesController extends Controller {
       throw new NotFoundException(messages.errors.notFound.series);
     }
 
-    const localImages = await findImagesInFolder(path.join(series.folder, 'media'));
+    const localImages = await findImagesInFolder(series.folder);
 
     const result = { ...series, coverSrc: localImages.posterPath ?? series.coverSrc };
     // Each user sees the audio/subtitle tracks they picked

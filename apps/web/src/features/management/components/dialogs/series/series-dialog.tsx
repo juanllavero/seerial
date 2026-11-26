@@ -12,10 +12,8 @@ import MediaTab from '../media-tab';
 
 interface SeriesImageState {
   logos: string[];
-  localLogoFolder: string;
   selectedLogo: string;
   posters: string[];
-  localPosterFolder: string;
   selectedPoster: string;
 }
 
@@ -39,10 +37,8 @@ function SeriesDialog() {
     configs: [seriesInfoConfig, seriesTagsConfig],
     initialImages: {
       logos: [],
-      localLogoFolder: '',
       selectedLogo: '',
       posters: [],
-      localPosterFolder: '',
       selectedPoster: '',
     },
     getImagesFromEntity: (s) => ({
@@ -50,8 +46,6 @@ function SeriesDialog() {
       posters: s.coversUrls || [],
       selectedLogo: s.logoSrc || '',
       selectedPoster: s.coverSrc || '',
-      localLogoFolder: s.folder ? `${s.folder}/media` : '',
-      localPosterFolder: s.folder ? `${s.folder}/media` : '',
     }),
     getExtraSubmitData: (imgs, s) => ({
       logoSrc: imgs.selectedLogo ?? s.logoSrc,
@@ -111,7 +105,7 @@ function SeriesDialog() {
             <ImageListTab
               imagesList={images.logos}
               type={ImageType.LOGO}
-              localFolder={images.localLogoFolder}
+              artwork={{ owner: 'series', id: series.id, field: 'logoSrc' }}
               selectImage={images.setSelectedLogo}
               selectedImage={images.selectedLogo}
             />
@@ -122,7 +116,7 @@ function SeriesDialog() {
           content: (
             <ImageListTab
               imagesList={images.posters}
-              localFolder={images.localPosterFolder}
+              artwork={{ owner: 'series', id: series.id, field: 'coverSrc' }}
               selectImage={images.setSelectedPoster}
               selectedImage={images.selectedPoster}
               type={ImageType.POSTER}

@@ -1,3 +1,4 @@
+import { applyUserImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import type { Request as ExpressRequest } from 'express';
 import { Body, Controller, Delete, Get, Patch, Path, Request, Route, Security, Tags } from 'tsoa';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
@@ -34,7 +35,8 @@ export class AlbumsController extends Controller {
     @Path() id: string,
     @Body() body: UpdateAlbumDTO,
   ): Promise<ApiResponse<Album>> {
-    const result = await useCases.updateAlbum().execute(id, body);
+    const data = await applyUserImages('album', id, body);
+    const result = await useCases.updateAlbum().execute(id, data);
 
     return ApiResponse.success(result, messages.success.update);
   }

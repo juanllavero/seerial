@@ -47,7 +47,7 @@ const Image: React.FC<ImageProps> = ({
         : url.startsWith('local')
           ? url.replace('local', '')
           : isAbsolutePath(url)
-            ? `/api/image?path=${encodeURIComponent(url)}`
+            ? `/api/images/local?path=${encodeURIComponent(url)}`
             : `/api/${url.replace('resources/img', 'img')}`
       : (src ?? fallbackSrc),
   );
@@ -62,7 +62,7 @@ const Image: React.FC<ImageProps> = ({
         : url.startsWith('local')
           ? url.replace('local', '')
           : isAbsolutePath(url)
-            ? `/api/image?path=${encodeURIComponent(url)}`
+            ? `/api/images/local?path=${encodeURIComponent(url)}`
             : `/api/${url.replace('resources/img', 'img')}`
       : (src ?? fallbackSrc);
     setImageSrc(newSrc);

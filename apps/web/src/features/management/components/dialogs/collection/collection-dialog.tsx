@@ -1,5 +1,5 @@
-import { API, useGetCollection, useUpdate } from '@seerial/api';
-import type { Collection } from '@seerial/domain';
+import { API, seerialQueryClient, useGetCollection, useUpdate } from '@seerial/api';
+import type { Collection, UpdateCollectionDTO } from '@seerial/domain';
 import { useWebSocketStore } from '@seerial/stores';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,10 +16,8 @@ interface CollectionFormState {
   title: string;
   description: string;
   covers: string[];
-  localCoverFolder: string;
   selectedCover: string;
   backgrounds: string[];
-  localBackgroundFolder: string;
   selectedBackground: string;
 }
 
@@ -43,10 +41,8 @@ function CollectionDialog() {
     title: '',
     description: '',
     covers: [],
-    localCoverFolder: '',
     selectedCover: '',
     backgrounds: [],
-    localBackgroundFolder: '',
     selectedBackground: '',
   });
   const { resetFormState } = form;
@@ -59,10 +55,8 @@ function CollectionDialog() {
       description: collection.description ?? '',
       covers: collection.coversUrls ?? [],
       selectedCover: collection.coverSrc ?? '',
-      localCoverFolder: `resources/collections/${collection.id}/media`,
       backgrounds: collection.backgroundsUrls ?? [],
       selectedBackground: collection.backgroundSrc ?? '',
-      localBackgroundFolder: `resources/collections/${collection.id}/media`,
     });
     setSelectedTab(t('generalButton'));
   }, [collection, resetFormState, t]);
@@ -72,19 +66,20 @@ function CollectionDialog() {
   const handleEditCollection = async () => {
     await connectWS();
 
+    // The server rejects any property that is not part of the DTO
     const response = await update(API.collections.update(collection.id), {
-      ...collection,
       title: form.title,
       description: form.description,
       coverSrc: form.selectedCover,
       backgroundSrc: form.selectedBackground,
-    });
+    } satisfies UpdateCollectionDTO);
 
     if (!response) {
       showToast('error', 'Error updating collection');
       return;
     }
 
+    seerialQueryClient.invalidateQueries();
     closeDialog();
   };
 
@@ -113,7 +108,7 @@ function CollectionDialog() {
             <ImageListTab
               type={ImageType.POSTER}
               imagesList={form.covers}
-              localFolder={form.localCoverFolder}
+              artwork={{ owner: 'collection', id: collection.id, field: 'coverSrc' }}
               selectImage={form.setSelectedCover}
               selectedImage={form.selectedCover}
             />
@@ -124,7 +119,7 @@ function CollectionDialog() {
           content: (
             <ImageListTab
               imagesList={form.backgrounds}
-              localFolder={form.localBackgroundFolder}
+              artwork={{ owner: 'collection', id: collection.id, field: 'backgroundSrc' }}
               selectImage={form.setSelectedBackground}
               selectedImage={form.selectedBackground}
             />

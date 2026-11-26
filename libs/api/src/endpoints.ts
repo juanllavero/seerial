@@ -117,6 +117,12 @@ export const API = {
         reorder: '/libraries/order',
         reorderItems: (id: string) => `/libraries/${id}/order`,
     },
+    artwork: {
+        /** Local images of a content: paths by field (coverSrc, logoSrc, backgroundSrc) */
+        list: (owner: string, id: string) => `/artwork/${owner}/${id}`,
+        upload: (owner: string, id: string) => `/artwork/${owner}/${id}/upload`,
+        download: (owner: string, id: string, field: string) => `/artwork/${owner}/${id}/${field}`,
+    },
     images: {
         upload: '/images',
         directoryListing: '/images',

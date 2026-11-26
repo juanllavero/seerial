@@ -1,3 +1,4 @@
+import { syncContentImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import { type Video, VideoType } from '@seerial/domain';
 import type { MovieResponse } from 'moviedb-promise';
 import type { CollectionsRepositoryPort } from '@/api/v1/collections/application/ports/CollectionsRepositoryPort';
@@ -62,7 +63,10 @@ export class ScanMovieUseCase {
         isDir: await this.filesManager.isFolder(`${root}/${f.name}`),
       })),
     );
-    const validFolders = subFolders.filter((f) => f.isDir).map((f) => f.path);
+    // The media folder holds the images, theme and background video of the movie: it is not content
+    const validFolders = subFolders
+      .filter((f) => f.isDir && getFileName(f.path).toLowerCase() !== 'media')
+      .map((f) => f.path);
 
     // Decision logic: Is it a movie collection or a single movie with folders?
     // We assume that if there are folders inside, it's a collection, UNLESS the folder is named "extras".
@@ -140,6 +144,9 @@ export class ScanMovieUseCase {
         });
       }
     }
+
+    // The images the user has in the folder of the collection
+    await syncContentImages('collection', collection.id);
   }
 
   //#endregion
@@ -236,6 +243,8 @@ export class ScanMovieUseCase {
 
     // Update movie in DB
     await this.movieRepository.update(movie.id, movie);
+    // Without metadata, the images the user has in the folder are still used
+    if (!movieMetadata) await syncContentImages('movie', movie.id);
 
     // Link to the collection AFTER the updates above: they save the whole movie as it was read
     // (without collection), and used to overwrite this link, leaving the movies of every collection

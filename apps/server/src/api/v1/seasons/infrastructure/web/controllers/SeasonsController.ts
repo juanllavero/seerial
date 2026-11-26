@@ -1,3 +1,4 @@
+import { applyUserImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import type { Request as ExpressRequest } from 'express';
 import {
   Body,
@@ -62,7 +63,8 @@ export class SeasonsController extends Controller {
     @Path() id: string,
     @Body() body: UpdateSeasonDTO,
   ): Promise<ApiResponse<Season>> {
-    const result = await useCases.updateSeason().execute(id, body);
+    const data = await applyUserImages('season', id, body);
+    const result = await useCases.updateSeason().execute(id, data);
     return ApiResponse.success(result, messages.success.update);
   }
 

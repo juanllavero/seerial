@@ -1,3 +1,4 @@
+import { syncContentImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import path from 'node:path';
 import type { AlbumsRepositoryPort } from '@/api/v1/albums/application/ports/AlbumsRepositoryPort';
 import type { Album } from '@/api/v1/albums/domain/Album';
@@ -228,6 +229,7 @@ export class ScanMusicUseCase {
       // Check if album for this folder was already scanned
       const existingAlbum = await this.albumsRepo.findByFolder(albumFolder.path);
       if (existingAlbum) {
+        await syncContentImages('album', existingAlbum.id);
         musicLogger.debug({ path: albumFolder.path }, 'Album already scanned, syncing its songs');
         if (collection) {
           await this.addAlbumToCollection(collection, existingAlbum.id);
@@ -304,6 +306,7 @@ export class ScanMusicUseCase {
       album.coverSrc = localCover;
       await this.albumsRepo.update(album.id, { coverSrc: localCover });
     }
+    await syncContentImages('album', album.id);
 
     for (const artist of sampleMetadata.artists || []) {
       await this.processArtist(artist, album.id);

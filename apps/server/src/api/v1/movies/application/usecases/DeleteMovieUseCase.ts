@@ -1,8 +1,5 @@
 import type { LibrariesRepositoryPort } from '@/api/v1/libraries/application/ports/LibrariesRepositoryPort';
-import {
-  contentCleanupService,
-  useCases,
-} from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { NotFoundException } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
 import { messages } from '@/config/messages';
 import type { MoviesRepositoryPort } from '../ports/MoviesRepositoryPort';
@@ -25,9 +22,6 @@ export class DeleteMovieUseCase {
     }
 
     const library = await this.libraryRepository.getById(movie.libraryId);
-
-    // Delete local media files and folders
-    contentCleanupService.cleanMovieMedia(movie.folder);
 
     if (library) {
       await this.libraryRepository.removeAnalyzedFolder(library.id, movie.folder);

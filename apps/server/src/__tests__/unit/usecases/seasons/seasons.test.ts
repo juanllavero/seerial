@@ -15,7 +15,6 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     findById: jest.fn(),
   },
   contentCleanupService: {
-    cleanSeasonMedia: jest.fn(),
   },
 }));
 
@@ -27,7 +26,6 @@ const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/
     findById: jest.Mock;
   };
   contentCleanupService: {
-    cleanSeasonMedia: jest.Mock;
   };
 };
 
@@ -129,7 +127,7 @@ describe('Season use cases', () => {
     });
   });
 
-  it('deletes child episodes, season media, and the season row', async () => {
+  it('deletes child episodes and the season row, keeping the images of the user', async () => {
     const deleteEpisodeExecute = jest.fn().mockResolvedValue(undefined);
     mockContainer.useCases.deleteEpisode.mockReturnValue({
       execute: deleteEpisodeExecute,
@@ -143,27 +141,7 @@ describe('Season use cases', () => {
     await new DeleteSeasonUseCase(repo).execute('season-1');
 
     expect(deleteEpisodeExecute).toHaveBeenCalledTimes(2);
-    expect(mockContainer.contentCleanupService.cleanSeasonMedia).toHaveBeenCalledWith(
-      '/shows/series-1',
-      1,
-    );
     expect(repo.delete).toHaveBeenCalledWith('season-1');
   });
 
-  it('skips season media cleanup when the series folder is unknown', async () => {
-    mockContainer.useCases.deleteEpisode.mockReturnValue({
-      execute: jest.fn().mockResolvedValue(undefined),
-    });
-    mockContainer.seriesRepo.findById.mockResolvedValue(null);
-
-    const repo = buildSeasonRepo({
-      findById: jest.fn().mockResolvedValue(buildSeason()),
-      delete: jest.fn().mockResolvedValue(undefined),
-    });
-
-    await new DeleteSeasonUseCase(repo).execute('season-1');
-
-    expect(mockContainer.contentCleanupService.cleanSeasonMedia).not.toHaveBeenCalled();
-    expect(repo.delete).toHaveBeenCalledWith('season-1');
-  });
 });

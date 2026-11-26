@@ -156,8 +156,11 @@ export class ImageProcessingServiceImpl implements ImageProcessingServicePort {
           '.webp': 'image/webp',
           '.gif': 'image/gif',
           '.avif': 'image/avif',
+          '.svg': 'image/svg+xml',
         };
         res.setHeader('Content-Type', mimeTypes[ext] ?? 'application/octet-stream');
+        // An SVG opened on its own could run scripts with the session of the user
+        if (ext === '.svg') res.setHeader('Content-Security-Policy', 'sandbox');
         const inputStream = this.fileSystemService.createReadStream(resolvedPath);
         await pipeline(inputStream, res);
         return;

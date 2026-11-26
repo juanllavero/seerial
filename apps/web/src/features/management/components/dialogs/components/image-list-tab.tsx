@@ -1,9 +1,10 @@
-import { API, apiClient, useGet } from '@seerial/api';
+import { API, apiClient, seerialQueryClient, useGet } from '@seerial/api';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useIsTablet } from '@/shared/hooks/use-tablet';
 import { ImageType } from '@/shared/lib/constants';
+import { markImagesChanged } from '../../../stores/images-changed';
 import { generateRandoumUUID, showToast } from '@/shared/lib/react-utils';
 import { Button } from '@/shared/ui/button';
 import FlexBox from '@/shared/ui/flex-box';
@@ -15,9 +16,19 @@ interface LocalImage {
   url: string;
 }
 
+/** An image field of a content, which keeps one local file next to it */
+interface ArtworkTarget {
+  owner: 'movie' | 'series' | 'season' | 'collection' | 'album';
+  id: string;
+  field: 'coverSrc' | 'logoSrc' | 'backgroundSrc';
+}
+
 interface ImageListTabProps {
   imagesList: string[];
-  localFolder: string;
+  /** Contents with images: only the local image of this field is listed */
+  artwork?: ArtworkTarget;
+  /** Otherwise, every image of this folder is listed */
+  localFolder?: string;
   selectImage: (image: string) => void;
   selectedImage: string;
   type?: ImageType;
@@ -25,6 +36,7 @@ interface ImageListTabProps {
 
 function ImageListTab({
   imagesList,
+  artwork,
   localFolder,
   selectImage,
   selectedImage,
@@ -42,13 +54,42 @@ function ImageListTab({
   // Reference to hidden file input
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    data: localImages,
-    isLoading,
-    mutate,
-  } = useGet<LocalImage[]>(
-    localFolder ? `${API.images.directoryListing}?path=${encodeURIComponent(localFolder)}` : null,
+  const folderListing = useGet<LocalImage[]>(
+    !artwork && localFolder
+      ? `${API.images.directoryListing}?path=${encodeURIComponent(localFolder)}`
+      : null,
   );
+  const artworkListing = useGet<Record<string, string>>(
+    artwork ? API.artwork.list(artwork.owner, artwork.id) : null,
+  );
+  // The file keeps its name when replaced: the version makes the browser load it again
+  const [version, setVersion] = useState(() => Date.now());
+
+  const artworkPath = artwork ? artworkListing.data?.[artwork.field] : undefined;
+  const artworkImages: LocalImage[] = artworkPath
+    ? [
+        {
+          name: 'local',
+          url: `images/local?path=${encodeURIComponent(artworkPath)}&v=${version}`,
+        },
+      ]
+    : [];
+  const localImages = artwork ? artworkImages : folderListing.data;
+  const isLoading = artwork ? artworkListing.isLoading : folderListing.isLoading;
+
+  /** After an upload or a download. For a content, the server has already selected the image */
+  const showSavedImage = async (path?: string) => {
+    if (!artwork) {
+      folderListing.mutate();
+      return;
+    }
+
+    markImagesChanged();
+    setVersion(Date.now());
+    await artworkListing.mutate();
+    await seerialQueryClient.invalidateQueries({ queryKey: ['images', 'local'] });
+    if (path) selectImage(path);
+  };
 
   const handleImageUpload = () => {
     setImageUrl(null);
@@ -83,12 +124,14 @@ function ImageListTab({
   const uploadImage = async (file: File) => {
     setIsUploading(true);
     const formData = new FormData();
-    formData.append('destPath', localFolder);
+    if (artwork) formData.append('field', artwork.field);
+    else formData.append('destPath', localFolder ?? '');
     formData.append('image', file);
 
     try {
-      await apiClient.post(API.images.upload, formData);
-      mutate();
+      const url = artwork ? API.artwork.upload(artwork.owner, artwork.id) : API.images.upload;
+      const response = await apiClient.post(url, formData);
+      await showSavedImage(response.data?.data?.path);
       showToast('success', t('imageLoaded'));
     } catch (_err) {
       showToast('error', t('errorImageUpload'));
@@ -114,12 +157,20 @@ function ImageListTab({
     const fileName = `${generateRandoumUUID()}${safeExt ? `.${safeExt}` : ''}`;
 
     try {
-      await apiClient.post(API.downloads.image, {
-        url,
-        downloadFolder: localFolder,
-        fileName,
-      });
-      mutate();
+      if (artwork) {
+        const response = await apiClient.post(
+          API.artwork.download(artwork.owner, artwork.id, artwork.field),
+          { url },
+        );
+        await showSavedImage(response.data?.data?.path);
+      } else {
+        await apiClient.post(API.downloads.image, {
+          url,
+          downloadFolder: localFolder,
+          fileName,
+        });
+        await showSavedImage();
+      }
       showToast('success', t('imageLoaded'));
     } catch (_err) {
       showToast('error', t('errorImageUpload'));
@@ -161,7 +212,6 @@ function ImageListTab({
               variant={'secondary'}
               onClick={() => {
                 setPastingUrl(false);
-                selectImage(urlToDownload);
               }}
             >
               {t('cancelButton')}

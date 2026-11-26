@@ -1,5 +1,5 @@
-import { API, useGet, useUpdate } from '@seerial/api';
-import type { Album } from '@seerial/domain';
+import { API, seerialQueryClient, useGet, useUpdate } from '@seerial/api';
+import type { Album, UpdateAlbumDTO } from '@seerial/domain';
 import { useWebSocketStore } from '@seerial/stores';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +18,6 @@ interface AlbumFormState {
   description: string;
   genres: string[];
   posters: string[];
-  localPosterFolder: string;
   selectedPoster: string;
 }
 
@@ -44,7 +43,6 @@ function AlbumDialog() {
     description: '',
     genres: [],
     posters: [],
-    localPosterFolder: '',
     selectedPoster: '',
   });
   const { resetFormState } = form;
@@ -59,7 +57,6 @@ function AlbumDialog() {
       genres: album.genres ?? [],
       posters: album.coverSrc ? [album.coverSrc] : [],
       selectedPoster: album.coverSrc ?? '',
-      localPosterFolder: `img/posters/${album.id}`,
     });
     setSelectedTab(t('generalButton'));
   }, [album, resetFormState, t]);
@@ -69,20 +66,21 @@ function AlbumDialog() {
   const handleEditAlbum = async () => {
     await connectWS();
 
+    // The server rejects any property that is not part of the DTO
     const response = await update(API.albums.update(album.id), {
-      ...album,
       title: form.title,
       year: form.year,
       description: form.description,
       coverSrc: form.selectedPoster ?? '',
       genres: form.genres,
-    });
+    } satisfies UpdateAlbumDTO);
 
     if (!response) {
       showToast('error', 'Error updating album');
       return;
     }
 
+    seerialQueryClient.invalidateQueries();
     closeDialog();
   };
 
@@ -114,7 +112,7 @@ function AlbumDialog() {
           content: (
             <ImageListTab
               imagesList={form.posters}
-              localFolder={form.localPosterFolder}
+              artwork={{ owner: 'album', id: album.id, field: 'coverSrc' }}
               selectImage={form.setSelectedPoster}
               selectedImage={form.selectedPoster}
               type={ImageType.SQUARE}

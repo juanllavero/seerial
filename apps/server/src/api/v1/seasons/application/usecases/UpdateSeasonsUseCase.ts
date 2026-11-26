@@ -4,23 +4,22 @@ import type { SeasonsRepositoryPort } from '../ports/SeasonsRepositoryPort';
 import { seriesRepo } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { downloadImage, isRemoteUrl } from '@/utils/downloadImage';
 
-const SEASON_IMAGE_FIELDS = [
-  { field: 'backgroundSrc', fileName: 'background' },
+const SEASON_MEDIA_FIELDS = [
   { field: 'videoSrc', fileName: 'video' },
   { field: 'musicSrc', fileName: 'theme' },
 ] as const;
 
-async function downloadSeasonImageFields(
+async function downloadSeasonMediaFields(
   data: Partial<Season>,
   seriesFolder: string,
   seasonNumber: number,
 ): Promise<void> {
   const mediaFolder = path.join(seriesFolder, 'media');
   const prefix = `s${seasonNumber}_`;
-  for (const { field, fileName } of SEASON_IMAGE_FIELDS) {
+  for (const { field, fileName } of SEASON_MEDIA_FIELDS) {
     const value = data[field as keyof Partial<Season>] as string | undefined;
     if (value && isRemoteUrl(value)) {
-      const ext = path.extname(new URL(value).pathname) || '.jpg';
+      const ext = path.extname(new URL(value).pathname) || '.mp4';
       const destPath = path.join(mediaFolder, `${prefix}${fileName}${ext}`);
       try {
         await downloadImage(value, destPath);
@@ -36,7 +35,7 @@ export class UpdateSeasonUseCase {
   constructor(private seasonsRepo: SeasonsRepositoryPort) {}
 
   async execute(id: string, data: Partial<Season>): Promise<Season> {
-    const needsDownload = SEASON_IMAGE_FIELDS.some(({ field }) => {
+    const needsDownload = SEASON_MEDIA_FIELDS.some(({ field }) => {
       const value = data[field as keyof Partial<Season>] as string | undefined;
       return value && isRemoteUrl(value);
     });
@@ -46,7 +45,7 @@ export class UpdateSeasonUseCase {
       if (season) {
         const series = await seriesRepo.findById(season.seriesId, 'few');
         if (series?.folder) {
-          await downloadSeasonImageFields(data, series.folder, season.seasonNumber);
+          await downloadSeasonMediaFields(data, series.folder, season.seasonNumber);
         }
       }
     }

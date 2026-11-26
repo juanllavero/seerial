@@ -5,10 +5,12 @@ import { fileSystemService } from '@/api/v1/shared/infrastructure/adapters/di/co
 import { isSafePublicHttpUrl } from './network-security';
 
 const MAX_REDIRECTS = 5;
+const TIMEOUT_MS = 30_000;
 
 /**
  * Downloads a remote image URL and saves it to the given destination path.
- * Ensures the parent directory exists before writing.
+ * Ensures the parent directory exists before writing. The file is only created once the server
+ * answers with the image, and removed if the download is interrupted.
  */
 export async function downloadImage(url: string, destPath: string): Promise<void> {
   return downloadImageWithRedirects(url, destPath, 0);
@@ -31,40 +33,42 @@ async function downloadImageWithRedirects(
 
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
-    const file = fileSystemService.createWriteStream(destPath);
+    const fail = (error: Error) => {
+      fileSystemService.deleteFile(destPath);
+      reject(error);
+    };
 
     const request = protocol.get(url, (response) => {
-      if (response.statusCode === 301 || response.statusCode === 302) {
-        fileSystemService.deleteFile(destPath);
+      if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
+        response.resume();
         const redirectUrl = response.headers.location;
         if (!redirectUrl) {
           reject(new Error(`Redirect with no location header from ${url}`));
           return;
         }
-        downloadImageWithRedirects(redirectUrl, destPath, redirectCount + 1)
+        downloadImageWithRedirects(new URL(redirectUrl, url).href, destPath, redirectCount + 1)
           .then(resolve)
           .catch(reject);
         return;
       }
 
       if (response.statusCode !== 200) {
-        fileSystemService.deleteFile(destPath);
+        response.resume();
         reject(new Error(`Failed to download ${url}: HTTP ${response.statusCode}`));
         return;
       }
 
+      const file = fileSystemService.createWriteStream(destPath);
       response.pipe(file);
-      file.on('finish', () => resolve());
-      file.on('error', (err) => {
-        fileSystemService.deleteFile(destPath);
-        reject(err);
-      });
+      // 'close' and not 'finish': the file must be closed before it can be renamed
+      file.on('close', () => (response.complete ? resolve() : fail(new Error('Interrupted'))));
+      file.on('error', fail);
+      response.on('error', fail);
+      response.on('aborted', () => fail(new Error(`Download of ${url} interrupted`)));
     });
 
-    request.on('error', (err) => {
-      fileSystemService.deleteFile(destPath);
-      reject(err);
-    });
+    request.setTimeout(TIMEOUT_MS, () => request.destroy(new Error(`Timeout downloading ${url}`)));
+    request.on('error', fail);
   });
 }
 

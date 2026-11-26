@@ -13,7 +13,7 @@ function toAlbum(playlist: PlayList): Album {
     id: playlist.id,
     libraryId: playlist.libraryId ?? '',
     title: playlist.title,
-    coverSrc: playlist.images?.[0] ?? '',
+    coverSrc: playlist.coverSrc || (playlist.images?.[0] ?? ''),
     folder: playlist.folder ?? '',
     description: playlist.description ?? '',
     songs: playlist.songs ?? [],
@@ -37,7 +37,7 @@ function PlaylistDetailsPage() {
       subtitle: `${count} ${count === 1 ? 'canción' : 'canciones'}`,
       genres: '',
       description: playlist.description ?? '',
-      coverSrc: playlist.images?.[0] ?? '',
+      coverSrc: playlist.coverSrc || (playlist.images?.[0] ?? ''),
     };
   }, [playlist]);
 

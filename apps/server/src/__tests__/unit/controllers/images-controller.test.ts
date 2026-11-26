@@ -110,6 +110,16 @@ describe('ImagesController', () => {
     expect(container.imageProcessingService.getDirectoryListing).not.toHaveBeenCalled();
   });
 
+  it('serves an image stored as the address of this endpoint (selected from the media folder)', async () => {
+    const stored = `/api/images/local?path=${encodeURIComponent('/series/Dragon Ball/media/cover.jpg')}`;
+
+    await new ImagesController().getLocalImage(stored, undefined, undefined, { res: {} } as never);
+
+    const [{ filePath }] = container.imageProcessingService.streamLocalImage.mock.calls[0];
+    expect(filePath.split('\\').join('/')).toContain('/series/Dragon Ball/media/cover.jpg');
+    expect(filePath).not.toContain('api');
+  });
+
   it('streams local image with normalized dimensions', async () => {
     const response = {};
     const request = { res: response };

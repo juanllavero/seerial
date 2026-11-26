@@ -13,7 +13,6 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     deleteVideo: jest.fn(),
   },
   contentCleanupService: {
-    cleanMovieMedia: jest.fn(),
   },
 }));
 
@@ -26,7 +25,6 @@ const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/
     deleteVideo: jest.Mock;
   };
   contentCleanupService: {
-    cleanMovieMedia: jest.Mock;
   };
 };
 
@@ -179,9 +177,6 @@ describe('Movie use cases', () => {
       expect(deleteVideoExecute).toHaveBeenCalledTimes(2);
       expect(deleteVideoExecute).toHaveBeenNthCalledWith(1, 'video-1');
       expect(deleteVideoExecute).toHaveBeenNthCalledWith(2, 'video-2');
-      expect(mockContainer.contentCleanupService.cleanMovieMedia).toHaveBeenCalledWith(
-        movie.folder,
-      );
       expect(librariesRepo.removeAnalyzedFolder).toHaveBeenCalledWith(
         movie.libraryId,
         movie.folder,
@@ -203,9 +198,6 @@ describe('Movie use cases', () => {
 
       await new DeleteMovieUseCase(librariesRepo, moviesRepo).execute(movie.id);
 
-      expect(mockContainer.contentCleanupService.cleanMovieMedia).toHaveBeenCalledWith(
-        movie.folder,
-      );
       expect(librariesRepo.removeAnalyzedFolder).not.toHaveBeenCalled();
       expect(moviesRepo.delete).toHaveBeenCalledWith(movie.id);
     });

@@ -1,3 +1,4 @@
+import { syncContentImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import path from 'node:path';
 import type { LibrariesRepositoryPort } from '@/api/v1/libraries/application/ports/LibrariesRepositoryPort';
 import type { Library } from '@/api/v1/libraries/domain/Library';
@@ -56,6 +57,8 @@ export class ScanPlayListFoldersUseCase {
     if (musicFiles.length === 0) return;
 
     const playList = await this.getOrCreatePlayList(library, folder);
+    // A cover.* in the folder of the playlist is its cover
+    await syncContentImages('playlist', playList.id);
     const companions = await this.songFileSync.findCompanions(musicFiles);
 
     for (const musicFile of musicFiles) {

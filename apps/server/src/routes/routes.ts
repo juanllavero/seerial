@@ -26,6 +26,8 @@ import { FilesController } from './../api/v1/shared/infrastructure/web/controlle
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { DownloadController } from './../api/v1/shared/infrastructure/web/controllers/DownloadController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { ArtworkController } from './../api/v1/shared/infrastructure/web/controllers/ArtworkController';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { APIKeyController } from './../api/v1/shared/infrastructure/web/controllers/APIKeyController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { AlbumsController } from './../api/v1/albums/infrastructure/web/controllers/AlbumsController';
@@ -245,6 +247,8 @@ const models: TsoaRoute.Models = {
             "episodeNumber": {"dataType":"double","required":true},
             "seasonNumber": {"dataType":"double","required":true},
             "order": {"dataType":"double","required":true},
+            "metadataSeason": {"dataType":"union","subSchemas":[{"dataType":"double"},{"dataType":"enum","enums":[null]}]},
+            "metadataEpisode": {"dataType":"union","subSchemas":[{"dataType":"double"},{"dataType":"enum","enums":[null]}]},
             "video": {"ref":"Video","required":true},
         },
         "additionalProperties": false,
@@ -446,6 +450,7 @@ const models: TsoaRoute.Models = {
             "codec": {"dataType":"string","required":true},
             "codecExt": {"dataType":"string","required":true},
             "title": {"dataType":"string","required":true},
+            "forced": {"dataType":"boolean"},
         },
         "additionalProperties": false,
     },
@@ -1017,6 +1022,36 @@ const models: TsoaRoute.Models = {
             "url": {"dataType":"string","required":true},
             "downloadFolder": {"dataType":"string","required":true},
             "fileName": {"dataType":"string","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ApiResponse___91_field-string_93__58_string__": {
+        "dataType": "refObject",
+        "properties": {
+            "success": {"dataType":"boolean","required":true},
+            "message": {"dataType":"string","required":true},
+            "data": {"dataType":"union","subSchemas":[{"dataType":"nestedObjectLiteral","nestedProperties":{},"additionalProperties":{"dataType":"string"}},{"dataType":"enum","enums":[null]}],"required":true},
+            "timestamp": {"dataType":"string","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ApiResponse__path-string__": {
+        "dataType": "refObject",
+        "properties": {
+            "success": {"dataType":"boolean","required":true},
+            "message": {"dataType":"string","required":true},
+            "data": {"dataType":"union","subSchemas":[{"dataType":"nestedObjectLiteral","nestedProperties":{"path":{"dataType":"string","required":true}}},{"dataType":"enum","enums":[null]}],"required":true},
+            "timestamp": {"dataType":"string","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ArtworkAddressDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "url": {"dataType":"string","required":true},
         },
         "additionalProperties": false,
     },
@@ -1629,6 +1664,7 @@ const models: TsoaRoute.Models = {
             "folder": {"dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
             "title": {"dataType":"string","required":true},
             "description": {"dataType":"string"},
+            "coverSrc": {"dataType":"string"},
             "customOrder": {"dataType":"boolean"},
             "images": {"dataType":"array","array":{"dataType":"string"}},
             "songs": {"dataType":"array","array":{"dataType":"refObject","ref":"Song"}},
@@ -3363,6 +3399,112 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
 
               await templateService.apiHandler({
                 methodName: 'downloadImage',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsArtworkController_getImages: Record<string, TsoaRoute.ParameterSchema> = {
+                owner: {"in":"path","name":"owner","required":true,"dataType":"string"},
+                id: {"in":"path","name":"id","required":true,"dataType":"string"},
+        };
+        app.get('/api/artwork/:owner/:id',
+            authenticateMiddleware([{"adminAuth":[]}]),
+            ...(fetchMiddlewares<RequestHandler>(ArtworkController)),
+            ...(fetchMiddlewares<RequestHandler>(ArtworkController.prototype.getImages)),
+
+            async function ArtworkController_getImages(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsArtworkController_getImages, request, response });
+
+                const controller = new ArtworkController();
+
+              await templateService.apiHandler({
+                methodName: 'getImages',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsArtworkController_upload: Record<string, TsoaRoute.ParameterSchema> = {
+                owner: {"in":"path","name":"owner","required":true,"dataType":"string"},
+                id: {"in":"path","name":"id","required":true,"dataType":"string"},
+                field: {"in":"formData","name":"field","required":true,"dataType":"string"},
+                image: {"in":"formData","name":"image","required":true,"dataType":"file"},
+        };
+        app.post('/api/artwork/:owner/:id/upload',
+            authenticateMiddleware([{"adminAuth":[]}]),
+            upload.fields([
+                {
+                    name: "image",
+                    maxCount: 1
+                }
+            ]),
+            ...(fetchMiddlewares<RequestHandler>(ArtworkController)),
+            ...(fetchMiddlewares<RequestHandler>(ArtworkController.prototype.upload)),
+
+            async function ArtworkController_upload(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsArtworkController_upload, request, response });
+
+                const controller = new ArtworkController();
+
+              await templateService.apiHandler({
+                methodName: 'upload',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsArtworkController_download: Record<string, TsoaRoute.ParameterSchema> = {
+                owner: {"in":"path","name":"owner","required":true,"dataType":"string"},
+                id: {"in":"path","name":"id","required":true,"dataType":"string"},
+                field: {"in":"path","name":"field","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"ref":"ArtworkAddressDTO"},
+        };
+        app.post('/api/artwork/:owner/:id/:field',
+            authenticateMiddleware([{"adminAuth":[]}]),
+            ...(fetchMiddlewares<RequestHandler>(ArtworkController)),
+            ...(fetchMiddlewares<RequestHandler>(ArtworkController.prototype.download)),
+
+            async function ArtworkController_download(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsArtworkController_download, request, response });
+
+                const controller = new ArtworkController();
+
+              await templateService.apiHandler({
+                methodName: 'download',
                 controller,
                 response,
                 next,

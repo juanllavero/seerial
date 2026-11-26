@@ -26,8 +26,7 @@ export class DeleteSeriesUseCase {
       .where('s.seriesId = :seriesId', { seriesId: id })
       .getMany();
 
-    // The images of the series and the thumbnails of its videos
-    contentCleanupService.cleanSeriesMedia(series.folder);
+    // The thumbnails of its videos. The media folder of the series is the user's: it stays
     for (const video of videos) contentCleanupService.cleanVideo(video.id);
 
     // Forget the files and the folder, so the next scan analyzes them again

@@ -709,7 +709,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
           () => this.generateItemDetails(movie, 'movie', userId),
         );
 
-        const localImages = await findImagesInFolder(path.join(movie.folder, 'media'));
+        const localImages = await findImagesInFolder(movie.folder);
 
         const item = {
           id: movie.id,
@@ -823,7 +823,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
           () => this.generateItemDetails(series, 'series', userId, currentSeason ?? undefined),
         );
 
-        const localImages = await findImagesInFolder(path.join(series.folder, 'media'));
+        const localImages = await findImagesInFolder(series.folder);
 
         const item = {
           id: series.id,

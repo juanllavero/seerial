@@ -18,6 +18,15 @@ function getImageUrl(image: string, isLocal: boolean) {
   return `https://image.tmdb.org/t/p/original/${image}`;
 }
 
+/**
+ * What is stored when the image is selected. A local image comes as the address that serves it
+ * (`images/local?path=...`): the path of the file is stored, as for the downloaded ones.
+ */
+function getImageValue(image: string, isLocal: boolean) {
+  const path = isLocal ? new URLSearchParams(image.split('?')[1]).get('path') : null;
+  return path ?? getImageUrl(image, isLocal);
+}
+
 function getImageDimensions(type: ImageType) {
   const width = type === ImageType.POSTER ? 60 : 90;
 
@@ -73,7 +82,9 @@ function ImageButton({
 }: ImageButtonProps) {
   const imageUrl = getImageUrl(image, isLocal);
 
-  const isSelected = imageUrl === selectedImage;
+  const imageValue = getImageValue(image, isLocal);
+
+  const isSelected = imageValue === selectedImage;
   const { width, height } = getImageDimensions(type);
   const aspectRatio = getAspectRatio(type);
 
@@ -82,7 +93,7 @@ function ImageButton({
       type="button"
       className={getButtonClassName(isSelected, width, height)}
       style={isSelected ? SELECTED_IMAGE_STYLE : undefined}
-      onClick={() => selectImage(imageUrl)}
+      onClick={() => selectImage(imageValue)}
     >
       {/* Checkmark overlay for selected image */}
       {isSelected && (

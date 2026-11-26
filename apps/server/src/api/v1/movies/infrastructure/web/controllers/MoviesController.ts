@@ -1,3 +1,4 @@
+import { applyUserImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import path from 'node:path';
 import type { Request as ExpressRequest } from 'express';
 import type { MovieResult } from 'moviedb-promise';
@@ -70,7 +71,8 @@ export class MoviesController extends Controller {
     @Path() id: string,
     @Body() body: UpdateMovieDTO,
   ): Promise<ApiResponse<Movie>> {
-    const result = await useCases.updateMovie().execute(id, body);
+    const data = await applyUserImages('movie', id, body);
+    const result = await useCases.updateMovie().execute(id, data);
     return ApiResponse.success(result, messages.success.update);
   }
 
@@ -166,7 +168,7 @@ export class MoviesController extends Controller {
       throw new NotFoundException(messages.errors.notFound.movie);
     }
 
-    const localImages = await findImagesInFolder(path.join(movie.folder, 'media'));
+    const localImages = await findImagesInFolder(movie.folder);
 
     const result = {
       ...movie,

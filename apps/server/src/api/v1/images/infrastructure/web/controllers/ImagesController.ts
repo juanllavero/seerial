@@ -231,10 +231,14 @@ export class ImagesController extends Controller {
   ): Promise<void> {
     const res = this.getResponseFromRequest(req);
 
+    // Images selected from the media folder used to be stored as the address that serves them
+    const storedAddress = /^\/api\/images\/local\?path=([^&]+)/.exec(path);
+    const filePath = storedAddress ? decodeURIComponent(storedAddress[1]) : path;
+
     // Relative paths built on Windows may come with backslashes
-    const relativePath = path.replace(/\\/g, '/');
-    const imagePath = nodePath.isAbsolute(path)
-      ? path
+    const relativePath = filePath.replace(/\\/g, '/');
+    const imagePath = nodePath.isAbsolute(filePath)
+      ? filePath
       : fileSystemService.getExternalPath(
         relativePath.includes('resources/')
           ? relativePath

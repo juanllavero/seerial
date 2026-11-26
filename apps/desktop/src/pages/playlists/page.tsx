@@ -15,13 +15,15 @@ import { NavigationFocusKeys } from '@/shared/navigation/constants';
 function toLibraryItem(playlist: PlayList, index: number, t: TFunction): LibraryItem {
   const songCount = playlist.songs?.length ?? 0;
   const songCountLabel = t('songCount', { count: songCount });
+  // Its own cover, or the ones of its albums (shown as a collage)
+  const images = playlist.coverSrc ? [playlist.coverSrc] : playlist.images;
 
   return {
     id: playlist.id,
     title: playlist.title,
     years: songCountLabel,
-    coverSrc: playlist.images?.[0] ?? '',
-    images: playlist.images,
+    coverSrc: images?.[0] ?? '',
+    images,
     numberOfItems: songCount,
     order: index,
     watched: false,
@@ -33,7 +35,7 @@ function toLibraryItem(playlist: PlayList, index: number, t: TFunction): Library
       subtitle: songCountLabel,
       genres: '',
       description: playlist.description ?? '',
-      coverSrc: playlist.images?.[0] ?? '',
+      coverSrc: images?.[0] ?? '',
     },
   };
 }

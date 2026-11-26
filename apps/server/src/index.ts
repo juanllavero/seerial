@@ -1,3 +1,4 @@
+import { migrateArtwork } from '@/api/v1/shared/infrastructure/services/artwork/migrateArtwork';
 import type http from 'node:http';
 import type https from 'node:https';
 import net from 'node:net';
@@ -268,6 +269,10 @@ if (hasSingleInstanceLock) {
     TrackSelectionService.prepareLibraries().catch((error) =>
       logger.error({ error }, 'Failed to prepare the track preferences of the libraries'),
     );
+
+    // Images of the previous layout (media folders) are moved next to their content, in the
+    // background. Nothing to do once moved.
+    migrateArtwork().catch((error) => logger.error({ error }, 'Failed to migrate the images'));
 
     // Initialize MovieDB
     await tmdbApiClient.initialize();

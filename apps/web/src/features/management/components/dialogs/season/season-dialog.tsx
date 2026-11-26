@@ -12,7 +12,6 @@ import MediaTab from '../media-tab';
 
 interface SeasonImageState {
   backgrounds: string[];
-  localBackgroundFolder: string;
   selectedBackground: string;
 }
 
@@ -37,13 +36,11 @@ function SeasonDialog() {
     configs: [seasonInfoConfig],
     initialImages: {
       backgrounds: [],
-      localBackgroundFolder: '',
       selectedBackground: '',
     },
     getImagesFromEntity: (s) => ({
       backgrounds: s.backgroundsUrls || [],
       selectedBackground: s.backgroundSrc || '',
-      localBackgroundFolder: '',
     }),
     getExtraSubmitData: (imgs, s) => ({
       backgroundSrc: imgs.selectedBackground ?? s.backgroundSrc,
@@ -65,13 +62,6 @@ function SeasonDialog() {
     ],
   });
 
-  // Set the background folder once the parent series is available
-  // (season has no folder of its own; images live in {series.folder}/media)
-  useEffect(() => {
-    if (!series?.folder) return;
-    images.setFormState({ localBackgroundFolder: `${series.folder}/media` });
-  }, [series?.folder, images.setFormState]);
-
   if (!season) return null;
 
   return (
@@ -88,7 +78,7 @@ function SeasonDialog() {
           content: (
             <ImageListTab
               imagesList={images.backgrounds}
-              localFolder={images.localBackgroundFolder}
+              artwork={{ owner: 'season', id: season.id, field: 'backgroundSrc' }}
               selectImage={images.setSelectedBackground}
               selectedImage={images.selectedBackground}
             />

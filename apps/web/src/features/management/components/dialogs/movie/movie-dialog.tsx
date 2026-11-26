@@ -12,13 +12,10 @@ import MediaTab from '../media-tab';
 
 interface MovieImageState {
   logos: string[];
-  localLogoFolder: string;
   selectedLogo: string;
   backgrounds: string[];
-  localBackgroundFolder: string;
   selectedBackground: string;
   posters: string[];
-  localPosterFolder: string;
   selectedPoster: string;
 }
 
@@ -42,13 +39,10 @@ function MovieDialog() {
     configs: [movieInfoConfig, movieTagsConfig],
     initialImages: {
       logos: [],
-      localLogoFolder: '',
       selectedLogo: '',
       backgrounds: [],
-      localBackgroundFolder: '',
       selectedBackground: '',
       posters: [],
-      localPosterFolder: '',
       selectedPoster: '',
     },
     getImagesFromEntity: (m) => ({
@@ -58,9 +52,6 @@ function MovieDialog() {
       selectedLogo: m.logoSrc || '',
       selectedPoster: m.coverSrc || '',
       selectedBackground: m.backgroundSrc || '',
-      localLogoFolder: m.folder ? `${m.folder}/media` : '',
-      localBackgroundFolder: m.folder ? `${m.folder}/media` : '',
-      localPosterFolder: m.folder ? `${m.folder}/media` : '',
     }),
     getExtraSubmitData: (imgs, m) => ({
       logoSrc: imgs.selectedLogo ?? m.logoSrc,
@@ -122,7 +113,7 @@ function MovieDialog() {
             <ImageListTab
               imagesList={images.logos}
               type={ImageType.LOGO}
-              localFolder={images.localLogoFolder}
+              artwork={{ owner: 'movie', id: movie.id, field: 'logoSrc' }}
               selectImage={images.setSelectedLogo}
               selectedImage={images.selectedLogo}
             />
@@ -133,7 +124,7 @@ function MovieDialog() {
           content: (
             <ImageListTab
               imagesList={images.backgrounds}
-              localFolder={images.localBackgroundFolder}
+              artwork={{ owner: 'movie', id: movie.id, field: 'backgroundSrc' }}
               selectImage={images.setSelectedBackground}
               selectedImage={images.selectedBackground}
             />
@@ -144,7 +135,7 @@ function MovieDialog() {
           content: (
             <ImageListTab
               imagesList={images.posters}
-              localFolder={images.localPosterFolder}
+              artwork={{ owner: 'movie', id: movie.id, field: 'coverSrc' }}
               selectImage={images.setSelectedPoster}
               selectedImage={images.selectedPoster}
               type={ImageType.POSTER}

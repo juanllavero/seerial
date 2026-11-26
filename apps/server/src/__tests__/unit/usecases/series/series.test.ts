@@ -12,7 +12,6 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => ({
     removeAnalyzedFolder: jest.fn(),
   },
   contentCleanupService: {
-    cleanSeriesMedia: jest.fn(),
   },
 }));
 
@@ -23,7 +22,6 @@ const mockContainer = jest.requireMock('@/api/v1/shared/infrastructure/adapters/
     removeAnalyzedFolder: jest.Mock;
   };
   contentCleanupService: {
-    cleanSeriesMedia: jest.Mock;
   };
 };
 

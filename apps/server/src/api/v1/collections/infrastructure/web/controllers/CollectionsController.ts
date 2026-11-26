@@ -1,3 +1,4 @@
+import { applyUserImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import type { Collection, UpdateCollectionDTO } from '@seerial/domain';
 import type { Request as ExpressRequest } from 'express';
 import {
@@ -219,7 +220,8 @@ export class CollectionsController extends Controller {
     @Path() id: string,
     @Body() body: UpdateCollectionDTO,
   ): Promise<ApiResponse<Collection>> {
-    const result = await useCases.updateCollection().execute(id, body);
+    const data = await applyUserImages('collection', id, body);
+    const result = await useCases.updateCollection().execute(id, data);
 
     return ApiResponse.success(result, messages.success.update);
   }

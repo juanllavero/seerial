@@ -222,7 +222,8 @@ export class FileSystemServiceImpl implements FileSystemServicePort {
         const fullPath = path.join(folderPath, fileOrFolder.name);
         if (fileOrFolder.isFile() && this.isVideoFile(fullPath)) {
           videoFiles.push(fullPath);
-        } else if (fileOrFolder.isDirectory()) {
+        } else if (fileOrFolder.isDirectory() && fileOrFolder.name.toLowerCase() !== 'media') {
+          // The videos of the media folder are not content (background video of the series)
           const subFiles = await fs.promises.readdir(fullPath);
           for (const subFile of subFiles) {
             const subFilePath = path.join(fullPath, subFile);

@@ -223,8 +223,7 @@ export class ScanLibraryUseCase {
       await this.cleanupMissingPlaylistFolders(library, accessibleRoots);
     }
 
-    // Cleanup empty collections/albums/series after removing missing content, to avoid leaving orphaned entries in the DB
-    await this.cleanupEmptyCollections(library.id);
+    // Cleanup empty albums/series/movies/collections after removing missing content, to avoid leaving orphaned entries in the DB
     if (library.type === 'Music') {
       await this.cleanupEmptyAlbums(library, accessibleRoots);
     } else if (library.type === 'Shows') {
@@ -232,6 +231,8 @@ export class ScanLibraryUseCase {
     } else if (library.type === 'Movies') {
       await this.cleanupEmptyMovies(library, accessibleRoots);
     }
+    // Last: the cleanups above can leave a collection without content
+    await this.cleanupEmptyCollections(library.id);
 
     logger.info({ libraryId: library.id }, 'Cleanup scan for missing content completed');
   }
@@ -541,8 +542,10 @@ export class ScanLibraryUseCase {
     const collections = await useCases.getAllCollectionsInLibrary().execute(libraryId);
     for (const collection of collections) {
       const full = await useCases.getCollectionById().execute(collection.id);
-      if (!full || full.albums.length > 0) continue;
-      logger.info({ collectionId: collection.id }, 'Collection has no albums, removing from DB');
+      // Only without any content: deleting it loses its position, the order of its items and,
+      // for the ones created by the user, the collection itself
+      if (!full || full.movies.length + full.shows.length + full.albums.length > 0) continue;
+      logger.info({ collectionId: collection.id }, 'Collection is empty, removing from DB');
       try {
         await useCases.deleteCollection().execute(collection.id);
       } catch (error) {

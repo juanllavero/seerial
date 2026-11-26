@@ -1,3 +1,8 @@
+import { artworkService } from '@/api/v1/shared/infrastructure/services/artwork/ArtworkService';
+import {
+  findContent,
+  saveContentFields,
+} from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import * as path from 'node:path';
 import { parse } from 'node:path';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
@@ -220,6 +225,8 @@ export async function changeIdentificationShow(
   // Clear season list
   show.seasons = [];
 
+  const isAnotherTitle = show.themdbId !== newTheMovieDBID;
+
   // Update TheMovieDB ID
   show.themdbId = newTheMovieDBID;
 
@@ -240,6 +247,11 @@ export async function changeIdentificationShow(
 
   // Get new data
   await useCases.scanSeries().execute(library, show.folder);
+
+  if (isAnotherTitle) {
+    await replaceSeriesImages(show.id);
+    notificationService.mutateSeries(show);
+  }
 }
 
 export async function changeIdentificationMovie(movieId: string, newTheMovieDBID: number) {
@@ -251,6 +263,8 @@ export async function changeIdentificationMovie(movieId: string, newTheMovieDBID
 
   if (!library) return;
 
+  const isAnotherTitle = movie.themdbId !== newTheMovieDBID;
+
   // Update TheMovieDB ID and save to DB
   movie.themdbId = newTheMovieDBID;
   await useCases.updateMovie().execute(movie.id, movie);
@@ -261,4 +275,29 @@ export async function changeIdentificationMovie(movieId: string, newTheMovieDBID
 
   // Fetch and apply new metadata using the updated TMDB ID
   await useCases.refreshMovieMetadata().execute(movie.id);
+
+  if (isAnotherTitle) {
+    await replaceImagesWithRemote('movie', movie.id);
+    notificationService.mutateMovie(movie);
+  }
+}
+
+/** The first image in internet of each kind, which is the one metadata assign by default */
+async function replaceImagesWithRemote(owner: 'movie' | 'series' | 'season', id: string) {
+  const content = await findContent(owner, id);
+  const first = (field: string) => (content[field] as string[] | undefined)?.[0];
+  const changes = await artworkService.replaceWithRemote(owner, content, {
+    coverSrc: first('coversUrls'),
+    logoSrc: first('logosUrls'),
+    backgroundSrc: first('backgroundsUrls'),
+  });
+  await saveContentFields(owner, id, changes);
+}
+
+async function replaceSeriesImages(seriesId: string) {
+  await replaceImagesWithRemote('series', seriesId);
+  const series = await useCases.getSeriesById().execute(seriesId, 'few');
+  for (const season of series?.seasons ?? []) {
+    await replaceImagesWithRemote('season', season.id);
+  }
 }
