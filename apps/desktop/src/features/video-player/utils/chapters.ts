@@ -14,6 +14,8 @@ export function normalizeChapters(
   return chapters.map((chapter, index) => ({
     ...chapter,
     time: Number(chapter.time) || 0,
+    // Older Windows servers send backslashes, which their image endpoint does not understand
+    thumbnailSrc: chapter.thumbnailSrc?.replace(/\\/g, '/') ?? '',
     title:
       chapter.title && chapter.title !== LEGACY_UNTITLED ? chapter.title : nameByNumber(index + 1),
   }));

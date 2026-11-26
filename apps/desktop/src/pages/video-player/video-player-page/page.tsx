@@ -5,6 +5,7 @@ import {
 } from '@seerial/api';
 import type { Video } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
+import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useReducer, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { VideoPlayer } from '@/features/video-player';
@@ -96,7 +97,15 @@ function useVideoPlayerPageController({
   const lastPlayingPositionRef = useRef(0);
   const lastRecoveryPositionRef = useRef(0);
 
-  const { mutate: updateWatchState } = useUpdateVideoWatchState();
+  const queryClient = useQueryClient();
+  // Details and home show the progress: also runs after leaving the player
+  const { mutate: updateWatchState } = useUpdateVideoWatchState({
+    onSuccess: () => {
+      for (const queryKey of [['series'], ['movies'], ['continueWatching']]) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+    },
+  });
 
   const getInitialPlaybackPosition = useCallback(
     (videoToPlay: Video) => {

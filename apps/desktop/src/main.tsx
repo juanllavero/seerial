@@ -4,13 +4,11 @@ import { useServerStore } from '@seerial/stores';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useTranslation } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
 import { GlobalMusicPlayer } from '@/features/music-player';
 import { UpdateDialog } from '@/features/updater';
 import { useFeedbackSounds } from '@/shared/hooks/use-feedback-sounds';
 import AppRoutes from './routes/routes';
-import { updateAppLanguage } from './shared/localization/language.helpers';
 import './shared/localization/i18n';
 import './shared/styles/react-doctor-fixes.css';
 
@@ -21,8 +19,6 @@ setUnauthorizedHandler(() => {
 });
 
 function App() {
-  const { i18n } = useTranslation();
-
   useFeedbackSounds();
 
   // Check the persisted server at startup; if it is unreachable, Root sends us back to the login
@@ -41,10 +37,6 @@ function App() {
 
     return () => window.cancelAnimationFrame(focusFrame);
   }, []);
-
-  useEffect(() => {
-    updateAppLanguage(i18n);
-  }, [i18n]);
 
   return (
     <BrowserRouter>

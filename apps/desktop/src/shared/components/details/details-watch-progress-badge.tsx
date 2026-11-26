@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import FlexBox from '@/shared/components/ui/flex-box';
+import { formatRemainingTime } from '@/shared/utils/remaining-time';
 
 interface DetailsWatchProgressBadgeProps {
   durationInfo: number;
@@ -9,6 +11,7 @@ function DetailsWatchProgressBadge({
   durationInfo,
   timeWatchedInfo,
 }: DetailsWatchProgressBadgeProps) {
+  const { t } = useTranslation();
   const watchedMinutes = timeWatchedInfo / 60;
   const remainingMinutes = Math.max(durationInfo - watchedMinutes, 0);
   const watchProgress = Math.min((watchedMinutes / durationInfo) * 100, 100);
@@ -46,7 +49,9 @@ function DetailsWatchProgressBadge({
           transform="rotate(-90 12 12)"
         />
       </svg>
-      <span className="text-[1.4vh] font-semibold opacity-90">{`${remainingMinutes.toFixed(0)} minutes remaining`}</span>
+      <span className="text-[1.4vh] font-semibold opacity-90">
+        {formatRemainingTime(remainingMinutes, t)}
+      </span>
     </FlexBox>
   );
 }

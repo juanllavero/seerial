@@ -53,7 +53,6 @@ export function useTrackSelection(video: Video | undefined, videoLoaded: boolean
   const [selection, setSelection] = useState<Selection | null>(null);
   const [titles, setTitles] = useState<TrackTitles>({});
   const selectionRef = useRef<Selection | null>(null);
-  const hasSavedRef = useRef(false);
   const queryClient = useQueryClient();
   const current = selection && selection.videoId === video?.id ? selection : null;
   const isReady = current !== null;
@@ -63,14 +62,9 @@ export function useTrackSelection(video: Video | undefined, videoLoaded: boolean
     selectionRef.current = selection;
   }, [selection]);
 
-  // The cached videos still hold the previous choice, and the next playback would start from it.
-  // Dropped on leaving the player: refetching while playing would reload the video.
-  useEffect(
-    () => () => {
-      if (hasSavedRef.current) queryClient.removeQueries({ queryKey: ['videos', 'get'] });
-    },
-    [queryClient],
-  );
+  // The cached videos still hold the previous tracks and position, and the next playback would
+  // start from them. Dropped on leaving the player: refetching while playing would reload it.
+  useEffect(() => () => queryClient.removeQueries({ queryKey: ['videos', 'get'] }), [queryClient]);
 
   // Default tracks, decided once per video: a later refresh of the data never changes them
   useEffect(() => {
@@ -133,7 +127,6 @@ export function useTrackSelection(video: Video | undefined, videoLoaded: boolean
       const audioIndex = (video.audioTracks ?? []).findIndex((t) => t.id === track.id);
       if (audioIndex !== -1) {
         // The server applies the same choice to the other episodes of the series
-        hasSavedRef.current = true;
         saveSelection({
           selectedAudioTrack: audioIndex,
           ...(subtitleIndex !== undefined && { selectedSubtitleTrack: subtitleIndex }),
@@ -157,10 +150,7 @@ export function useTrackSelection(video: Video | undefined, videoLoaded: boolean
       const index = track
         ? (video.subtitleTracks ?? []).findIndex((t) => t.id === track.id)
         : SUBTITLES_OFF;
-      if (!track || index !== -1) {
-        hasSavedRef.current = true;
-        saveSelection({ selectedSubtitleTrack: index });
-      }
+      if (!track || index !== -1) saveSelection({ selectedSubtitleTrack: index });
     },
     [video, mpv.setSubtitleTrack, saveSelection],
   );

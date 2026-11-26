@@ -6,7 +6,9 @@ import { memo } from 'react';
 import { useNavigate } from 'react-router';
 import { shallow } from 'zustand/shallow';
 import Image from '@/shared/components/ui/image';
+import WatchProgressBar from '@/shared/components/ui/watch-progress-bar';
 import { useSettingsStore } from '@/shared/stores';
+import { getWatchProgress } from '@/shared/utils/watch-progress';
 import Tertiary from '../text/tertiary';
 
 interface VideoCardProps {
@@ -58,6 +60,8 @@ function VideoCard({
     (watchList) => watchList.userId === currentUser?.id && watchList.watched,
   );
 
+  const progress = getWatchProgress(video, currentUser?.id);
+
   const imageSrc = hideUnwatchedThumbnail && !isVideoWatched ? thumbnailFallbackSrc : video.imgSrc;
 
   return (
@@ -77,6 +81,9 @@ function VideoCard({
         className={`h-full w-full ${cardRoundness}`}
         aspectRatio="16/9"
       />
+      {!!progress && (
+        <WatchProgressBar duration={progress.duration} timeWatched={progress.timeWatched} />
+      )}
       {topInfo && (
         <div className="absolute top-2 right-2 flex items-center gap-2 bg-black/70 rounded-lg px-2 py-1 text-sm">
           {isVideoWatched && <Check strokeWidth={3} size={24} />}

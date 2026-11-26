@@ -225,10 +225,14 @@ export class ImagesController extends Controller {
   ): Promise<void> {
     const res = this.getResponseFromRequest(req);
 
+    // Relative paths built on Windows may come with backslashes
+    const relativePath = path.replace(/\\/g, '/');
     const imagePath = nodePath.isAbsolute(path)
       ? path
       : fileSystemService.getExternalPath(
-        path.includes('resources/') ? path : fileSystemService.join('resources', path),
+        relativePath.includes('resources/')
+          ? relativePath
+          : fileSystemService.join('resources', relativePath),
       );
 
     // A missing or disallowed image is a client-visible 404, not a server error

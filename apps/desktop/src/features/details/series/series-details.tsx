@@ -34,6 +34,7 @@ import DetailsBackgroundPlayback from '@/shared/components/details/details-backg
 import DetailsInfo from '@/shared/components/details/details-info';
 import Page from '@/shared/components/page';
 import { formatAudioSummary, formatSubtitleSummary } from '@/shared/utils/track-labels';
+import { getWatchProgress } from '@/shared/utils/watch-progress';
 import DetailsWithRelatedContent from '../shared/details-with-related-content';
 
 interface SeriesDetailsProps {
@@ -371,6 +372,8 @@ function SeriesDetails({
     setHideUnwatchedThumbnails((prev) => !prev);
   }, [setHideUnwatchedThumbnails]);
 
+  const episodeProgress = getWatchProgress(selectedEpisode?.video, currentUser?.id);
+
   if (!isLoading && !series) return <span>Series not found</span>;
 
   return (
@@ -408,6 +411,8 @@ function SeriesDetails({
           cast={series?.cast}
           onDescriptionExpandedChange={setIsDescriptionExpanded}
           infoItems={detailsInfoItems}
+          durationInfo={episodeProgress?.duration}
+          timeWatchedInfo={episodeProgress?.timeWatched}
           videoInfo={episodeForTrackInfo?.video.videoTracks?.[0]?.displayTitle}
           audioInfo={episodeAudioInfo}
           subtitleInfo={episodeSubtitleInfo}

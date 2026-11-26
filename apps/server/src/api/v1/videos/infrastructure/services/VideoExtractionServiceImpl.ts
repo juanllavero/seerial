@@ -18,6 +18,67 @@ import type { VideoExtractionServicePort } from '../../application/ports/VideoEx
 
 const videoExtractionLogger = logger.child({ category: 'Video Extraction' });
 
+const THUMBNAIL_CONCURRENCY = 2;
+/** Seconds past the chapter start, to skip the black frames and fades that often open it. */
+const THUMBNAIL_OFFSET_SECONDS = 1;
+/** Generations in progress by video, so simultaneous requests share the work. */
+const pendingThumbnails = new Map<string, Promise<void>>();
+
+interface ThumbnailJob {
+  time: number;
+  outputPath: string;
+}
+
+async function extractThumbnail(videoPath: string, { time, outputPath }: ThumbnailJob) {
+  const run = (seek: number, decoderArgs: string[]) =>
+    executeFfmpeg(
+      [
+        '-nostdin',
+        '-threads',
+        '1',
+        ...decoderArgs,
+        '-ss',
+        String(seek),
+        '-i',
+        videoPath,
+        '-an',
+        '-sn',
+        '-dn',
+        '-frames:v',
+        '1',
+        '-vf',
+        'scale=480:-2',
+        '-y',
+        outputPath,
+      ],
+      { lowPriority: true },
+    );
+
+  // Decoding only keyframes takes one frame per chapter instead of everything since the
+  // previous keyframe: several times faster, above all on 4K
+  await run(time + THUMBNAIL_OFFSET_SECONDS, ['-skip_frame', 'nokey']);
+  // No keyframe left after that point (very last chapter): take the exact frame
+  if (!fileSystemService.existsSync(outputPath)) await run(time, []);
+}
+
+async function extractThumbnails(videoPath: string, jobs: ThumbnailJob[]) {
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const job = jobs[next++];
+      try {
+        await extractThumbnail(videoPath, job);
+      } catch (err) {
+        videoExtractionLogger.error(
+          { err, outputPath: job.outputPath },
+          'Failed to generate chapter thumbnail',
+        );
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: THUMBNAIL_CONCURRENCY }, worker));
+}
+
 export class VideoExtractionServiceImpl implements VideoExtractionServicePort {
   /**
    * Extract video thumbnail and stream it to response
@@ -115,8 +176,8 @@ export class VideoExtractionServiceImpl implements VideoExtractionServicePort {
 
   /**
    * Generate chapter thumbnails for a video and store them on disk.
-   * Returns chapters with thumbnailSrc populated (relative resource path).
-   * Skips generation if thumbnails already exist for all chapters.
+   * Returns chapters with thumbnailSrc populated (relative resource path, empty if it failed).
+   * Only the missing thumbnails are generated.
    */
   public async generateChapterThumbnails(
     videoId: string,
@@ -125,54 +186,32 @@ export class VideoExtractionServiceImpl implements VideoExtractionServicePort {
   ): Promise<Chapter[]> {
     if (!chapters.length) return chapters;
 
-    const relativeBase = fileSystemService.join(
-      'resources',
-      'img',
-      'thumbnails',
-      'chapters',
-      videoId,
-    );
+    // Sent to clients as a URL parameter: always with forward slashes, also on Windows
+    const relativeBase = `resources/img/thumbnails/chapters/${videoId}`;
     const thumbnailsDir = fileSystemService.getExternalPath(relativeBase);
+    const outputPaths = chapters.map((_, i) => nodePath.join(thumbnailsDir, `chapter_${i}.jpg`));
 
-    const thumbnailEntries = await fileSystemService.getFilesInFolder(thumbnailsDir);
-    const alreadyGenerated =
-      fileSystemService.existsSync(thumbnailsDir) &&
-      thumbnailEntries.filter((entry) => entry.isFile() && entry.name.endsWith('.jpg')).length >=
-      chapters.length;
+    let pending = pendingThumbnails.get(videoId);
+    if (!pending) {
+      const jobs = chapters
+        .map((chapter, i) => ({ time: Number(chapter.time) || 0, outputPath: outputPaths[i] }))
+        .filter((job) => !fileSystemService.existsSync(job.outputPath));
 
-    if (!alreadyGenerated) {
-      fileSystemService.createFolder(thumbnailsDir);
-
-      for (let i = 0; i < chapters.length; i++) {
-        const chapter = chapters[i];
-        const outputPath = nodePath.join(thumbnailsDir, `chapter_${i}.jpg`);
-        const args = [
-          '-ss',
-          String(chapter.time),
-          '-i',
-          videoPath,
-          '-frames:v',
-          '1',
-          '-vf',
-          'scale=480:-1',
-          '-y',
-          outputPath,
-        ];
-
-        try {
-          await executeFfmpeg(args);
-        } catch (err) {
-          videoExtractionLogger.error(
-            { err, chapterIndex: i },
-            'Failed to generate chapter thumbnail',
-          );
-        }
+      if (jobs.length) {
+        fileSystemService.createFolder(thumbnailsDir);
+        pending = extractThumbnails(videoPath, jobs).finally(() =>
+          pendingThumbnails.delete(videoId),
+        );
+        pendingThumbnails.set(videoId, pending);
       }
     }
+    await pending;
 
     return chapters.map((chapter, i) => ({
       ...chapter,
-      thumbnailSrc: fileSystemService.join(relativeBase, `chapter_${i}.jpg`),
+      thumbnailSrc: fileSystemService.existsSync(outputPaths[i])
+        ? `${relativeBase}/chapter_${i}.jpg`
+        : '',
     }));
   }
 }

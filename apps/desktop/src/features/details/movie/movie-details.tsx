@@ -28,6 +28,7 @@ import DetailsBackgroundPlayback from '@/shared/components/details/details-backg
 import DetailsInfo from '@/shared/components/details/details-info';
 import Page from '@/shared/components/page';
 import { formatAudioSummary, formatSubtitleSummary } from '@/shared/utils/track-labels';
+import { getWatchProgress } from '@/shared/utils/watch-progress';
 import DetailsWithRelatedContent from '../shared/details-with-related-content';
 
 interface MovieDetailsProps {
@@ -148,6 +149,8 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
     return track ? formatSubtitleSummary(track, i18n.language, t('forcedTrack')) : undefined;
   }, [effectiveVideo, library, i18n.language, t]);
 
+  const movieProgress = getWatchProgress(selectedVideo, currentUser?.id);
+
   if (!isLoading && !movie) return <span>Movie not found</span>;
 
   return (
@@ -183,6 +186,8 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
             (details?.year ?? movie?.year ?? '').split('-')[0],
             selectedVideo ? formatTimeForView(selectedVideo.runtime ?? 0) : '',
           ].filter(Boolean)}
+          durationInfo={movieProgress?.duration}
+          timeWatchedInfo={movieProgress?.timeWatched}
           audioInfo={movieAudioInfo}
           subtitleInfo={movieSubtitleInfo}
           videoInfo={effectiveVideo?.videoTracks?.[0]?.displayTitle}

@@ -1,3 +1,4 @@
+import os from 'node:os';
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import ffmpegPath from 'ffmpeg-static';
 import ffprobePath from 'ffprobe-static';
@@ -95,10 +96,23 @@ export interface StreamingProcess {
   stderr: string;
 }
 
+/** Background work must not compete with streaming or transcoding. */
+function lowerPriority(pid: number | undefined): void {
+  if (pid === undefined) return;
+  try {
+    os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+  } catch {
+    // The process may have already finished
+  }
+}
+
 /**
  * Execute ffmpeg command with given arguments
  */
-export function executeFfmpeg(args: string[]): Promise<void> {
+export function executeFfmpeg(
+  args: string[],
+  options: { lowPriority?: boolean } = {},
+): Promise<void> {
   return new Promise((resolve, reject) => {
     let ffmpegProcess: ChildProcess | null = null;
     let stderr = '';
@@ -129,6 +143,7 @@ export function executeFfmpeg(args: string[]): Promise<void> {
       ffmpegProcess = spawn(getFfmpegExecutableForSpawn(), args, {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
+      if (options.lowPriority) lowerPriority(ffmpegProcess.pid);
 
       ffmpegProcess.stderr?.on('data', (data) => {
         const chunk = data.toString('utf8');
