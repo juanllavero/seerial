@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { LibraryContent } from '@/features/library-content';
 import Loading from '@/shared/components/loading';
+import { useIsRestoringFocus } from '@/shared/hooks/use-is-restoring-focus';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
 
@@ -18,6 +19,7 @@ function AlbumsPage() {
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
   const connectWS = useWebSocketStore((state) => state.connectWS);
   const [selectedElement, setSelectedElement] = useState<LibraryItem | null>(null);
+  const isRestoringFocus = useIsRestoringFocus(selectedElement?.id);
 
   useEffect(() => {
     if (serverUrl) connectWS();
@@ -86,6 +88,7 @@ function AlbumsPage() {
       selectedElement={selectedElement}
       setSelectedElement={setSelectedElement}
       scrollMode="center"
+      isRestoringFocus={isRestoringFocus}
     />
   );
 }

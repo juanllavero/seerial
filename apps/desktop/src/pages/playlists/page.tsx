@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { LibraryContent } from '@/features/library-content';
 import Loading from '@/shared/components/loading';
+import { useIsRestoringFocus } from '@/shared/hooks/use-is-restoring-focus';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
 
@@ -41,6 +42,7 @@ function PlaylistsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [selectedElement, setSelectedElement] = useState<LibraryItem | null>(null);
+  const isRestoringFocus = useIsRestoringFocus(selectedElement?.id);
 
   const { data: playlists, isLoading } = useGetPlaylists<PlayList[]>({
     staleTime: 30_000,
@@ -84,6 +86,7 @@ function PlaylistsPage() {
       selectedElement={selectedElement}
       setSelectedElement={setSelectedElement}
       scrollMode="center"
+      isRestoringFocus={isRestoringFocus}
     />
   );
 }
