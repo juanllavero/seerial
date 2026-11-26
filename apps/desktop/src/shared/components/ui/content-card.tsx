@@ -40,7 +40,7 @@ export interface ReorderingArrows {
 
 /** Round mark in the top right corner of a card. */
 const CARD_BADGE_CLASS =
-  'absolute top-[0.8dvh] right-[0.8dvh] flex h-[3.2dvh] min-w-[3.2dvh] items-center justify-center rounded-full bg-black/80 px-[0.8dvh] font-bold text-[1.7dvh] text-white shadow-md';
+  'absolute top-[0.4dvh] right-[0.4dvh] flex h-[3.2dvh] min-w-[3.2dvh] items-center justify-center rounded-lg bg-black/80 px-[0.8dvh] font-bold text-[1.7dvh] text-white shadow-md';
 
 interface CardProps {
   imgSrc: string;
