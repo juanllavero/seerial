@@ -23,9 +23,12 @@ function ChapterCard({ chapter, isActive, focusKey, onEnterPress, onFocus }: Cha
   });
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the keyboard uses spatial navigation
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Enter is handled by spatial navigation
     <div
       ref={ref}
-      className={`shrink-0 flex flex-col overflow-hidden transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'} ${focused ? 'opacity-100' : ''}`}
+      onClick={onEnterPress}
+      className={`shrink-0 cursor-pointer flex flex-col overflow-hidden transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'} ${focused ? 'opacity-100' : ''}`}
       style={{ width: '22vh' }}
     >
       <div

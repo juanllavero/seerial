@@ -5,10 +5,11 @@ import { memo, useCallback, useEffect, useReducer, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { VideoPlayer } from '@/features/video-player';
 import { useMpvPlayer } from '@/features/video-player/hooks/use-mpv-player';
+import { useTrackSelection } from '@/features/video-player/hooks/use-track-selection';
 import AppAlertDialog from '@/shared/components/app-alert-dialog';
 import {
-    resetAppShellBackground,
-    setAppShellBackground,
+  resetAppShellBackground,
+  setAppShellBackground,
 } from '@/shared/components/details/details-background-mpv';
 import Loading from '@/shared/components/loading';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
@@ -86,6 +87,7 @@ function VideoPlayerFilePage() {
     isPlayerLoading,
     isPlaybackBuffering,
   } = playerViewState;
+  const trackSelection = useTrackSelection(video, videoLoaded);
 
   const lastKnownPositionRef = useRef(0);
   const completedFirstLoadAttemptRef = useRef(false);
@@ -329,7 +331,11 @@ function VideoPlayerFilePage() {
       />
 
       {!!videoLoaded && !isRecoveringPlaybackError && (
-        <VideoPlayer video={video} onSeekCommitted={handleSeekCommitted} />
+        <VideoPlayer
+          video={video}
+          trackSelection={trackSelection}
+          onSeekCommitted={handleSeekCommitted}
+        />
       )}
     </>
   );

@@ -27,6 +27,7 @@ import DetailsBackgroundLayers from '@/shared/components/details/details-backgro
 import DetailsBackgroundPlayback from '@/shared/components/details/details-background-playback';
 import DetailsInfo from '@/shared/components/details/details-info';
 import Page from '@/shared/components/page';
+import { formatAudioSummary, formatSubtitleSummary } from '@/shared/utils/track-labels';
 import DetailsWithRelatedContent from '../shared/details-with-related-content';
 
 interface MovieDetailsProps {
@@ -38,7 +39,7 @@ interface MovieDetailsProps {
 }
 
 function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: MovieDetailsProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [selectedVideo, selectVideo] = useState<Video | null>(null);
   const [resolvedVideoData, setResolvedVideoData] = useState<Map<string, Video>>(new Map());
   const [isBackgroundVideoVisible, setIsBackgroundVideoVisible] = useState(false);
@@ -122,7 +123,9 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
     return getAudioTrack(library.preferAudioLan ?? '', effectiveVideo) ?? undefined;
   }, [effectiveVideo, library]);
 
-  const movieAudioInfo = selectedAudioTrack?.displayTitle;
+  const movieAudioInfo = selectedAudioTrack
+    ? formatAudioSummary(selectedAudioTrack, i18n.language)
+    : undefined;
 
   const mediaFormatBadges = useMemo(
     () =>
@@ -141,8 +144,9 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
       i18n.language,
       library.preferAudioLan,
     );
-    return typeof track === 'string' ? track : track?.displayTitle;
-  }, [effectiveVideo, library, i18n.language]);
+    if (typeof track === 'string') return t('none');
+    return track ? formatSubtitleSummary(track, i18n.language, t('forcedTrack')) : undefined;
+  }, [effectiveVideo, library, i18n.language, t]);
 
   if (!isLoading && !movie) return <span>Movie not found</span>;
 

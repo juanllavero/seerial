@@ -1,7 +1,7 @@
 import {
-    getSignedVideoStreamUrlPassthrough,
-    useGetVideo,
-    useUpdateVideoWatchState,
+  getSignedVideoStreamUrlPassthrough,
+  useGetVideo,
+  useUpdateVideoWatchState,
 } from '@seerial/api';
 import type { Video } from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
@@ -9,15 +9,16 @@ import { memo, useCallback, useEffect, useReducer, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { VideoPlayer } from '@/features/video-player';
 import { useMpvPlayer } from '@/features/video-player/hooks/use-mpv-player';
-import { isGenuineEnd } from '@/shared/utils/playback-end';
+import { useTrackSelection } from '@/features/video-player/hooks/use-track-selection';
 import { resolveResumePosition } from '@/features/video-player/utils/resume-position';
 import AppAlertDialog from '@/shared/components/app-alert-dialog';
 import {
-    resetAppShellBackground,
-    setAppShellBackground,
+  resetAppShellBackground,
+  setAppShellBackground,
 } from '@/shared/components/details/details-background-mpv';
 import Loading from '@/shared/components/loading';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
+import { isGenuineEnd } from '@/shared/utils/playback-end';
 import { useAppSettingsMpv } from '../../../features/video-player/hooks/use-app-settings-mpv';
 
 const LOAD_TIMEOUT_MS = 15000;
@@ -246,27 +247,30 @@ function useVideoPlayerPageController({
   }, [loadVideo, video]);
 
   /** Returns true when mpv hit EOF before the real end and the situation was handled here. */
-  const handlePrematureEof = useCallback(async (eofReached: boolean, duration: number | null | undefined) => {
-    // The stream was cut before the end (connection lost, server down): this is not a finished video
-    if (!eofReached || isGenuineEnd(lastPlayingPositionRef.current, duration)) {
-      return false;
-    }
+  const handlePrematureEof = useCallback(
+    async (eofReached: boolean, duration: number | null | undefined) => {
+      // The stream was cut before the end (connection lost, server down): this is not a finished video
+      if (!eofReached || isGenuineEnd(lastPlayingPositionRef.current, duration)) {
+        return false;
+      }
 
-    if (prematureEofRetriesRef.current >= MAX_PREMATURE_EOF_RETRIES) {
-      setPlayerViewState({
-        errorMode: 'playback',
-        isPlaybackBuffering: false,
-        isErrorDialogOpen: true,
-      });
+      if (prematureEofRetriesRef.current >= MAX_PREMATURE_EOF_RETRIES) {
+        setPlayerViewState({
+          errorMode: 'playback',
+          isPlaybackBuffering: false,
+          isErrorDialogOpen: true,
+        });
+        return true;
+      }
+
+      prematureEofRetriesRef.current += 1;
+      lastRecoveryPositionRef.current = lastKnownPositionRef.current;
+      setPlayerViewState({ isPlaybackBuffering: false });
+      await attemptPlaybackRecovery();
       return true;
-    }
-
-    prematureEofRetriesRef.current += 1;
-    lastRecoveryPositionRef.current = lastKnownPositionRef.current;
-    setPlayerViewState({ isPlaybackBuffering: false });
-    await attemptPlaybackRecovery();
-    return true;
-  }, [attemptPlaybackRecovery]);
+    },
+    [attemptPlaybackRecovery],
+  );
 
   /** Remembers where playback really is (never the EOF jump of a failed seek) and re-arms the retries. */
   const trackPlaybackPosition = useCallback((position: number | null | undefined, eof: boolean) => {
@@ -493,6 +497,8 @@ function VideoPlayerPage() {
     navigate,
   });
 
+  const trackSelection = useTrackSelection(video, videoLoaded);
+
   if (!video && videoFailedToLoad) {
     // Unknown id, no access or server error: never leave the user on an endless spinner
     return (
@@ -544,7 +550,11 @@ function VideoPlayerPage() {
       />
 
       {!!videoLoaded && !isRecoveringPlaybackError && (
-        <VideoPlayer video={video} onSeekCommitted={handleSeekCommitted} />
+        <VideoPlayer
+          video={video}
+          trackSelection={trackSelection}
+          onSeekCommitted={handleSeekCommitted}
+        />
       )}
     </>
   );

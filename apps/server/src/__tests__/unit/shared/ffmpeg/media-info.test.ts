@@ -145,7 +145,7 @@ describe('mediaInfo adapter', () => {
       streams: [],
     });
     mockExecuteFfprobeRaw.mockResolvedValue(
-      JSON.stringify({ chapters: [{ title: 'Intro', start_time: 15 }] }),
+      JSON.stringify({ chapters: [{ tags: { title: 'Intro' }, start_time: '15.000000' }] }),
     );
 
     const result = await getMediaInfo('C:/videos/chapters.mkv');
@@ -172,20 +172,23 @@ describe('mediaInfo adapter', () => {
   it('returns parsed chapters and logs when chapter metadata exists', async () => {
     mockExecuteFfprobeRaw.mockResolvedValue(
       JSON.stringify({
-        chapters: [{ start_time: 30 }, { title: 'Finale', start_time: 95 }],
+        chapters: [
+          { start_time: '30.000000' },
+          { tags: { title: 'Finale' }, start_time: '95.500000' },
+        ],
       }),
     );
 
     await expect(getChapters('C:/videos/chapters.mkv')).resolves.toEqual([
       {
-        title: 'Sin título',
+        title: '',
         time: 30,
         displayTime: '00:30',
         thumbnailSrc: '',
       },
       {
         title: 'Finale',
-        time: 95,
+        time: 95.5,
         displayTime: '01:35',
         thumbnailSrc: '',
       },

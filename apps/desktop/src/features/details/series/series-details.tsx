@@ -22,7 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { t } from 'i18next';
 import { memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { shallow } from 'zustand/shallow';
 import EpisodesList, {
   MAX_SKELETON_COUNT,
@@ -33,6 +33,7 @@ import DetailsBackgroundLayers from '@/shared/components/details/details-backgro
 import DetailsBackgroundPlayback from '@/shared/components/details/details-background-playback';
 import DetailsInfo from '@/shared/components/details/details-info';
 import Page from '@/shared/components/page';
+import { formatAudioSummary, formatSubtitleSummary } from '@/shared/utils/track-labels';
 import DetailsWithRelatedContent from '../shared/details-with-related-content';
 
 interface SeriesDetailsProps {
@@ -167,18 +168,20 @@ function getTrackPreferences(
 function getEpisodeAudioInfo(
   selectedEpisode: Episode | null,
   preferences: TrackPreferences,
+  appLanguage: string,
 ): string | undefined {
   if (!selectedEpisode) {
     return undefined;
   }
 
-  return getAudioTrack(preferences.preferAudioLan ?? '', selectedEpisode.video)?.displayTitle;
+  const track = getAudioTrack(preferences.preferAudioLan ?? '', selectedEpisode.video);
+  return track ? formatAudioSummary(track, appLanguage) : undefined;
 }
 
 function getEpisodeSubtitleInfo(
   selectedEpisode: Episode | null,
   preferences: TrackPreferences,
-  appLanguage?: string,
+  appLanguage: string,
 ): string | undefined {
   if (!selectedEpisode) {
     return undefined;
@@ -191,7 +194,8 @@ function getEpisodeSubtitleInfo(
     appLanguage,
     preferences.preferAudioLan,
   );
-  return typeof track === 'string' ? track : track?.displayTitle;
+  if (typeof track === 'string') return t('none');
+  return track ? formatSubtitleSummary(track, appLanguage, t('forcedTrack')) : undefined;
 }
 
 function SeriesDetails({
@@ -231,6 +235,10 @@ function SeriesDetails({
   const backgroundImageSrc =
     details?.backgroundSrc ?? selectedSeason?.backgroundSrc ?? series?.coverSrc;
 
+  const { key: navigationKey } = useLocation();
+  const setSeasonForNavigation = useSeriesDetailsFocusStore(
+    (state) => state.setSeasonForNavigation,
+  );
   const getLastFocusedEpisodeForSeason = useSeriesDetailsFocusStore(
     (state) => state.getLastFocusedEpisodeForSeason,
   );
@@ -259,16 +267,26 @@ function SeriesDetails({
   }, [selectedEpisode, resolvedVideoData, updateMediaInfo]);
 
   useEffect(() => {
-    const seasonToSelect = getInitialSeason(series, currentSeasonNumber);
+    const chosenSeasonId = useSeriesDetailsFocusStore.getState().seasonByNavigation[navigationKey];
+    const seasonToSelect =
+      series?.seasons?.find((season) => season.id === chosenSeasonId) ??
+      getInitialSeason(series, currentSeasonNumber);
     dispatchSelection({ type: 'set-season', season: seasonToSelect });
-  }, [series, currentSeasonNumber]);
+  }, [series, currentSeasonNumber, navigationKey]);
 
   useEffect(() => {
+    const store = useSeriesDetailsFocusStore.getState();
+    const isApplied = store.appliedEpisodeNavigations[navigationKey];
     const nextState = getSeasonEpisodeState(
       selectedSeason,
       getLastFocusedEpisodeForSeason,
-      focusedEpisodeId,
+      isApplied ? undefined : focusedEpisodeId,
     );
+    // The requested episode becomes the last focused one, and from then on the user's moves win
+    if (!isApplied && focusedEpisodeId && nextState.selectedEpisode?.id === focusedEpisodeId) {
+      store.setLastFocusedEpisodeForSeason(selectedSeason?.id ?? '', focusedEpisodeId);
+      store.markEpisodeNavigationApplied(navigationKey);
+    }
     const seasonId = selectedSeason?.id ?? null;
     const seasonChanged = prevSelectedSeasonIdRef.current !== seasonId;
     prevSelectedSeasonIdRef.current = seasonId;
@@ -277,7 +295,7 @@ function SeriesDetails({
       selectedEpisode: nextState.selectedEpisode,
       isRestoringEpisodeFocus: seasonChanged ? nextState.isRestoringEpisodeFocus : false,
     });
-  }, [selectedSeason, getLastFocusedEpisodeForSeason, focusedEpisodeId]);
+  }, [selectedSeason, getLastFocusedEpisodeForSeason, focusedEpisodeId, navigationKey]);
 
   const handleSelectEpisode = useCallback(
     (episode: Episode) => {
@@ -325,8 +343,8 @@ function SeriesDetails({
   const trackPreferences = useMemo(() => getTrackPreferences(series, library), [series, library]);
 
   const episodeAudioInfo = useMemo(
-    () => getEpisodeAudioInfo(episodeForTrackInfo, trackPreferences),
-    [episodeForTrackInfo, trackPreferences],
+    () => getEpisodeAudioInfo(episodeForTrackInfo, trackPreferences, i18n.language),
+    [episodeForTrackInfo, trackPreferences, i18n.language],
   );
   const episodeSubtitleInfo = useMemo(
     () => getEpisodeSubtitleInfo(episodeForTrackInfo, trackPreferences, i18n.language),
@@ -416,7 +434,10 @@ function SeriesDetails({
             />
             <SeasonSelector
               seasons={series?.seasons ?? []}
-              onSelectSeason={(season) => dispatchSelection({ type: 'set-season', season })}
+              onSelectSeason={(season) => {
+                setSeasonForNavigation(navigationKey, season.id);
+                dispatchSelection({ type: 'set-season', season });
+              }}
               selectedSeasonId={selectedSeason?.id}
             />
           </>

@@ -8,6 +8,7 @@ import { Tertiary } from '@/shared/components/text';
 import FlexBox from '@/shared/components/ui/flex-box';
 import { useMpvPlayer } from '../../hooks/use-mpv-player';
 import type { PlayerSettings } from '../../hooks/use-player-settings';
+import type { TrackSelection } from '../../hooks/use-track-selection';
 import Settings from '../settings';
 import VideoInfoComponent from '../video-info';
 import TimelineSlider from './timeline-slider';
@@ -23,6 +24,7 @@ type ControlsMode = 'hidden' | 'full' | 'compact';
 
 interface ControlsProps {
   video: Video;
+  trackSelection: TrackSelection;
   runtime?: number;
   controlsMode: ControlsMode;
   onSeekCommitted?: (position: number) => void;
@@ -34,6 +36,7 @@ interface ControlsProps {
 
 function Controls({
   video,
+  trackSelection,
   runtime,
   controlsMode,
   onSeekCommitted,
@@ -185,9 +188,7 @@ function Controls({
         {showFullControls && (
           <>
             <TracksSelectors
-              video={video}
-              videoInfo={playBackInfo?.mediaInfoData}
-              playbackConfig={playBackInfo?.playBackConfig}
+              trackSelection={trackSelection}
               onPanelChange={handleTracksPanelInternalChange}
             />
             <Settings

@@ -17,7 +17,7 @@ use video::{
     set_volume, get_volume, set_zoom, set_video_quality,
     set_hwdec,
     // Audio (MPV)
-    set_audio_track, set_audio_delay,
+    set_audio_track, set_audio_delay, get_track_titles,
     set_audio_normalize, set_audio_exclusive,
     // Subtitles
     set_subtitle_track, set_subtitle_delay,
@@ -123,6 +123,7 @@ async fn main() {
             set_video_quality,
             set_hwdec,
             set_audio_track,
+            get_track_titles,
             set_audio_delay,
             set_audio_normalize,
             set_audio_exclusive,

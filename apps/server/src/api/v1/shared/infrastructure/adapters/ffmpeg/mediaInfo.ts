@@ -222,10 +222,13 @@ export async function getChapters(videoPath: string): Promise<ChapterData[]> {
     const chapters = metadata.chapters || [];
     if (chapters.length > 0) {
       for (const chapter of chapters) {
+        // ffprobe reports the start as text and the title among the tags
+        const time = Number(chapter.start_time) || 0;
         const chapterData: ChapterData = {
-          title: chapter.title || 'Sin título',
-          time: chapter.start_time || 0,
-          displayTime: formatTime(chapter.start_time || 0),
+          // Untitled chapters are left empty: each client names them in its own language
+          title: chapter.tags?.title?.trim() ?? '',
+          time,
+          displayTime: formatTime(time),
           thumbnailSrc: '',
         };
         chaptersArray.push(chapterData);

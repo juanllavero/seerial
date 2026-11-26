@@ -1,6 +1,7 @@
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import type { Video } from '@seerial/domain';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ChapterList from '@/features/video-player/components/chapter-list';
 import Controls from '@/features/video-player/components/controls/controls';
 import VolumeIndicator from '@/features/video-player/components/controls/volume-slider';
@@ -10,7 +11,9 @@ import {
 } from '@/features/video-player/hooks/use-chapter-thumbnails';
 import { useMpvPlayer } from '@/features/video-player/hooks/use-mpv-player';
 import { usePlayerSettings } from '@/features/video-player/hooks/use-player-settings';
+import type { TrackSelection } from '@/features/video-player/hooks/use-track-selection';
 import { useVolumeIndicator } from '@/features/video-player/hooks/use-volume-indicator';
+import { normalizeChapters } from '@/features/video-player/utils/chapters';
 import { NavigationContainer } from '@/shared/components/navigation';
 import FlexBox from '@/shared/components/ui/flex-box';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
@@ -19,14 +22,16 @@ import { NavigationFocusKeys } from '@/shared/navigation/constants';
 
 interface VideoPlayerProps {
   video: Video;
+  trackSelection: TrackSelection;
   onSeekCommitted?: (position: number) => void;
 }
 
-export default function VideoPlayer({ video, onSeekCommitted }: VideoPlayerProps) {
+export default function VideoPlayer({ video, trackSelection, onSeekCommitted }: VideoPlayerProps) {
   const [isTimelineFocused, setIsTimelineFocused] = useState(false);
   const [tracksPanelOpen, setTracksPanelOpen] = useState(false);
   const [chaptersExpanded, setChaptersExpanded] = useState(false);
 
+  const { t } = useTranslation();
   const mpv = useMpvPlayer();
   const playerInputEnabled = !tracksPanelOpen;
 
@@ -37,7 +42,9 @@ export default function VideoPlayer({ video, onSeekCommitted }: VideoPlayerProps
 
   const hasChapters = !!video.chapters?.length;
   const chapterThumbnails = useChapterThumbnails(video.id, hasChapters);
-  const chapters = chapterThumbnails ?? video.chapters ?? [];
+  const chapters = normalizeChapters(chapterThumbnails ?? video.chapters ?? [], (number) =>
+    t('chapterNumber', { number }),
+  );
   const position = usePlaybackPosition(hasChapters && chapters.length > 0);
 
   // Handle back navigation with a pre-action to stop the video before navigating back
@@ -126,6 +133,7 @@ export default function VideoPlayer({ video, onSeekCommitted }: VideoPlayerProps
         >
           <Controls
             video={video}
+            trackSelection={trackSelection}
             controlsMode={mode}
             onSeekCommitted={onSeekCommitted}
             onTimelineFocusChange={handleTimelineFocusChange}
@@ -151,6 +159,7 @@ export default function VideoPlayer({ video, onSeekCommitted }: VideoPlayerProps
                 isExpanded={chaptersExpanded}
                 onExpand={handleChaptersExpand}
                 onCollapse={handleChaptersCollapse}
+                onSeekCommitted={onSeekCommitted}
               />
             </div>
           </div>

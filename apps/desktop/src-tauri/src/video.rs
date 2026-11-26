@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use libmpv2::{Mpv, mpv_node::MpvNode};
@@ -26,6 +27,15 @@ pub enum SubtitlePosition {
     BottomLeft, BottomCenter, BottomRight,
     TopLeft, TopCenter, TopRight,
 }
+
+/// Hardware decoders to try, in order; mpv falls back to software if none works.
+/// `d3d11va` covers the common formats on any GPU, `nvdec-copy` adds what only NVIDIA
+/// can decode (e.g. 10-bit H.264 on RTX 50). Vulkan is left out on purpose: it returns
+/// grey frames for 10-bit H.264, which `auto` would pick without reporting an error.
+#[cfg(target_os = "windows")]
+const HWDEC_APIS: &str = "d3d11va,nvdec-copy";
+#[cfg(not(target_os = "windows"))]
+const HWDEC_APIS: &str = "auto";
 
 fn get_window_id<W: HasWindowHandle>(window: &W) -> Option<i64> {
     let window_handle = window.window_handle().ok()?;
@@ -101,6 +111,38 @@ fn map_ff_index_to_mpv_track_id(mpv: &Mpv, track_type: &str, ff_index: i64) -> R
     }
 
     Ok(ff_index)
+}
+
+/// Titles written in the file for its tracks, by ffprobe stream index.
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
+pub fn get_track_titles(state: State<MpvState>) -> Result<HashMap<i64, String>, String> {
+    state.with_mpv(|mpv| {
+        let track_list: MpvNode = mpv.get_property("track-list")?;
+        let mut titles = HashMap::new();
+
+        for track in track_list.array().into_iter().flatten() {
+            let Some(fields) = track.map() else {
+                continue;
+            };
+            let mut ff_index = None;
+            let mut title = None;
+
+            for (key, value) in fields {
+                match key.as_str() {
+                    "ff-index" => ff_index = value.i64(),
+                    "title" => title = value.str().map(ToOwned::to_owned),
+                    _ => {}
+                }
+            }
+
+            if let (Some(index), Some(title)) = (ff_index, title) {
+                titles.insert(index, title);
+            }
+        }
+
+        Ok(titles)
+    })
 }
 
 // NOTE on the `tauri::command(async)` pairs below (macOS only):
@@ -293,7 +335,7 @@ impl MpvState {
             {
                 init.set_property("vo", "gpu-next")?;
                 init.set_property("gpu-api", "d3d11")?;
-                init.set_property("hwdec", "auto")?;
+                init.set_property("hwdec", HWDEC_APIS)?;
 
                 init.set_property("d3d11-exclusive-fs", "yes")?;
 
@@ -617,13 +659,12 @@ pub fn set_subtitle_position(state: State<MpvState>, position: i64) -> Result<()
 
 // ─── Video ───────────────────────────────────────────────────────────────────
 
-/// Toggles hardware-accelerated decoding. When enabled, uses the best
-/// available decoder automatically (NVDEC, DXVA2, VAAPI, etc.).
+/// Toggles hardware-accelerated decoding. When enabled, uses `HWDEC_APIS`.
 #[cfg_attr(not(target_os = "macos"), tauri::command)]
 #[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_hwdec(state: State<MpvState>, enabled: bool) -> Result<(), String> {
     state.with_mpv(|mpv| {
-        mpv.set_property("hwdec", if enabled { "auto" } else { "no" })
+        mpv.set_property("hwdec", if enabled { HWDEC_APIS } else { "no" })
     })
 }
 

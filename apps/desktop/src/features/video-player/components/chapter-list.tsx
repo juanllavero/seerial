@@ -14,6 +14,7 @@ interface ChapterListProps {
   isExpanded: boolean;
   onExpand: () => void;
   onCollapse: () => void;
+  onSeekCommitted?: (position: number) => void;
 }
 
 function getActiveChapterIndex(chapters: Chapter[], position: number): number {
@@ -26,7 +27,14 @@ function getActiveChapterIndex(chapters: Chapter[], position: number): number {
   return activeIndex;
 }
 
-function ChapterList({ chapters, position, isExpanded, onExpand, onCollapse }: ChapterListProps) {
+function ChapterList({
+  chapters,
+  position,
+  isExpanded,
+  onExpand,
+  onCollapse,
+  onSeekCommitted,
+}: ChapterListProps) {
   const { t } = useTranslation();
   const activeIndex = getActiveChapterIndex(chapters, position);
   const activeChapterId = `chapter-${activeIndex}`;
@@ -53,9 +61,13 @@ function ChapterList({ chapters, position, isExpanded, onExpand, onCollapse }: C
     }
   }, [isExpanded, activeChapterId]);
 
-  const handleChapterEnter = useCallback((chapterTime: number) => {
-    invoke('set_position', { position: chapterTime }).catch(console.error);
-  }, []);
+  const handleChapterEnter = useCallback(
+    (chapterTime: number) => {
+      onSeekCommitted?.(chapterTime);
+      invoke('set_position', { position: chapterTime }).catch(console.error);
+    },
+    [onSeekCommitted],
+  );
 
   if (!chapters.length) return null;
 
