@@ -107,4 +107,6 @@ export interface SubtitleTrack {
     codec: string;
     codecExt: string;
     title: string;
+    /** True when the track only translates the foreign parts of the audio. */
+    forced?: boolean;
 }

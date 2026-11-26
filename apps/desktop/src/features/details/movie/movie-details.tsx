@@ -139,6 +139,7 @@ function MovieDetails({ movie, isLoading, details, collectionId, libraryType }: 
       library.subsMode ?? 'autoSubs',
       effectiveVideo,
       i18n.language,
+      library.preferAudioLan,
     );
     return typeof track === 'string' ? track : track?.displayTitle;
   }, [effectiveVideo, library, i18n.language]);

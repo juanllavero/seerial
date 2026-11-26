@@ -23,6 +23,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@/api/v1/shared/infrastructure/web/exceptions/HTTPExceptions';
+import { TrackSelectionService } from '@/api/v1/shared/infrastructure/services/TrackSelectionService';
 import { UserVideoPreferencesService } from '@/api/v1/shared/infrastructure/services/UserVideoPreferencesService';
 import { AccessControlService } from '@/api/v1/shared/infrastructure/services/AccessControlService';
 import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse';
@@ -136,6 +137,7 @@ export class VideosController extends Controller {
   /**
    * Save the audio/subtitle track the current user picked for a video.
    * Only affects that user; the default selection of the video is not changed.
+   * For an episode the choice is also applied to the rest of the episodes of its series.
    */
   @Patch('{id}/track-selection')
   @Security('cookieAuth')
@@ -164,6 +166,8 @@ export class VideosController extends Controller {
     }
 
     await UserVideoPreferencesService.save(user.id, id, { selectedAudioTrack, selectedSubtitleTrack });
+    // The other episodes of the series follow the same choice (when they have those tracks)
+    await TrackSelectionService.propagate(user.id, id, { selectedAudioTrack, selectedSubtitleTrack });
     return ApiResponse.success(null, messages.success.update);
   }
 

@@ -1,9 +1,11 @@
 import { API, useCreate, useGet, useUpdate } from '@seerial/api';
 import type { Library } from '@seerial/domain';
+import { normalizeLanguage, normalizeSubtitleMode } from '@seerial/domain';
 import { useWebSocketStore } from '@seerial/stores';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useSettingsStore } from '@/features/settings';
 import { shallow } from 'zustand/shallow';
 import useFormState from '@/shared/hooks/use-form-state';
 import { showToast } from '@/shared/lib/react-utils';
@@ -28,6 +30,7 @@ function LibraryDialog() {
   const navigate = useNavigate();
   const currentLanguage = i18n.language?.split('-')[0] ?? 'en';
   const connectWS = useWebSocketStore((state) => state.connectWS);
+  const getServerSetting = useSettingsStore((state) => state.getServerSetting);
   const { error: updateError, update } = useUpdate<Library>();
   const { error: createError, create } = useCreate<Library>();
   const { payload, closeDialog } = useDialogStore(
@@ -87,13 +90,39 @@ function LibraryDialog() {
         name: library.name,
         language: library.language,
         folders: library.folders,
-        preferAudioLan: library.preferAudioLan ?? currentLanguage,
-        preferSubLan: library.preferSubLan ?? currentLanguage,
-        subsMode: library.subsMode ?? 'autoSubs',
+        // Language codes and mode keys (libraries saved by older versions hold names and labels)
+        preferAudioLan: normalizeLanguage(library.preferAudioLan) || currentLanguage,
+        preferSubLan: normalizeLanguage(library.preferSubLan) || currentLanguage,
+        subsMode: normalizeSubtitleMode(library.subsMode),
       });
       setSelectedTab(t('generalButton'));
     }
   }, [library, id, currentLanguage, t]);
+
+  // A new library starts with the default languages of the server
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the dialog opens to add a library
+  useEffect(() => {
+    if (id) return;
+
+    let cancelled = false;
+    const loadDefaults = async () => {
+      const [audio, subs, mode] = await Promise.all([
+        getServerSetting('preferAudioLan', currentLanguage),
+        getServerSetting('preferSubsLan', currentLanguage),
+        getServerSetting('subsMode', 'autoSubs'),
+      ]);
+      if (cancelled) return;
+
+      form.setPreferAudioLan(normalizeLanguage(String(audio)) || currentLanguage);
+      form.setPreferSubLan(normalizeLanguage(String(subs)) || currentLanguage);
+      form.setSubsMode(normalizeSubtitleMode(String(mode)));
+    };
+    void loadDefaults();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const handleAddEditLibrary = async () => {
     setLoading(true);

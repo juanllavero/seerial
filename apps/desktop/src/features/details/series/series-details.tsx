@@ -2,10 +2,19 @@ import {
   API,
   apiClient,
   unwrapApiPayload,
+  useGetLibrary,
   useSetEpisodeWatchState,
   useUpdateVideoMediaInfo,
 } from '@seerial/api';
-import type { DetailsData, Episode, LibraryType, Season, Series, Video } from '@seerial/domain';
+import type {
+  DetailsData,
+  Episode,
+  LibraryType,
+  Season,
+  Series,
+  TrackPreferences,
+  Video,
+} from '@seerial/domain';
 import { formatDate, formatTimeForView, getAudioTrack, getSubtitleTrack } from '@seerial/domain';
 import { useLocalStorage } from '@seerial/hooks';
 import { useServerStore } from '@seerial/stores';
@@ -143,20 +152,32 @@ function buildDetailsInfoItems(selectedEpisode: Episode | null, seriesYear: stri
   ].filter(Boolean);
 }
 
+/** Preferences of the series, or the ones of its library when it has none of its own. */
+function getTrackPreferences(
+  series: Series | undefined,
+  library: TrackPreferences | undefined,
+): TrackPreferences {
+  return {
+    preferAudioLan: series?.preferAudioLan || library?.preferAudioLan || '',
+    preferSubLan: series?.preferSubLan || library?.preferSubLan || '',
+    subsMode: series?.subsMode || library?.subsMode || 'autoSubs',
+  };
+}
+
 function getEpisodeAudioInfo(
   selectedEpisode: Episode | null,
-  series: Series | undefined,
+  preferences: TrackPreferences,
 ): string | undefined {
   if (!selectedEpisode) {
     return undefined;
   }
 
-  return getAudioTrack(series?.preferAudioLan ?? '', selectedEpisode.video)?.displayTitle;
+  return getAudioTrack(preferences.preferAudioLan ?? '', selectedEpisode.video)?.displayTitle;
 }
 
 function getEpisodeSubtitleInfo(
   selectedEpisode: Episode | null,
-  series: Series | undefined,
+  preferences: TrackPreferences,
   appLanguage?: string,
 ): string | undefined {
   if (!selectedEpisode) {
@@ -164,10 +185,11 @@ function getEpisodeSubtitleInfo(
   }
 
   const track = getSubtitleTrack(
-    series?.preferSubLan ?? '',
-    series?.subsMode ?? 'autoSubs',
+    preferences.preferSubLan ?? '',
+    preferences.subsMode ?? 'autoSubs',
     selectedEpisode.video,
     appLanguage,
+    preferences.preferAudioLan,
   );
   return typeof track === 'string' ? track : track?.displayTitle;
 }
@@ -297,13 +319,18 @@ function SeriesDetails({
     return resolved ? { ...selectedEpisode, video: resolved } : selectedEpisode;
   }, [selectedEpisode, resolvedVideoData]);
 
+  const { data: library } = useGetLibrary(series?.libraryId ?? '', {
+    enabled: !!series?.libraryId,
+  });
+  const trackPreferences = useMemo(() => getTrackPreferences(series, library), [series, library]);
+
   const episodeAudioInfo = useMemo(
-    () => getEpisodeAudioInfo(episodeForTrackInfo, series),
-    [episodeForTrackInfo, series],
+    () => getEpisodeAudioInfo(episodeForTrackInfo, trackPreferences),
+    [episodeForTrackInfo, trackPreferences],
   );
   const episodeSubtitleInfo = useMemo(
-    () => getEpisodeSubtitleInfo(episodeForTrackInfo, series, i18n.language),
-    [episodeForTrackInfo, series, i18n.language],
+    () => getEpisodeSubtitleInfo(episodeForTrackInfo, trackPreferences, i18n.language),
+    [episodeForTrackInfo, trackPreferences, i18n.language],
   );
 
   const handleMarkWatched = useCallback(async () => {

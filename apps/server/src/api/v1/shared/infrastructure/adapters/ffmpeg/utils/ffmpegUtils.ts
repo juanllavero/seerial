@@ -240,6 +240,7 @@ export function processSubtitleData(stream: FfmpegStream): SubtitleTrack {
     selected: false,
     codecExt: '',
     title: '',
+    forced: stream.disposition?.forced === 1,
   };
 
   let codecDisplayName: string = '';

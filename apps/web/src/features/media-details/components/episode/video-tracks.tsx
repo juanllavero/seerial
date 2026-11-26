@@ -73,11 +73,14 @@ function VideoTracks({ video, mutate }: VideoTracksProps) {
       setTracks({ videoTracks, audioTracks, subtitleTracks });
 
       const audioTrack = getAudioTrack(videoInfo.preferAudioLan, video);
-      const subtitleTrack = getSubtitleTrack(
+      const preferredSubtitle = getSubtitleTrack(
         videoInfo.preferSubtitleLan,
         videoInfo.subsMode,
         video,
+        undefined,
+        videoInfo.preferAudioLan,
       );
+      const subtitleTrack = typeof preferredSubtitle === 'string' ? null : preferredSubtitle;
       const videoTrack = videoTracks[0] ?? null;
 
       setSelectedVideoTrack(videoTrack);

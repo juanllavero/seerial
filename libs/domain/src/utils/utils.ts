@@ -1,4 +1,5 @@
 import type { Song, SubtitleTrack, Video } from "@seerial/domain";
+import { findPreferredAudioIndex, findPreferredSubtitleIndex } from "./track-selection";
 
 /**
  * Fetches data from a given URL and returns the parsed JSON response.
@@ -112,12 +113,7 @@ export const getAudioTrack = (prefAudioLan: string, video: Video) => {
         return video.audioTracks[video.selectedAudioTrack];
     }
 
-    if (prefAudioLan !== '') {
-        const track = video.audioTracks.find((track) => track.language === prefAudioLan);
-        if (track) return track;
-    }
-
-    return video.audioTracks[0];
+    return video.audioTracks[findPreferredAudioIndex(video.audioTracks, prefAudioLan)];
 };
 
 const LATIN_SPANISH_PATTERN = /latin|lat|LAT|latam|lat_am|latino|latinoam[eé]rica/i;
@@ -136,47 +132,33 @@ function resolveStoredSubtitleTrack(video: Video): SubtitleTrack | null | undefi
     return undefined;
 }
 
-type SpanishVariantPreference = 'spain' | 'latin' | 'none';
-
-function findSubtitleByLang(
-    tracks: SubtitleTrack[],
-    targetLang: string,
-    spanishVariantPreference: SpanishVariantPreference,
-): SubtitleTrack | undefined {
-    if (targetLang === 'spa') {
-        if (spanishVariantPreference === 'spain') {
-            const spainTrack = tracks.findLast((t) => t.languageTag === 'spa' && !isLatinSpanishTrack(t));
-            if (spainTrack) return spainTrack;
-        }
-
-        if (spanishVariantPreference === 'latin') {
-            const latinTrack = tracks.findLast((t) => t.languageTag === 'spa' && isLatinSpanishTrack(t));
-            if (latinTrack) return latinTrack;
-        }
-    }
-
-    return tracks.find((t) => t.languageTag === targetLang);
-}
-
-function getSpanishVariantPreference(appLanguage?: string): SpanishVariantPreference {
-    if (appLanguage === 'es-ES') return 'spain';
-    if (/^es(?:-|$)/i.test(appLanguage ?? '')) return 'latin';
-    return 'none';
-}
-
-export const getSubtitleTrack = (prefSubsLan: string, subsMode: string, video: Video, appLanguage?: string) => {
-    const offTrack = 'Off'
+/**
+ * The subtitle track of a video: the one stored in it (picked by the user, or chosen when the video
+ * was scanned) or, when there is none, the one the library preferences ask for.
+ * `prefAudioLan` is needed by the "foreign audio" mode, which depends on the selected audio.
+ *
+ * @returns The track, or 'Off' when no subtitles should be shown.
+ */
+export const getSubtitleTrack = (
+    prefSubsLan: string,
+    subsMode: string,
+    video: Video,
+    appLanguage?: string,
+    prefAudioLan?: string,
+): SubtitleTrack | 'Off' => {
+    const offTrack = 'Off';
     if (!video.subtitleTracks || video.subtitleTracks.length === 0) return offTrack;
 
     const stored = resolveStoredSubtitleTrack(video);
-    if (stored !== undefined) return stored;
+    if (stored !== undefined) return stored ?? offTrack;
 
-    const targetLang = iso1to3[prefSubsLan] ?? prefSubsLan;
-    const defaultTrack = subsMode === 'alwaysSubs' ? (video.subtitleTracks[0] ?? offTrack) : offTrack;
-
-    if (subsMode !== 'autoSubs' && subsMode !== 'alwaysSubs') return offTrack;
-
-    return findSubtitleByLang(video.subtitleTracks, targetLang, getSpanishVariantPreference(appLanguage)) ?? defaultTrack;
+    const index = findPreferredSubtitleIndex(
+        video.subtitleTracks,
+        getAudioTrack(prefAudioLan ?? '', video),
+        { preferAudioLan: prefAudioLan, preferSubLan: prefSubsLan, subsMode },
+        appLanguage,
+    );
+    return video.subtitleTracks[index] ?? offTrack;
 };
 
 /**

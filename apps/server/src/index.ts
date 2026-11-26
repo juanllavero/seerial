@@ -24,6 +24,8 @@ import { SmartScanScheduler } from '@/api/v1/libraries/application/services/Smar
 import { loadServerConfig } from '@/api/v1/servers/infrastructure/services/ServerSettings';
 import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import * as ConfigManager from '@/api/v1/shared/infrastructure/services/ConfigService';
+import { TrackSelectionService } from '@/api/v1/shared/infrastructure/services/TrackSelectionService';
+import logger from '@/utils/logger';
 import swaggerDocument from '../swagger.json';
 import { ServerConfigService } from './api/v1/servers/infrastructure/services/ServerConfigService';
 import { DatabaseManager } from './api/v1/shared/infrastructure/persistence/DatabaseManager';
@@ -260,6 +262,12 @@ if (hasSingleInstanceLock) {
     await ConfigManager.loadConfig();
 
     showMessage('Database Initialized');
+
+    // Audio and subtitles chosen by the preferences of each library (in the background: it can
+    // take a while for big libraries)
+    TrackSelectionService.prepareLibraries().catch((error) =>
+      logger.error({ error }, 'Failed to prepare the track preferences of the libraries'),
+    );
 
     // Initialize MovieDB
     await tmdbApiClient.initialize();

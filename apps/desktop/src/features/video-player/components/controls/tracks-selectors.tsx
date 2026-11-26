@@ -7,11 +7,17 @@ import type {
   SubtitleTrack,
   Video,
 } from '@seerial/domain';
-import { getAudioTrack, getSubtitleTrack, isLatinSpanishTrack } from '@seerial/domain';
+import {
+  findPreferredSubtitleIndex,
+  getAudioTrack,
+  getSubtitleTrack,
+  isLatinSpanishTrack,
+  SUBTITLES_OFF,
+} from '@seerial/domain';
 import { useServerStore } from '@seerial/stores';
 import { AnimatePresence, domAnimation, LazyMotion, m } from 'framer-motion';
 import { Captions, Music2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavigationButton, NavigationContainer } from '@/shared/components/navigation';
 import { useKeyboardShortcut } from '@/shared/hooks/use-keyboard-shortcut';
@@ -20,7 +26,10 @@ import { useMpvPlayer } from '../../hooks/use-mpv-player';
 
 type SelectorPanel = 'audio' | 'subtitle';
 
-const IMAGE_SUBTITLE_CODECS = ['HDMV_PGS_SUBTITLE', 'DVD_SUBTITLE'];
+/** How long to wait for mpv to open the file before choosing its tracks. */
+const INITIAL_TRACKS_TIMEOUT_MS = 30000;
+
+const IMAGE_SUBTITLE_CODECS =['HDMV_PGS_SUBTITLE', 'DVD_SUBTITLE'];
 
 interface TracksSelectorsProps {
   video: Video;
@@ -261,6 +270,7 @@ function TracksSelectors({
   const { t, i18n } = useTranslation();
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
   const mpv = useMpvPlayer();
+  const appliedInitialTracksRef = useRef<string | null>(null);
   // The track choice belongs to the user: it never changes what other users get
   const { mutate: updateVideo } = useSetVideoTrackSelection<
     void,
@@ -327,18 +337,43 @@ function TracksSelectors({
 
   const handleAudioTrackChange = async (track: AudioTrack) => {
     const trackIndex = (video.audioTracks ?? []).findIndex((t) => t.id === track.id);
+
+    // The subtitles depend on the audio (e.g. "only with foreign audio"): choose them again
+    // for the new track, with the same rules as when the video is scanned
+    const subtitleIndex = playbackConfig
+      ? findPreferredSubtitleIndex(video.subtitleTracks, track, playbackConfig, i18n.language)
+      : undefined;
+    const subtitleTrack =
+      subtitleIndex !== undefined && subtitleIndex !== SUBTITLES_OFF
+        ? (video.subtitleTracks?.[subtitleIndex] ?? null)
+        : null;
+
     setTrackSelectorsState((currentState) => ({
       ...currentState,
       selectedAudioTrack: track,
+      selectedSubtitleTrack:
+        subtitleIndex === undefined ? currentState.selectedSubtitleTrack : subtitleTrack,
       tracks: {
         ...currentState.tracks,
         audioTracks: updateSelectedTrack(currentState.tracks.audioTracks, track.id),
+        subtitleTracks:
+          subtitleIndex === undefined
+            ? currentState.tracks.subtitleTracks
+            : updateSelectedTrack(currentState.tracks.subtitleTracks, subtitleTrack?.id ?? null),
       },
     }));
     closePanel();
     await mpv.setAudioTrack(track.id);
+    if (subtitleIndex !== undefined) {
+      await mpv.setSubtitleTrack(subtitleTrack?.id ?? 0);
+    }
     if (trackIndex !== -1) {
-      updateVideo({ selectedAudioTrack: trackIndex });
+      // The server applies the same choice to the other episodes of the series
+      updateVideo(
+        subtitleIndex === undefined
+          ? { selectedAudioTrack: trackIndex }
+          : { selectedAudioTrack: trackIndex, selectedSubtitleTrack: subtitleIndex },
+      );
     }
   };
 
@@ -434,6 +469,7 @@ function TracksSelectors({
       playbackConfig.subsMode,
       video,
       i18n.language,
+      playbackConfig.preferAudioLan,
     );
     const selectedVideoTrackId = videoTracks[0]?.id ?? null;
     const selectedAudioTrackId = preferredAudioTrack?.id ?? null;
@@ -455,7 +491,32 @@ function TracksSelectors({
         track.selected = track.id === selectedVideoTrackId;
       }
     }
-  }, [serverUrl, video, videoInfo, playbackConfig, i18n.language]);
+
+    // mpv picks its own tracks when it opens a file: give it the ones that are shown as selected
+    // (once per video, so a later refresh of the data never changes what the user is watching)
+    if (appliedInitialTracksRef.current === video.id) {
+      return;
+    }
+    appliedInitialTracksRef.current = video.id;
+    void (async () => {
+      try {
+        if (!(await mpv.waitForReady(INITIAL_TRACKS_TIMEOUT_MS))) return;
+        if (selectedAudioTrackId !== null) await mpv.setAudioTrack(selectedAudioTrackId);
+        await mpv.setSubtitleTrack(selectedSubtitleTrackId ?? 0);
+      } catch (error) {
+        console.error('Could not apply the preferred tracks', error);
+      }
+    })();
+  }, [
+    serverUrl,
+    video,
+    videoInfo,
+    playbackConfig,
+    i18n.language,
+    mpv.waitForReady,
+    mpv.setAudioTrack,
+    mpv.setSubtitleTrack,
+  ]);
 
   if (!hasAudioOptions && !hasSubtitleOptions) {
     return null;

@@ -71,8 +71,15 @@ const buildMediaInfoData = (
 ): MediaInfoData => {
   const selectedVideoTrackId = data.videoTracks[0]?.id ?? null;
   const selectedAudioTrackId = getAudioTrack(videoInfo.preferAudioLan, video)?.id ?? null;
-  const selectedSubtitleTrackId =
-    getSubtitleTrack(videoInfo.preferSubtitleLan, videoInfo.subsMode, video)?.id ?? null;
+  const selectedSubtitle =
+    getSubtitleTrack(
+      videoInfo.preferSubtitleLan,
+      videoInfo.subsMode,
+      video,
+      undefined,
+      videoInfo.preferAudioLan,
+    );
+  const selectedSubtitleTrackId = typeof selectedSubtitle === 'string' ? null : selectedSubtitle.id;
 
   return {
     ...data,

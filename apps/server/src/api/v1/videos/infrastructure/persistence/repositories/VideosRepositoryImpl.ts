@@ -170,6 +170,9 @@ export class VideosRepositoryImpl extends BaseRepository implements VideoReposit
       throw new NotFoundException(messages.errors.notFound.series);
     }
 
+    // A series without its own preferences follows the ones of its library
+    const library = await useCases.getLibrary().execute(series.libraryId);
+
     return {
       videoInfo: {
         title: episode.name,
@@ -177,9 +180,9 @@ export class VideosRepositoryImpl extends BaseRepository implements VideoReposit
         info: `S${season.seasonNumber}E${episode.episodeNumber} • (${formatDate(episode.year)})`,
       },
       playBackConfig: {
-        preferAudioLan: series.preferAudioLan || '',
-        preferSubLan: series.preferSubLan || '',
-        subsMode: series.subsMode || 'autoSubs',
+        preferAudioLan: series.preferAudioLan || library?.preferAudioLan || '',
+        preferSubLan: series.preferSubLan || library?.preferSubLan || '',
+        subsMode: series.subsMode || library?.subsMode || 'autoSubs',
       },
     };
   }

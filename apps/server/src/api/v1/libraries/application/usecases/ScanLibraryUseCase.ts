@@ -8,6 +8,7 @@ import {
   notificationService,
   useCases,
 } from '@/api/v1/shared/infrastructure/adapters/di/container';
+import { TrackSelectionService } from '@/api/v1/shared/infrastructure/services/TrackSelectionService';
 import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import logger from '@/utils/logger';
 import { scanQueue } from '../services/ScanQueue';
@@ -141,6 +142,15 @@ export class ScanLibraryUseCase {
 
     if (library.type === 'Shows') {
       await this.cleanupNamelessSeries(library.id);
+    }
+
+    // Audio and subtitles of the new videos, following the preferences of the library
+    if (library.type === 'Shows' || library.type === 'Movies') {
+      try {
+        await TrackSelectionService.applyToLibrary(library.id);
+      } catch (error) {
+        logger.error({ libraryId: library.id, error }, 'Failed to select the default tracks');
+      }
     }
 
     // Update Library

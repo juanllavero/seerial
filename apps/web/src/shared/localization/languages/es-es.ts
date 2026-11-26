@@ -313,7 +313,7 @@ export const es = {
     preferAudio: 'Preferir pistas de audio en',
     preferSubs: 'Preferir subtítulos en',
     subsMode: 'Modo de subtítulos',
-    manualSubs: 'Manual',
+    manualSubs: 'Nunca',
     autoSubs: 'Con audio extranjero',
     alwaysSubs: 'Mostrar siempre',
     chapters: 'Capítulos',
