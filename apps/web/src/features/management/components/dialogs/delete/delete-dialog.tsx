@@ -41,6 +41,7 @@ const deleteConfigMap: Record<DeleteDialogName, DeleteConfig> = {
     titleKey: 'deleteSeries',
     descriptionKey: 'deleteSeriesMessage',
     endpoint: (id) => API.series.delete(id),
+    navigateTo: '/home',
   },
   deleteMovie: {
     titleKey: 'deleteMovie',

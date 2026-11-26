@@ -733,13 +733,13 @@ export class ScanSeriesUseCase {
     realSeason?: number,
     realEpisode?: number,
   ): Promise<Season | null> {
+    // The season written in the file name (S02E05), or the one of the metadata when the file only
+    // has an absolute number. The same number must be used to look for the season and to create it,
+    // otherwise every episode creates a new season.
+    const seasonNumber = realEpisode !== -1 ? (realSeason ?? seasonMetadata.season_number ?? 0) : (seasonMetadata.season_number ?? 0);
+
     const seasons = await this.seasonsRepo.findSeasonsBySeriesId(show.id);
-    let season: Season | null =
-      seasons?.find((s: Season) =>
-        realEpisode !== -1 && realSeason
-          ? s.seasonNumber === realSeason
-          : s.seasonNumber === seasonMetadata.season_number,
-      ) ?? null;
+    let season: Season | null = seasons?.find((s: Season) => s.seasonNumber === seasonNumber) ?? null;
 
     if (season) return season;
 
@@ -748,7 +748,7 @@ export class ScanSeriesUseCase {
       name: seasonMetadata.name ?? '',
       year: seasonMetadata.episodes?.[0]?.air_date ?? '',
       overview: seasonMetadata.overview ?? show.overview,
-      seasonNumber: realEpisode !== -1 ? (realSeason ?? 0) : (seasonMetadata.season_number ?? 0),
+      seasonNumber,
     });
 
     if (!season) return null;
@@ -831,7 +831,8 @@ export class ScanSeriesUseCase {
   }> {
     let seasonMetadata: TvSeasonResponse | null = null;
     let episodeMetadata: Episode | null = null;
-    let realSeason: number | undefined = 0;
+    // Only set when the file name has the season (S00E05): season 0 (specials) is a real season
+    let realSeason: number | undefined;
     let realEpisode: number | undefined = -1;
 
     const fullName = path.parse(videoSrc).name;
@@ -850,7 +851,7 @@ export class ScanSeriesUseCase {
     }
 
     // Absolute number
-    if (!seasonEpisode[1]) {
+    if (seasonEpisode[1] === undefined) {
       const absoluteNumber = seasonEpisode[0];
       realEpisode = absoluteNumber;
 
@@ -1035,7 +1036,7 @@ export class ScanSeriesUseCase {
           episode = parseInt(match[2] ?? match[1], 10);
           season = match[2] ? parseInt(match[1], 10) : undefined;
         }
-        return season ? [episode, season] : [episode];
+        return season !== undefined ? [episode, season] : [episode];
       }
     }
 
