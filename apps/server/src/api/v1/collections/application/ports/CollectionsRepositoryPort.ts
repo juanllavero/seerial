@@ -15,6 +15,7 @@ export interface CollectionsRepositoryPort {
   addMovie(collectionId: string, movieId: string): Promise<void>;
   addSeries(collectionId: string, seriesId: string): Promise<void>;
   addLibrary(libraryId: string, collectionId: string): Promise<void>;
+  linkCollectionLibraries(): Promise<void>;
 
   // Relations - remove
   removeAlbum(collectionId: string, albumId: string): Promise<void>;

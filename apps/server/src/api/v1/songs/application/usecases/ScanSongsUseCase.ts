@@ -231,7 +231,9 @@ export class ScanMusicUseCase {
       if (existingAlbum) {
         await syncContentImages('album', existingAlbum.id);
         musicLogger.debug({ path: albumFolder.path }, 'Album already scanned, syncing its songs');
-        if (collection) {
+        // Not when the user has moved it to another collection
+        const current = (existingAlbum as Album & { collectionId?: string | null }).collectionId;
+        if (collection && (!current || current === collection.id)) {
           await this.addAlbumToCollection(collection, existingAlbum.id);
         }
 

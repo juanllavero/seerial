@@ -1,4 +1,5 @@
 ﻿import type { Album, Movie, Series, Song } from '@seerial/domain';
+import { IsNull, Not } from 'typeorm';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import { LibraryCollectionModel } from '@/api/v1/libraries/infrastructure/persistence/models/LibraryCollectionModel';
@@ -16,6 +17,13 @@ import type {
 import type { CollectionsRepositoryPort } from '../../../application/ports/CollectionsRepositoryPort';
 import type { Collection } from '../../../domain/Collection';
 import { CollectionModel } from '../models/CollectionModel';
+
+/** What movies, series and albums share as items of a collection */
+type CollectionItem = { id: string; libraryId?: string | null; collectionId?: string | null };
+interface CollectionItemModel {
+  find(options: object): Promise<CollectionItem[]>;
+  findOne(options: object): Promise<CollectionItem | null>;
+}
 
 export class CollectionsRepositoryImpl extends BaseRepository implements CollectionsRepositoryPort {
   private readonly MAX_COLLECTION_SONGS = 10;
@@ -278,6 +286,8 @@ export class CollectionsRepositoryImpl extends BaseRepository implements Collect
       .set({ collectionId: validated.collectionId })
       .where('id = :id', { id: validated.albumId })
       .execute();
+
+    await this.linkItemLibrary(AlbumModel as CollectionItemModel, validated.albumId, validated.collectionId);
   }
 
   async addMovie(collectionId: string, movieId: string): Promise<void> {
@@ -287,6 +297,8 @@ export class CollectionsRepositoryImpl extends BaseRepository implements Collect
       .set({ collectionId: validated.collectionId })
       .where('id = :id', { id: validated.movieId })
       .execute();
+
+    await this.linkItemLibrary(MovieModel as CollectionItemModel, validated.movieId, validated.collectionId);
   }
 
   async addSeries(collectionId: string, seriesId: string): Promise<void> {
@@ -296,6 +308,36 @@ export class CollectionsRepositoryImpl extends BaseRepository implements Collect
       .set({ collectionId: validated.collectionId })
       .where('id = :id', { id: validated.seriesId })
       .execute();
+
+    await this.linkItemLibrary(SeriesModel as CollectionItemModel, validated.seriesId, validated.collectionId);
+  }
+
+  /** A collection is only shown in the libraries it is linked to */
+  private async linkItemLibrary(
+    model: CollectionItemModel,
+    itemId: string,
+    collectionId: string,
+  ): Promise<void> {
+    const item = await model.findOne({
+      where: { id: itemId },
+      select: { id: true, libraryId: true },
+    });
+    if (item?.libraryId) await this.addLibrary(item.libraryId, collectionId);
+  }
+
+  /** Repairs collections whose items were added without linking their library */
+  async linkCollectionLibraries(): Promise<void> {
+    for (const model of [MovieModel, SeriesModel, AlbumModel] as CollectionItemModel[]) {
+      const items = await model.find({
+        where: { collectionId: Not(IsNull()) },
+        select: { id: true, libraryId: true, collectionId: true },
+      });
+      const pairs = new Map(items.map((item) => [`${item.libraryId} ${item.collectionId}`, item]));
+
+      for (const { libraryId, collectionId } of pairs.values()) {
+        if (libraryId && collectionId) await this.addLibrary(libraryId, collectionId);
+      }
+    }
   }
 
   async addLibrary(libraryId: string, collectionId: string): Promise<void> {

@@ -111,9 +111,10 @@ export class ScanMovieUseCase {
   ): Promise<void> {
     const collectionTitle = getFileName(root);
 
-    // Create or retrieve collection
+    // Create or retrieve collection, unless the user has moved every movie to other collections
     const collection = await this.writeQueue.enqueue(async () => {
       let coll = await this.collectionRepo.getByName(collectionTitle);
+      if (!(await this.hasFolderCollectionMovies(library, folders, coll?.id))) return undefined;
       if (!coll) {
         coll = await this.collectionRepo.add({ title: collectionTitle });
       }
@@ -123,7 +124,7 @@ export class ScanMovieUseCase {
       return coll;
     });
 
-    if (!collection) {
+    if (collection === null) {
       logger.error({ root }, 'Failed to process collection');
       return;
     }
@@ -146,7 +147,26 @@ export class ScanMovieUseCase {
     }
 
     // The images the user has in the folder of the collection
-    await syncContentImages('collection', collection.id);
+    if (collection) await syncContentImages('collection', collection.id);
+  }
+
+  /** True when a movie of the folder is new, has no collection or is in the one of the folder */
+  private async hasFolderCollectionMovies(
+    library: Library,
+    folders: string[],
+    collectionId?: string,
+  ): Promise<boolean> {
+    for (const folder of folders) {
+      const movieId = library.analyzedFolders[folder];
+      const movie = movieId ? await this.movieRepository.findById(movieId) : null;
+      if (!movie || this.belongsToFolder(movie, collectionId)) return true;
+    }
+    return false;
+  }
+
+  private belongsToFolder(movie: Movie, collectionId?: string): boolean {
+    const current = (movie as Movie & { collectionId?: string | null }).collectionId;
+    return !current || current === collectionId;
   }
 
   //#endregion
@@ -193,11 +213,16 @@ export class ScanMovieUseCase {
     folderPath: string,
     mainFiles: string[],
     extraFiles: string[],
-    collection?: Collection,
+    folderCollection?: Collection,
   ) {
     // Get or create movie
     const movie = await this.getOrCreateMovie(library, folderPath);
     if (!movie) return;
+
+    const collection =
+      folderCollection && this.belongsToFolder(movie, folderCollection.id)
+        ? folderCollection
+        : undefined;
 
     // Search Metadata (if not locked or if it's new)
     const nameAndYear = extractNameAndYear(getFileName(folderPath));

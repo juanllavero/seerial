@@ -274,6 +274,12 @@ if (hasSingleInstanceLock) {
     // background. Nothing to do once moved.
     migrateArtwork().catch((error) => logger.error({ error }, 'Failed to migrate the images'));
 
+    // Collections created by hand were not shown in the libraries of their items
+    await useCases
+      .linkCollectionLibraries()
+      .execute()
+      .catch((error) => logger.error({ error }, 'Failed to link the collections to libraries'));
+
     // Initialize MovieDB
     await tmdbApiClient.initialize();
 

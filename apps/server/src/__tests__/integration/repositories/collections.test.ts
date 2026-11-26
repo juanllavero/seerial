@@ -242,4 +242,27 @@ describe('CollectionsRepositoryImpl', () => {
 
     dataSourceSpy.mockRestore();
   });
+
+  it('shows a collection created by hand in the libraries of its items', async () => {
+    const movies = await createLibrary();
+    const shows = await createLibrary(LibraryTypes.SHOWS);
+    await MovieModel.save({ id: 'mov-link', libraryId: movies.id, name: 'Movie' });
+    await SeriesModel.save({ id: 'ser-link', libraryId: shows.id, name: 'Series' });
+    const collection = await repo.add({ title: 'By hand' });
+    const links = async () =>
+      (await LibraryCollectionModel.find()).map((link) => link.libraryId).sort();
+
+    await repo.addMovie(collection!.id, 'mov-link');
+    await repo.addSeries(collection!.id, 'ser-link');
+    expect(await links()).toEqual([movies.id, shows.id].sort());
+
+    // Collections created before are repaired, without touching the existing positions
+    await LibraryCollectionModel.delete({ libraryId: movies.id });
+    await LibraryCollectionModel.update({ libraryId: shows.id }, { customOrder: 7 });
+    await repo.linkCollectionLibraries();
+
+    expect(await links()).toEqual([movies.id, shows.id].sort());
+    const kept = await LibraryCollectionModel.findOne({ where: { libraryId: shows.id } });
+    expect(kept?.customOrder).toBe(7);
+  });
 });

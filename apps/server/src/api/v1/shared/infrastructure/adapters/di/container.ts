@@ -27,6 +27,7 @@ import { RemoveAlbumFromCollectionUseCase } from '@/api/v1/collections/applicati
 import { RemoveMovieFromCollectionUseCase } from '@/api/v1/collections/application/usecases/RemoveMovieFromCollectionUseCase';
 import { RemoveSeriesFromCollectionUseCase } from '@/api/v1/collections/application/usecases/RemoveSeriesFromCollectionUseCase';
 import { ReorderCollectionItemsUseCase } from '@/api/v1/collections/application/usecases/ReorderCollectionItemsUseCase';
+import { LinkCollectionLibrariesUseCase } from '@/api/v1/collections/application/usecases/LinkCollectionLibrariesUseCase';
 import { UpdateCollectionUseCase } from '@/api/v1/collections/application/usecases/UpdateCollectionUseCase';
 import { CollectionsRepositoryImpl } from '@/api/v1/collections/infrastructure/persistence/repositories/CollectionsRepositoryImpl';
 import { CreateEpisodeUseCase } from '@/api/v1/episodes/application/usecases/CreateEpisodeUseCase';
@@ -237,6 +238,7 @@ export const useCases = {
   createCollectionWithItem: () => new CreateCollectionWithItemUseCase(collectionsRepo),
   deleteCollection: () => new DeleteCollectionUseCase(collectionsRepo),
   updateCollection: () => new UpdateCollectionUseCase(collectionsRepo),
+  linkCollectionLibraries: () => new LinkCollectionLibrariesUseCase(collectionsRepo),
   getMusicExtras: () => new GetMusicExtrasUseCase(),
   reorderCollectionItems: () => new ReorderCollectionItemsUseCase(collectionsRepo),
   addLibraryToCollection: () => new AddLibraryToCollectionUseCase(collectionsRepo),

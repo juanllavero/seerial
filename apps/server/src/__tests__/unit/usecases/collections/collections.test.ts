@@ -43,6 +43,7 @@ function buildCollectionsRepo(
     addMovie: jest.fn(),
     addSeries: jest.fn(),
     addLibrary: jest.fn(),
+    linkCollectionLibraries: jest.fn(),
     removeAlbum: jest.fn(),
     removeMovie: jest.fn(),
     removeSeries: jest.fn(),

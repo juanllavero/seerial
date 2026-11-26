@@ -75,7 +75,7 @@ describe('ScanMovieUseCase: collection folders', () => {
       notificationService as never,
     );
     const library = { id: 'lib', name: 'UHD', language: 'es', analyzedFiles: {}, analyzedFolders: {} };
-    return { useCase, library, root, movieRepository, collectionRepo };
+    return { useCase, library, root, folders, movies, movieRepository, collectionRepo };
   };
 
   it('links every movie of the folder to its collection', async () => {
@@ -87,6 +87,20 @@ describe('ScanMovieUseCase: collection folders', () => {
     expect(collectionRepo.addMovie).toHaveBeenCalledTimes(2);
     expect(collectionRepo.addMovie).toHaveBeenCalledWith('coll1', 'm1');
     expect(collectionRepo.addMovie).toHaveBeenCalledWith('coll1', 'm2');
+  });
+
+  it('does not bring back the folder collection for movies moved to another one', async () => {
+    const { useCase, library, root, folders, movies, collectionRepo } = build();
+    folders.forEach((folder, i) => {
+      const movie = { id: `m${i}`, name: 'Alien', collectionId: 'mine' };
+      movies.set(movie.id, movie);
+      Object.assign(library.analyzedFolders, { [folder]: movie.id });
+    });
+
+    await useCase.execute(library as never, root);
+
+    expect(collectionRepo.add).not.toHaveBeenCalled();
+    expect(collectionRepo.addMovie).not.toHaveBeenCalled();
   });
 
   it('links the movie after saving it: saving the whole movie used to erase the link', async () => {
