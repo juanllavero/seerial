@@ -1,7 +1,9 @@
+import { execFile } from 'node:child_process';
 import { Controller, Get, Route, Security, Tags } from 'tsoa';
 import { ServerModel } from '@/api/v1/servers/infrastructure/persistence/models/ServerModel';
 import { messages } from '@/config/messages';
 import { fileSystemService, tmdbApiClient } from '../../adapters/di/container';
+import { resolveFfmpegPath } from '../../adapters/ffmpeg/nativeFfmpeg';
 import { ApiResponse } from '../http/APIResponse';
 
 type HealthStatus = 'ok' | 'degraded' | 'down';
@@ -44,7 +46,7 @@ export class HealthController extends Controller {
         checks,
         uptime: process.uptime(),
         timestamp: Date.now(),
-        version: process.env.VERSION || 'unknown',
+        version: process.env.SEERIAL_VERSION || 'unknown',
       },
       messages.success.fetch,
     );
@@ -71,9 +73,10 @@ export class HealthController extends Controller {
 
   private async checkFFmpeg(): Promise<HealthStatus> {
     try {
+      // The bundled ffmpeg-static binary, or the system one when it is missing
+      const ffmpeg = resolveFfmpegPath().resolvedPath || 'ffmpeg';
       await new Promise((resolve, reject) => {
-        const { exec } = require('node:child_process');
-        exec('ffmpeg -version', (err: Error | null) => (err ? reject() : resolve(true)));
+        execFile(ffmpeg, ['-version'], (err) => (err ? reject(err) : resolve(true)));
       });
       return 'ok';
     } catch {

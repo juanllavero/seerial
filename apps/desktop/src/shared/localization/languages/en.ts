@@ -53,6 +53,13 @@ export const en = {
     downloadUpdate: 'Download update',
     updated: 'Updated',
     updateFound: 'Update found',
+    updaterChecking: 'Checking for updates...',
+    updaterDownloading: 'Downloading update...',
+    updaterInstalling: 'Installing update...',
+    updaterRestarting: 'Restarting...',
+    updaterError: 'The update failed',
+    updaterRetry: 'Retry',
+    updaterSkip: 'Continue without updating',
     serverIPMessage:
       'Introduce the server IP and port of your server. The server has to be running Seerial Media Server and the port has to be within 32400-32450',
     autoUpdate: 'Update automatically',

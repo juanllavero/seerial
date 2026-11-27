@@ -14,7 +14,6 @@ import {
   Request,
   Route,
   Security,
-  SuccessResponse,
   Tags,
 } from 'tsoa';
 import {
@@ -31,7 +30,6 @@ import { ApiResponse } from '@/api/v1/shared/infrastructure/web/http/APIResponse
 import { messages } from '@/config/messages';
 import { verifyAudioStreamToken } from '@/middleware/audio.middleware';
 import type {
-  SeparateSongStemsResponseDTO,
   SongUrlDTO,
   UpdateSongDTO
 } from '../../../application/dtos/SongDTOs';
@@ -160,20 +158,6 @@ export class SongsController extends Controller {
   public async delete(@Path() id: string): Promise<ApiResponse<null>> {
     await useCases.deleteSong().execute(id);
     return ApiResponse.success(null, messages.success.delete);
-  }
-
-  /**
-   * Start asynchronous stem separation for a song.
-   */
-  @Post('{id}/separate-stems')
-  @Security('adminAuth')
-  @SuccessResponse('202', 'Accepted')
-  public async separateStems(
-    @Path() id: string,
-  ): Promise<ApiResponse<SeparateSongStemsResponseDTO>> {
-    const result = await useCases.startSongStemSeparation().execute(id);
-    this.setStatus(202);
-    return ApiResponse.success(result, messages.success.processStarted);
   }
 
   /**

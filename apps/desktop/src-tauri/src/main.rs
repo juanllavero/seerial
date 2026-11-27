@@ -41,8 +41,31 @@ use audio::{
     get_karaoke_status,
 };
 
+/// macOS: mpv renders with Vulkan through MoltenVK. The Vulkan loader finds MoltenVK through an
+/// ICD manifest shipped with the app (see scripts/bundle-libmpv-macos.mjs); point it there so the
+/// app does not depend on a Homebrew install.
+#[cfg(target_os = "macos")]
+fn use_bundled_vulkan_driver() {
+    if std::env::var_os("VK_DRIVER_FILES").is_some() || std::env::var_os("VK_ICD_FILENAMES").is_some() {
+        return;
+    }
+    let Some(exe_dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) else {
+        return;
+    };
+    let rel = std::path::Path::new("vulkan/icd.d/MoltenVK_icd.json");
+    // Bundle: Contents/MacOS/<exe> -> Contents/Resources. Dev: target/<profile>/<exe> -> target/<profile>.
+    let candidates = [exe_dir.join("../Resources").join(rel), exe_dir.join(rel)];
+    if let Some(icd) = candidates.iter().find(|p| p.exists()) {
+        std::env::set_var("VK_DRIVER_FILES", icd);
+        std::env::set_var("VK_ICD_FILENAMES", icd);
+    }
+}
+
 #[tokio::main]
 async fn main() {
+    #[cfg(target_os = "macos")]
+    use_bundled_vulkan_driver();
+
     // Initialize MPV state
     let mpv_state = MpvState::new();
     

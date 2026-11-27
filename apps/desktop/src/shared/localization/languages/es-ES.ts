@@ -53,6 +53,13 @@ export const es = {
     downloadUpdate: 'Descargar actualización',
     updated: 'Actualizado',
     updateFound: 'Actualización encontrada',
+    updaterChecking: 'Buscando actualizaciones...',
+    updaterDownloading: 'Descargando actualización...',
+    updaterInstalling: 'Instalando actualización...',
+    updaterRestarting: 'Reiniciando...',
+    updaterError: 'No se pudo actualizar',
+    updaterRetry: 'Reintentar',
+    updaterSkip: 'Continuar sin actualizar',
     serverIPMessage:
       'Introduce la IP del servidor y el puerto de tu servidor. El servidor debe estar ejecutando Seerial Media Server y el puerto debe estar entre 32400-32450',
     autoUpdate: 'Actualizar automáticamente',

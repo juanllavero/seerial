@@ -1,0 +1,207 @@
+name: Release
+
+# On every push to main, builds and publishes the apps that changed since their last release:
+#   - server (+ web): Windows (NSIS), macOS arm64 (dmg + zip), Linux (AppImage)
+#   - desktop (Tauri): Windows (NSIS), macOS arm64 (app + dmg)
+# Installed apps update from the `server-channel` / `desktop-channel` releases.
+# See .github/scripts/release-info.mjs (what/which version) and publish-release.mjs (where).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Release even without changes (comma separated: server,desktop)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      server_changed: ${{ steps.info.outputs.server_changed }}
+      server_version: ${{ steps.info.outputs.server_version }}
+      desktop_changed: ${{ steps.info.outputs.desktop_changed }}
+      desktop_version: ${{ steps.info.outputs.desktop_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: info
+        env:
+          FORCE: ${{ inputs.force }}
+        run: node .github/scripts/release-info.mjs
+
+  server:
+    needs: detect
+    if: needs.detect.outputs.server_changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+          - os: macos-15
+            target: --mac
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    env:
+      SEERIAL_VERSION: ${{ needs.detect.outputs.server_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@seerial/server..." --filter "@seerial/web..."
+      - name: Build web + server
+        working-directory: apps/server
+        run: pnpm run build:distributable
+      - name: Package
+        working-directory: apps/server
+        shell: bash
+        run: pnpm exec electron-builder ${{ matrix.target }} --publish never -c.extraMetadata.version=$SEERIAL_VERSION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            apps/server/prod/*.exe
+            apps/server/prod/*.dmg
+            apps/server/prod/*.zip
+            apps/server/prod/*.AppImage
+            apps/server/prod/*.blockmap
+            apps/server/prod/latest*.yml
+
+  publish-server:
+    needs: [detect, server]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: server-*
+          merge-multiple: true
+          path: dist
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node .github/scripts/release-info.mjs > /dev/null
+          node .github/scripts/publish-release.mjs server "${{ needs.detect.outputs.server_version }}" dist "$RUNNER_TEMP/server-notes.md"
+
+  desktop:
+    needs: detect
+    if: needs.detect.outputs.desktop_changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x86_64
+          - os: macos-15
+            platform: darwin-aarch64
+    runs-on: ${{ matrix.os }}
+    env:
+      DESKTOP_VERSION: ${{ needs.detect.outputs.desktop_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@seerial/desktop..."
+
+      - name: MSVC tools (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Fetch libmpv (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./apps/desktop/scripts/fetch-libmpv-windows.ps1
+      - name: Bundle libmpv (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install mpv
+          node apps/desktop/scripts/bundle-libmpv-macos.mjs
+
+      - name: Set version
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const p = "apps/desktop/src-tauri/tauri.conf.json";
+            const c = JSON.parse(fs.readFileSync(p, "utf8"));
+            c.version = process.env.DESKTOP_VERSION;
+            fs.writeFileSync(p, JSON.stringify(c, null, "\t") + "\n");
+          '
+      - name: Build
+        working-directory: apps/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/tauri.mjs build
+      - name: Collect bundles
+        shell: bash
+        run: |
+          b=apps/desktop/src-tauri/target/release/bundle
+          v=$DESKTOP_VERSION
+          mkdir -p out
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            exe=$(ls $b/nsis/*-setup.exe | head -1)
+            cp "$exe" "out/seerial-desktop-$v-windows-x64-setup.exe"
+            cp "$exe.sig" "out/seerial-desktop-$v-windows-x64-setup.exe.sig"
+          else
+            tgz=$(ls $b/macos/*.app.tar.gz | head -1)
+            cp "$tgz" "out/seerial-desktop-$v-macos-arm64.app.tar.gz"
+            cp "$tgz.sig" "out/seerial-desktop-$v-macos-arm64.app.tar.gz.sig"
+            cp $b/dmg/*.dmg "out/seerial-desktop-$v-macos-arm64.dmg"
+          fi
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 7
+          path: out/*
+
+  publish-desktop:
+    needs: [detect, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: dist
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node .github/scripts/release-info.mjs > /dev/null
+          node .github/scripts/publish-release.mjs desktop "${{ needs.detect.outputs.desktop_version }}" dist "$RUNNER_TEMP/desktop-notes.md"

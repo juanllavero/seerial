@@ -1,5 +1,5 @@
 import { API, api, seerialQueryClient } from '@seerial/api';
-import { MessageType, type ScanActivity } from '@seerial/domain';
+import { MessageType, type ScanActivity, type ServerUpdateStatus } from '@seerial/domain';
 import { createWithEqualityFn } from 'zustand/traditional';
 
 function getBodyString(body: unknown, key: string): string | null {
@@ -23,6 +23,10 @@ type WebSocketSet = (
 type WebSocketGet = () => WebSocketState;
 
 const IDLE_SCAN_ACTIVITY: ScanActivity = { scan: null, music: null, queued: 0 };
+
+function isServerUpdateStatus(body: unknown): body is ServerUpdateStatus {
+  return !!body && typeof body === 'object' && 'state' in body && 'currentVersion' in body;
+}
 
 function isScanActivity(body: unknown): body is ScanActivity {
   return !!body && typeof body === 'object' && 'scan' in body && 'music' in body;
@@ -204,6 +208,9 @@ function handleWebSocketMessage(
     case MessageType.SCAN_ACTIVITY:
       if (isScanActivity(message.body)) set({ scanActivity: message.body });
       break;
+    case MessageType.SERVER_UPDATE:
+      if (isServerUpdateStatus(message.body)) set({ serverUpdate: message.body });
+      break;
     case MessageType.MUTATE_LIBRARIES:
       handleMutateLibraries(message.body);
       break;
@@ -248,6 +255,8 @@ interface WebSocketState {
   analyzingLibraryId: string | null;
   /** What the server is scanning / downloading in the background (reported by the server). */
   scanActivity: ScanActivity;
+  /** Server self-update (admins): a new version downloaded and ready to install, etc. */
+  serverUpdate: ServerUpdateStatus | null;
   wsConnected: boolean;
   messageQueue: WebSocketMessage[];
   setDownloading: (value: boolean) => void;
@@ -256,6 +265,7 @@ interface WebSocketState {
   setAnalyzing: (value: boolean, libraryId: string) => void;
   connectWS: () => Promise<void>;
   loadScanActivity: () => Promise<void>;
+  loadServerUpdate: () => Promise<void>;
   downloadAudio: (
     elementId: string,
     url: string,
@@ -282,6 +292,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
   downloadingElementId: null,
   analyzingLibraryId: null,
   scanActivity: IDLE_SCAN_ACTIVITY,
+  serverUpdate: null,
   errorDownloading: false,
   downloading: false,
   downloadPercentage: 0,
@@ -302,6 +313,14 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
       set({ scanActivity: await api.get<ScanActivity>(API.libraries.scanActivity) });
     } catch {
       // Only admins can read it; the indicator just stays hidden
+    }
+  },
+
+  loadServerUpdate: async () => {
+    try {
+      set({ serverUpdate: await api.get<ServerUpdateStatus>(API.updates.status) });
+    } catch {
+      // Only admins can read it (and older servers do not have it)
     }
   },
 

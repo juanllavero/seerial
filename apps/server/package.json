@@ -17,18 +17,45 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/ffprobe-static",
-      "node_modules/ffmpeg-static"
+      "node_modules/ffprobe-static/**",
+      "node_modules/ffmpeg-static/**",
+      "node_modules/sharp/**",
+      "node_modules/@img/**",
+      "node_modules/ngrok/bin/**"
     ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icons/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.ico",
+      "files": [
+        "!node_modules/ffprobe-static/bin/darwin/**",
+        "!node_modules/ffprobe-static/bin/linux/**",
+        "!node_modules/ffprobe-static/bin/win32/ia32/**"
+      ]
     },
     "linux": {
       "target": [
-        "AppImage"
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "files": [
+        "!node_modules/ffprobe-static/bin/darwin/**",
+        "!node_modules/ffprobe-static/bin/win32/**",
+        "!node_modules/ffprobe-static/bin/linux/ia32/**",
+        "!node_modules/ffprobe-static/bin/linux/arm/**",
+        "!node_modules/ffprobe-static/bin/linux/arm64/**"
+      ]
     },
     "directories": {
       "output": "prod",
@@ -42,17 +69,43 @@
       "installerHeaderIcon": "assets/icons/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Seerial Media Server"
+      "shortcutName": "Seerial Media Server",
+      "artifactName": "seerial-server-${version}-win-${arch}-setup.${ext}"
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "juanllavero",
-        "repo": "seerial-server"
+        "provider": "generic",
+        "url": "https://github.com/juanllavero/seerial/releases/download/server-channel"
       }
     ],
     "extraMetadata": {
       "description": "Media management server for the suite Seerial"
+    },
+    "artifactName": "seerial-server-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": "-",
+      "hardenedRuntime": false,
+      "category": "public.app-category.entertainment",
+      "minimumSystemVersion": "15.0",
+      "files": [
+        "!node_modules/ffprobe-static/bin/win32/**",
+        "!node_modules/ffprobe-static/bin/linux/**",
+        "!node_modules/ffprobe-static/bin/darwin/x64/**"
+      ]
     }
   },
   "type": "commonjs",
@@ -91,6 +144,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.1",
+    "electron-updater": "^6.8.11",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "ffmpeg-static": "^5.3.0",

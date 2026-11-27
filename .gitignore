@@ -33,14 +33,14 @@ Seerial Media Server API Copy.postman_collection.json
 
 #lockfile
 package-lock.json
-pnpm-lock.yaml
 pnpm-workspace.yaml
 yarn.lock
 /test-results/
 /playwright-report/
 /playwright/.cache/
 
-lib/
+# Native libraries downloaded/bundled for the desktop app (libmpv): see apps/desktop/scripts
+apps/desktop/src-tauri/lib/
 cache/
 resources/
 data.json

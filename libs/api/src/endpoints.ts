@@ -105,6 +105,11 @@ export const API = {
         removeSong: (id: string, songId: string) => `/playlists/${id}/songs/${songId}`,
         reorderSongs: (id: string) => `/playlists/${id}/order`,
     },
+    updates: {
+        /** Server self-update state (admins) */
+        status: '/updates',
+        install: '/updates/install',
+    },
     libraries: {
         getAll: '/libraries',
         create: '/libraries',

@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { GlobalMusicPlayer } from '@/features/music-player';
-import { UpdateDialog } from '@/features/updater';
+import { UpdateGate } from '@/features/updater';
 import { useFeedbackSounds } from '@/shared/hooks/use-feedback-sounds';
 import AppRoutes from './routes/routes';
 import './shared/localization/i18n';
@@ -39,11 +39,13 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <AppRoutes />
-      <GlobalMusicPlayer />
-      <UpdateDialog />
-    </BrowserRouter>
+    // A new version is installed at startup, before the app is shown
+    <UpdateGate>
+      <BrowserRouter>
+        <AppRoutes />
+        <GlobalMusicPlayer />
+      </BrowserRouter>
+    </UpdateGate>
   );
 }
 

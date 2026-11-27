@@ -1,4 +1,5 @@
 const { build } = require('esbuild');
+const { version } = require('./package.json');
 
 build({
   entryPoints: ['src/index.ts'],
@@ -7,9 +8,12 @@ build({
   format: 'cjs',
   bundle: true,
   sourcemap: true,
+  // CI sets SEERIAL_VERSION (see .github/workflows/release.yml); exposed by /health and the updater
+  define: { 'process.env.SEERIAL_VERSION': JSON.stringify(process.env.SEERIAL_VERSION || version) },
   target: 'node18',
   external: [
     'electron',
+    'electron-updater',
     'sharp',
     'node-vibrant',
     'ffmpeg-static',

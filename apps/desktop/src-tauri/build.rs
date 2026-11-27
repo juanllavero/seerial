@@ -36,7 +36,20 @@ fn main() {
         } else {
             println!("cargo:warning=mpv.lib not found in lib/ directory");
             println!("cargo:warning=Please place mpv.lib and mpv.dll in src-tauri/lib/");
-            println!("cargo:warning=Download from: https://mpv.io/installation/");
+            println!("cargo:warning=Run scripts/fetch-libmpv-windows.ps1 to download them");
+        }
+    }
+
+    // macOS: link against the libmpv bundled by scripts/bundle-libmpv-macos.mjs (shipped in
+    // Contents/Frameworks). Without it, fall back to whatever LIBRARY_PATH provides (Homebrew).
+    #[cfg(target_os = "macos")]
+    {
+        let mac_dir = lib_dir.join("macos");
+        println!("cargo:rerun-if-changed=lib/macos/libmpv.2.dylib");
+        if mac_dir.join("libmpv.dylib").exists() {
+            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+        } else {
+            println!("cargo:warning=lib/macos not found: run `node scripts/bundle-libmpv-macos.mjs` to bundle libmpv");
         }
     }
 

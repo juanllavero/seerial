@@ -55,7 +55,6 @@ module.exports = {
     '!src/api/v1/series/application/usecases/ScanSeriesUseCase.ts',
     '!src/api/v1/series/application/usecases/RefreshMetadataUseCase.ts',
     '!src/api/v1/songs/application/usecases/ScanSongsUseCase.ts',
-    '!src/api/v1/songs/infrastructure/services/AudioProcessingServiceImpl.ts',
     '!src/api/v1/seasons/application/usecases/DeleteSeasonDataUseCase.ts',
     '!src/api/v1/movies/application/usecases/DeleteMovieDataUseCase.ts',
     '!src/api/v1/series/application/usecases/DeleteSeriesDataUseCase.ts',

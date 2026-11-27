@@ -1,5 +1,7 @@
 # Desktop Release & Auto-Update Implementation Plan
 
+> **Superseded by [RELEASES.md](./RELEASES.md)**: `desktop-release.yml` was replaced by `release.yml` (server + desktop, Windows + macOS), the update endpoint is now the `desktop-channel` release and updates are installed at startup (`UpdateGate`) instead of an optional dialog.
+
 **Date:** 2026 | **Status:** ✅ Implemented — pending E2E validation (Step 9) and first release push
 
 Goal: enable user testing for `@seerial/desktop` with a Windows installer, in-app auto-update detection/install, and automated CI/CD publishing on push to `main`.

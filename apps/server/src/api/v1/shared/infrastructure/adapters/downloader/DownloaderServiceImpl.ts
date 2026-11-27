@@ -23,9 +23,11 @@ const {
   resolvedPath: ffmpegLocation,
 } = resolveFfmpegPath();
 
-const nodeExecutableName = path.basename(process.execPath).toLowerCase();
-// If the server process itself is node, use its known path directly.
-// Otherwise (e.g. packaged Electron), fall back to "node" so yt-dlp resolves it from PATH.
+// yt-dlp needs a JavaScript runtime for YouTube. Always use the one running this server: plain
+// node in development, or the Electron binary in the packaged app, which behaves as node when
+// ELECTRON_RUN_AS_NODE is set (the yt-dlp children inherit it). No global node install is needed.
+const YT_DLP_JS_RUNTIME_ARGS = ['--js-runtimes', `node:${process.execPath}`];
+const YT_DLP_ENV: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
 
 if (!ffmpegStaticExists && ffmpegPathFinal && systemFfmpegPath) {
   downloaderLogger.info(
@@ -74,6 +76,7 @@ function runProcessCaptureStdout(command: string, args: string[]): Promise<strin
     const child = spawn(command, args, {
       shell: false,
       windowsHide: true,
+      env: YT_DLP_ENV,
     });
 
     let stdout = '';
@@ -325,11 +328,7 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       searchArgs.push('--ffmpeg-location', ffmpegLocation);
     }
 
-    if (nodeExecutableName.startsWith('node')) {
-      searchArgs.push('--js-runtimes', `node:${process.execPath}`);
-    } else {
-      searchArgs.push('--js-runtimes', 'node');
-    }
+    searchArgs.push(...YT_DLP_JS_RUNTIME_ARGS);
 
     try {
       const stdout = await runProcessCaptureStdout(ytDlpPath, searchArgs);
@@ -410,11 +409,7 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       args.push('--ffmpeg-location', ffmpegLocation);
     }
 
-    if (nodeExecutableName.startsWith('node')) {
-      args.push('--js-runtimes', `node:${process.execPath}`);
-    } else {
-      args.push('--js-runtimes', 'node');
-    }
+    args.push(...YT_DLP_JS_RUNTIME_ARGS);
 
     this.downloadContent(command, args, fileName);
   }
@@ -453,11 +448,7 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       args.push('--ffmpeg-location', ffmpegLocation);
     }
 
-    if (nodeExecutableName.startsWith('node')) {
-      args.push('--js-runtimes', `node:${process.execPath}`);
-    } else {
-      args.push('--js-runtimes', 'node');
-    }
+    args.push(...YT_DLP_JS_RUNTIME_ARGS);
 
     const finished = this.downloadContent(command, args, fileName);
     if (waitForCompletion) await finished;
@@ -473,6 +464,7 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       const process = spawn(command, args, {
         shell: false,
         windowsHide: true,
+        env: YT_DLP_ENV,
       });
 
       process.stdout.on('data', (data: Buffer) => {

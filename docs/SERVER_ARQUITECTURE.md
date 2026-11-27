@@ -165,7 +165,7 @@ The server supports both indexing and playback pipelines.
 - `SongFileSyncService` creates/refreshes songs and registers their companions: `vocalsFileSrc`, `instrumentalFileSrc` and `atmosFileSrc`. It runs for every song on each scan, including albums that were already scanned, so adding or removing a companion file (or a new song) is picked up automatically.
 - `Song.hasDolbyAtmos` is true when the original file is Dolby Atmos (E-AC-3 JOC / TrueHD, detected from the `ffmpeg -i` stream summary in `audioInfo.ts`; it needs an ffmpeg build that reports the Atmos profile), or when the original is not Atmos but a companion `.atmos` file really is. If the original is Atmos, the `.atmos` file is ignored (`atmosFileSrc` is null). An `.atmos` file that is not Atmos is ignored.
 - `Song.fileModifiedAt` stores the modification time of the original file; the file is analyzed again only when it changes (or for songs scanned before it was tracked), which detects an original that becomes, or stops being, Atmos.
-- When a stem separation job finishes, the generated stems are registered in the song immediately.
+
 
 #### Playlist folders (music libraries)
 

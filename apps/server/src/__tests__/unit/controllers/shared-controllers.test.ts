@@ -113,8 +113,9 @@ describe('Shared controllers', () => {
 
   describe('HealthController', () => {
     it('returns ok status when all checks pass', async () => {
-      jest.spyOn(childProcess, 'exec').mockImplementation(((
-        _command: string,
+      jest.spyOn(childProcess, 'execFile').mockImplementation(((
+        _file: string,
+        _args: string[],
         cb?: (err: Error | null) => void,
       ) => {
         cb?.(null);
@@ -139,8 +140,9 @@ describe('Shared controllers', () => {
       });
       ServerModel.find.mockRejectedValue(new Error('db down'));
       container.tmdbApiClient.THEMOVIEDB_API_TOKEN = '';
-      jest.spyOn(childProcess, 'exec').mockImplementation(((
-        _command: string,
+      jest.spyOn(childProcess, 'execFile').mockImplementation(((
+        _file: string,
+        _args: string[],
         cb?: (err: Error | null) => void,
       ) => {
         cb?.(new Error('missing ffmpeg'));

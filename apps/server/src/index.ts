@@ -26,6 +26,8 @@ import { loadServerConfig } from '@/api/v1/servers/infrastructure/services/Serve
 import { scanActivity } from '@/api/v1/shared/infrastructure/services/ScanActivityTracker';
 import * as ConfigManager from '@/api/v1/shared/infrastructure/services/ConfigService';
 import { TrackSelectionService } from '@/api/v1/shared/infrastructure/services/TrackSelectionService';
+import { appUpdaterService } from '@/api/v1/updates/infrastructure/services/AppUpdaterService';
+import { createUpdatesRouter } from '@/api/v1/updates/infrastructure/web/updatesRouter';
 import logger from '@/utils/logger';
 import swaggerDocument from '../swagger.json';
 import { ServerConfigService } from './api/v1/servers/infrastructure/services/ServerConfigService';
@@ -299,6 +301,7 @@ if (hasSingleInstanceLock) {
     // Register generated tsoa routes
     appServer.use(tokenRefreshMiddleware);
     appServer.use(watchListPrivacyMiddleware);
+    appServer.use(createUpdatesRouter(appUpdaterService));
     RegisterRoutes(appServer);
 
     // Serve static web files
@@ -325,6 +328,9 @@ if (hasSingleInstanceLock) {
 
     // Initialize NotificationService through DI container
     notificationService.init(ServerConfigService.mainServer);
+
+    // New versions are downloaded in the background; admins install them from the web
+    appUpdaterService.start();
 
     // Clients show what the server is scanning / downloading in the background
     scanActivity.subscribe((activity) =>

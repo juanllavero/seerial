@@ -1,1 +1,1 @@
-export { default as UpdateDialog } from './components/update-dialog';
+export { default as UpdateGate } from './components/update-gate';

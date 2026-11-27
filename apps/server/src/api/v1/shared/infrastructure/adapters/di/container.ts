@@ -105,7 +105,6 @@ import { FindSongByAnyFilePathUseCase } from '@/api/v1/songs/application/usecase
 import { FindSongByPathUseCase } from '@/api/v1/songs/application/usecases/FindSongByPathUseCase';
 import { FindSongsByAlbumIdUseCase } from '@/api/v1/songs/application/usecases/FindSongsByAlbumIdUseCase';
 import { ScanMusicUseCase } from '@/api/v1/songs/application/usecases/ScanSongsUseCase';
-import { StartSongStemSeparationUseCase } from '@/api/v1/songs/application/usecases/StartSongStemSeparationUseCase';
 import { UpdateSongUseCase } from '@/api/v1/songs/application/usecases/UpdateSongUseCase';
 import { SongsRepositoryImpl } from '@/api/v1/songs/infrastructure/persistence/repositories/SongsRepositoryImpl';
 import { AuthenticateUserUseCase } from '@/api/v1/users/application/usecases/AuthenticateUserUseCase';
@@ -328,8 +327,6 @@ export const useCases = {
   createSong: () => new CreateSongUseCase(songsRepo),
   deleteSong: () => new DeleteSongUseCase(songsRepo),
   updateSong: () => new UpdateSongUseCase(songsRepo),
-  startSongStemSeparation: () =>
-    new StartSongStemSeparationUseCase(songsRepo, audioProcessingService),
   scanMusic: () =>
     new ScanMusicUseCase(
       fileSystemService,

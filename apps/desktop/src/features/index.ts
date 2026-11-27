@@ -19,5 +19,5 @@ export {
 } from './music-player';
 export { SettingsPanel } from './settings';
 export { ToSee } from './to-see';
-export { UpdateDialog } from './updater';
+export { UpdateGate } from './updater';
 export { VideoPlayer } from './video-player';

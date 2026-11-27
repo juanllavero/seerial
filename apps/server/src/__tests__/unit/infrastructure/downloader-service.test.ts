@@ -296,10 +296,11 @@ describe('DownloaderServiceImpl', () => {
     processEmitter.emit('close', 1);
     await finished;
 
-    expect(spawnMock).toHaveBeenCalledWith('yt-dlp', ['-f', 'best'], {
+    expect(spawnMock).toHaveBeenCalledWith('yt-dlp', ['-f', 'best'], expect.objectContaining({
       shell: false,
       windowsHide: true,
-    });
+      env: expect.objectContaining({ ELECTRON_RUN_AS_NODE: '1' }),
+    }));
     expect(container.notificationService.broadcast).toHaveBeenCalledWith(
       expect.stringContaining('DOWNLOAD_PROGRESS'),
     );
@@ -323,7 +324,7 @@ describe('DownloaderServiceImpl', () => {
     expect(spawnMock).toHaveBeenCalledWith(
       'yt-dlp',
       expect.arrayContaining(['ytsearch3:video query', '--dump-json']),
-      { shell: false, windowsHide: true },
+      expect.objectContaining({ shell: false, windowsHide: true, env: expect.objectContaining({ ELECTRON_RUN_AS_NODE: '1' }) }),
     );
     expect(result).toEqual([
       {
