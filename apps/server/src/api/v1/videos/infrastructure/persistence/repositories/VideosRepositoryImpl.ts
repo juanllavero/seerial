@@ -1,4 +1,4 @@
-import { formatDate, type PlayBackInfo, type Video } from '@seerial/domain';
+import { formatDate, localizeSeasonName, type PlayBackInfo, type Video } from '@seerial/domain';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import { useCases } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { getMediaInfo } from '@/api/v1/shared/infrastructure/adapters/ffmpeg/mediaInfo';
@@ -176,7 +176,7 @@ export class VideosRepositoryImpl extends BaseRepository implements VideoReposit
     return {
       videoInfo: {
         title: episode.name,
-        subtitle: `${series.name} • ${season.name}`,
+        subtitle: `${series.name} • ${localizeSeasonName(season.name, season.seasonNumber, library?.language)}`,
         info: `S${season.seasonNumber}E${episode.episodeNumber} • (${formatDate(episode.year)})`,
       },
       playBackConfig: {

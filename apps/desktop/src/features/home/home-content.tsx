@@ -1,23 +1,27 @@
-import { type ContinueWatchingVideoDTO, formatDate } from '@seerial/domain';
+import { type ContinueWatchingVideoDTO, formatDate, formatTimeForView } from '@seerial/domain';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import HomeHeroImage from '@/features/home/components/home-hero-image';
 import GradientBackground from '@/shared/components/backgrounds/gradient-background';
 import DetailsInfo from '@/shared/components/details/details-info';
 import ContinueWatchingContent from './components/continue-watching-content';
 
-function getSelectedInfoItems(selectedElement: ContinueWatchingVideoDTO | null) {
+function getSelectedInfoItems(selectedElement: ContinueWatchingVideoDTO | null, t: TFunction) {
   if (!selectedElement) {
     return [];
   }
 
   const episodeCode = selectedElement.episodeNumber
-    ? `S${selectedElement.seasonNumber}E${selectedElement.episodeNumber}`
+    ? `${t('seasonLetter')}${selectedElement.seasonNumber}${t('episodeLetter')}${selectedElement.episodeNumber}`
     : undefined;
   const releaseDate = selectedElement.episodeId
     ? formatDate(selectedElement.date ?? '')
     : selectedElement.date.split('-')[0];
 
-  // The remaining time is shown by the progress circle
-  return [episodeCode, releaseDate].filter(Boolean) as string[];
+  // Total length, as on the details page (minutes); the remaining time is the progress circle
+  const duration = selectedElement.duration > 0 ? formatTimeForView(selectedElement.duration) : '';
+
+  return [episodeCode, releaseDate, duration].filter(Boolean) as string[];
 }
 
 interface HomePageContentProps {
@@ -32,7 +36,8 @@ function HomePageContent({
   setSelectedElement,
 }: HomePageContentProps) {
   const imageSrc = selectedElement?.backgroundImage ?? selectedElement?.posterImage;
-  const infoItems = getSelectedInfoItems(selectedElement);
+  const { t } = useTranslation();
+  const infoItems = getSelectedInfoItems(selectedElement, t);
 
   return (
     <>

@@ -151,6 +151,7 @@ export const en = {
     desktopMode: 'Seerial',
     fullscreenMode: 'Seerial Fullscreen',
     season: 'Season',
+    specials: 'Specials',
     collectionWindowTitleEdit: 'Edit Collection',
     showWindowTitleEdit: 'Edit Show',
     movieWindowTitleEdit: 'Edit Movie',

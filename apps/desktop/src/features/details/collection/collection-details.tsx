@@ -449,7 +449,7 @@ function CollectionDetailsContent({
         justify="center"
         padding="2dvh 1dvh"
         gap={2}
-        width={'30dvw'}
+        width={'35dvw'}
         height={'100%'}
         className="z-50"
       >
@@ -476,7 +476,7 @@ function CollectionDetailsContent({
 
       <NavigationScrollView
         direction="vertical"
-        className="w-[70dvw] gap-6 max-h-screen pt-[10dvh] pb-[5dvh] z-50"
+        className="w-[65dvw] gap-6 max-h-screen pt-[10dvh] pb-[5dvh] z-50"
         scrollMode="center"
         focusedElementId={lastFocusedElementId}
         isRestoringFocus={isScrollRestoring}

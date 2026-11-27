@@ -1,7 +1,9 @@
 import type { Season } from '@seerial/domain';
 import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationButton, NavigationScrollView } from '@/shared/components/navigation';
 import FlexBox from '@/shared/components/ui/flex-box';
+import { getSeasonDisplayName } from '@/shared/utils/season-name';
 
 interface SeasonSelectorProps {
   seasons: Season[];
@@ -10,6 +12,7 @@ interface SeasonSelectorProps {
 }
 
 function SeasonSelector({ seasons, selectedSeasonId, onSelectSeason }: SeasonSelectorProps) {
+  const { t } = useTranslation();
   // The initial season is chosen by the parent: selecting one here would overwrite the season
   // requested by the navigation (continue watching, back from the player) before it is applied
   const sortedSeasons = useMemo(
@@ -32,7 +35,7 @@ function SeasonSelector({ seasons, selectedSeasonId, onSelectSeason }: SeasonSel
               variant="ghost"
               key={season.id}
               customKey={season.id}
-              text={season.name}
+              text={getSeasonDisplayName(season, t)}
               selected={selectedSeasonId === season.id}
               className={`${selectedSeasonId === season.id ? 'color-app-color' : ''}`}
               onClick={() => onSelectSeason(season)}

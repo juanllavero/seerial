@@ -1,3 +1,5 @@
+import { isWatchProgressVisible } from '@/shared/utils/watch-progress';
+
 interface WatchProgressBarProps {
   duration: number;
   timeWatched: number;
@@ -7,7 +9,7 @@ function WatchProgressBar({ duration, timeWatched }: WatchProgressBarProps) {
   const watchedMinutes = timeWatched / 60;
   const watchProgress = Math.min((watchedMinutes / duration) * 100, 100);
 
-  if (!(watchProgress > 0)) {
+  if (!(watchProgress > 0) || !isWatchProgressVisible(duration, timeWatched)) {
     return null;
   }
 

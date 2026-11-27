@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { DetailsData } from '@seerial/domain';
-import { type ItemType, type LibraryItem, LibraryTypes } from '@seerial/domain';
+import { type ItemType, type LibraryItem, LibraryTypes, localizeSeasonName } from '@seerial/domain';
 import { In, Not } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
@@ -36,6 +36,8 @@ type TimingContext = Record<string, string | number | boolean | undefined>;
 type LibraryContentSource = {
   id: string;
   type: Library['type'];
+  /** Of the library (none for a collection): generic season names are shown in it */
+  language?: string;
   collectionId?: string;
   movies?: MovieModel[];
   series?: SeriesModel[];
@@ -89,7 +91,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
       () =>
         LibraryModel.findOne({
           where: { id: libraryId },
-          select: ['id', 'type'],
+          select: ['id', 'type', 'language'],
         }),
     );
 
@@ -169,6 +171,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
       () =>
         this.getStandaloneContent(libraryId, libraryHeader.type, standaloneRelations, excludeIds),
     );
+    standaloneContent.language = libraryHeader.language;
 
     const collections = this.measureSync(
       'getContent.extractCollections',
@@ -820,7 +823,14 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
         const details = await this.measureAsync(
           'buildSeriesItems.generateItemDetails',
           { libraryId: library.id, seriesId: series.id, userId },
-          () => this.generateItemDetails(series, 'series', userId, currentSeason ?? undefined),
+          () =>
+            this.generateItemDetails(
+              series,
+              'series',
+              userId,
+              currentSeason ?? undefined,
+              library.language,
+            ),
         );
 
         const localImages = await findImagesInFolder(series.folder);
@@ -1058,6 +1068,8 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
     type: ItemType,
     userId: string = '',
     currentSeason?: Pick<SeasonModel, 'name' | 'backgroundSrc'>,
+    /** Language of the library, for generic season names ("Season 2") */
+    language?: string,
   ): Promise<DetailsData | null> {
     const startedAt = this.startTiming();
     const itemId = 'id' in element ? element.id : undefined;
@@ -1068,7 +1080,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
           return element instanceof MovieModel ? this.buildMovieDetails(element, userId) : null;
         case 'series':
           return element instanceof SeriesModel
-            ? this.buildSeriesDetails(element, userId, currentSeason)
+            ? this.buildSeriesDetails(element, userId, currentSeason, language)
             : null;
         case 'album':
           return element instanceof AlbumModel ? this.buildAlbumDetails(element) : null;
@@ -1106,6 +1118,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
     element: SeriesModel,
     userId: string,
     currentSeason?: Pick<SeasonModel, 'name' | 'backgroundSrc'>,
+    language?: string,
   ): DetailsData {
     const resolvedCurrentSeason =
       currentSeason ?? this.resolveCurrentSeasonFromLoadedData(element, userId);
@@ -1119,7 +1132,10 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
       description: element.overview || '',
       createdBy: element.creator ? element.creator.join(', ') : '',
       watched: this.isSeriesWatched(element, userId),
-      subtitle: resolvedCurrentSeason?.name,
+      subtitle:
+        resolvedCurrentSeason?.name !== undefined
+          ? localizeSeasonName(resolvedCurrentSeason.name, undefined, language)
+          : undefined,
       tagline: element.tagline || '',
       coverSrc: element.coverSrc || '',
       logoSrc: element.logoSrc || '',

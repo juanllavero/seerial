@@ -1,3 +1,4 @@
+import { localizeSeasonName } from '@seerial/domain';
 import path from 'node:path';
 import type { Video } from '@seerial/domain';
 import type {
@@ -548,7 +549,7 @@ export class ScanSeriesUseCase {
     }
 
     // Post-processing: rename seasons
-    await this.postProcessSeasons(show, episodesGroup);
+    await this.postProcessSeasons(show, episodesGroup, library.language);
   }
 
   /**
@@ -577,7 +578,13 @@ export class ScanSeriesUseCase {
     }
 
     // Ensure season exists
-    const season = await this.ensureSeason(show, seasonMetadata, realSeason, realEpisode);
+    const season = await this.ensureSeason(
+      show,
+      seasonMetadata,
+      realSeason,
+      realEpisode,
+      library.language,
+    );
     if (!season) {
       logger.error(
         {
@@ -691,6 +698,7 @@ export class ScanSeriesUseCase {
   private async postProcessSeasons(
     show: Series,
     episodesGroup: EpisodeGroupResponse | undefined,
+    language?: string,
   ): Promise<void> {
     const seasons = await this.seasonsRepo.findSeasonsBySeriesId(show.id);
     if (!seasons) {
@@ -716,7 +724,7 @@ export class ScanSeriesUseCase {
       // Apply default season numbering due to duplicate names
       for (const season of seasons) {
         if (season.seasonNumber !== 0) {
-          const newName = `Season ${season.seasonNumber}`;
+          const newName = localizeSeasonName('', season.seasonNumber, language);
           if (season.name !== newName) {
             season.name = newName;
             await this.seasonsRepo.update(season.id, season);
@@ -773,6 +781,8 @@ export class ScanSeriesUseCase {
     seasonMetadata: TvSeasonResponse,
     realSeason?: number,
     realEpisode?: number,
+    /** Language of the library: generic names ("Season 2") are stored in it */
+    language?: string,
   ): Promise<Season | null> {
     // The season written in the file name (S02E05), or the one of the metadata when the file only
     // has an absolute number. The same number must be used to look for the season and to create it,
@@ -786,7 +796,7 @@ export class ScanSeriesUseCase {
 
     season = await this.seasonsRepo.create({
       seriesId: show.id,
-      name: seasonMetadata.name ?? '',
+      name: localizeSeasonName(seasonMetadata.name, seasonNumber, language),
       year: seasonMetadata.episodes?.[0]?.air_date ?? '',
       overview: seasonMetadata.overview ?? show.overview,
       seasonNumber,
@@ -981,7 +991,7 @@ export class ScanSeriesUseCase {
       seasonsMetadata.find((s) => s.season_number === realSeason) ??
       ({
         season_number: realSeason,
-        name: `Season ${realSeason}`,
+        name: localizeSeasonName('', realSeason, library.language),
         episodes: [],
       } as TvSeasonResponse);
 

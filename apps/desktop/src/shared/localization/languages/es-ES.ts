@@ -153,6 +153,7 @@ export const es = {
     desktopMode: 'Seerial',
     fullscreenMode: 'Seerial Pantalla Completa',
     season: 'Temporada',
+    specials: 'Especiales',
     collectionWindowTitleEdit: 'Editar Colección',
     showWindowTitleEdit: 'Editar Serie',
     movieWindowTitleEdit: 'Editar Película',
