@@ -158,9 +158,14 @@ function ContentCard({
     if (!focused || !onLongPress) return;
 
     let timerId: ReturnType<typeof setTimeout> | null = null;
+    // Only a press that started while this card was focused may trigger it. Otherwise
+    // the release of an Enter that activated something else (e.g. a dialog button that
+    // moved focus back here) would run the card action.
+    let pressStartedHere = false;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Enter' || e.repeat) return;
+      pressStartedHere = true;
       // Reset for each new physical key press.
       longPressTriggeredRef.current = false;
       timerId = setTimeout(() => {
@@ -170,7 +175,8 @@ function ContentCard({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter') return;
+      if (e.key !== 'Enter' || !pressStartedHere) return;
+      pressStartedHere = false;
       if (timerId) {
         clearTimeout(timerId);
         timerId = null;

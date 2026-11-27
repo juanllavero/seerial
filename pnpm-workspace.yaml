@@ -4,12 +4,19 @@ packages:
 
 allowBuilds:
   '@parcel/watcher': true
+  '@scarf/scarf': set this to true or false
   bcrypt: true
   better-sqlite3: true
   electron: true
+  electron-winstaller: set this to true or false
   esbuild: true
+  ffmpeg-static: set this to true or false
   lefthook: true
   msgpackr-extract: true
+  ngrok: true
+  phantomjs-prebuilt: set this to true or false
+  sharp: true
+  unrs-resolver: set this to true or false
 
 ignoredBuiltDependencies:
   - "@scarf/scarf"
