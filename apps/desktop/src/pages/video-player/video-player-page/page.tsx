@@ -8,8 +8,10 @@ import { useServerStore } from '@seerial/stores';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useReducer, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { useSeriesDetailsFocusStore } from '@/features/details/series/stores/series-details-focus.store';
 import { VideoPlayer } from '@/features/video-player';
 import { useMpvPlayer } from '@/features/video-player/hooks/use-mpv-player';
+import { useNextEpisode } from '@/features/video-player/hooks/use-next-episode';
 import { useTrackSelection } from '@/features/video-player/hooks/use-track-selection';
 import { resolveResumePosition } from '@/features/video-player/utils/resume-position';
 import AppAlertDialog from '@/shared/components/app-alert-dialog';
@@ -19,6 +21,7 @@ import {
 } from '@/shared/components/details/details-background-mpv';
 import Loading from '@/shared/components/loading';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
+import { useSettingsStore } from '@/shared/stores/settings.store';
 import { isGenuineEnd } from '@/shared/utils/playback-end';
 import { useAppSettingsMpv } from '../../../features/video-player/hooks/use-app-settings-mpv';
 
@@ -62,6 +65,7 @@ function useVideoPlayerPageController({
   currentUserId,
   navigate,
   fromStart,
+  onPlaybackFinished,
 }: {
   video?: Video;
   loadingVideo: boolean;
@@ -70,6 +74,8 @@ function useVideoPlayerPageController({
   navigate: ReturnType<typeof useNavigate>;
   /** Ignore the saved progress. */
   fromStart: boolean;
+  /** The video reached its real end (already marked as watched). */
+  onPlaybackFinished?: () => void;
 }) {
   const mpv = useMpvPlayer();
   const [playerViewState, setPlayerViewState] = useReducer(
@@ -99,6 +105,8 @@ function useVideoPlayerPageController({
   // Last position seen while the video was actually playing (never the EOF jump of a failed seek)
   const lastPlayingPositionRef = useRef(0);
   const lastRecoveryPositionRef = useRef(0);
+  const onPlaybackFinishedRef = useRef(onPlaybackFinished);
+  onPlaybackFinishedRef.current = onPlaybackFinished;
 
   const queryClient = useQueryClient();
   // Details and home show the progress: also runs after leaving the player
@@ -212,8 +220,11 @@ function useVideoPlayerPageController({
     let cancelled = false;
 
     const loadInitialVideo = async () => {
+      // The same page plays the next episode: nothing of the previous video may carry over
       watchStateTrackedRef.current = false;
       videoEndedTrackedRef.current = false;
+      prematureEofRetriesRef.current = 0;
+      lastRecoveryPositionRef.current = 0;
       setPlayerViewState({ videoLoaded: false });
 
       const initialPosition = getInitialPlaybackPosition(video);
@@ -371,6 +382,7 @@ function useVideoPlayerPageController({
             timeWatched: lastKnownPositionRef.current,
             watched: true,
           });
+          onPlaybackFinishedRef.current?.();
         }
       } catch (error) {
         console.error('Error checking if video ended:', error);
@@ -413,6 +425,17 @@ function useVideoPlayerPageController({
     await mpv.embedMpv();
     navigate(-1);
   }, [navigate, mpv.stop, mpv.embedMpv]);
+
+  /** Marks the current video as watched (once), e.g. when skipping to the next episode. */
+  const markCurrentAsWatched = useCallback(() => {
+    if (!video || !currentUserId || videoEndedTrackedRef.current) return;
+    videoEndedTrackedRef.current = true;
+    updateWatchState({
+      videoId: video.id,
+      timeWatched: lastKnownPositionRef.current,
+      watched: true,
+    });
+  }, [video, currentUserId, updateWatchState]);
 
   const handleRetry = useCallback(async () => {
     if (!video) {
@@ -471,6 +494,7 @@ function useVideoPlayerPageController({
     handleGoBack,
     handleRetry,
     handleSeekCommitted,
+    markCurrentAsWatched,
   };
 }
 
@@ -492,6 +516,30 @@ function VideoPlayerPage() {
   } = useGetVideo<Video>(videoId ?? '', {
     enabled: !!videoId && serverUrl !== '',
   });
+  const nextEpisode = useNextEpisode(video);
+  const autoplayNext = useSettingsStore((state) => state.settings.autoplayNext);
+  const markCurrentAsWatchedRef = useRef<() => void>(() => {});
+
+  // The player replaces itself: going back still leads to where playback was started from
+  const playNextEpisode = useCallback(() => {
+    if (!nextEpisode) return;
+    markCurrentAsWatchedRef.current();
+    useSeriesDetailsFocusStore.getState().setPlayedEpisode({
+      seriesId: nextEpisode.seriesId,
+      seasonId: nextEpisode.episode.seasonId,
+      episodeId: nextEpisode.episode.id,
+    });
+    navigate(`/video-player/${nextEpisode.episode.video.id}`, { replace: true });
+  }, [nextEpisode, navigate]);
+
+  const handlePlaybackFinished = useCallback(() => {
+    // TEMP diagnostics, remove with the ones of useNextEpisode
+    if (import.meta.env.DEV) {
+      console.info('[next-episode] finished', { autoplayNext, next: nextEpisode?.episode.id });
+    }
+    if (autoplayNext) playNextEpisode();
+  }, [autoplayNext, playNextEpisode, nextEpisode]);
+
   const {
     isPageLoading,
     videoLoaded,
@@ -503,6 +551,7 @@ function VideoPlayerPage() {
     handleGoBack,
     handleRetry,
     handleSeekCommitted,
+    markCurrentAsWatched,
   } = useVideoPlayerPageController({
     video,
     loadingVideo,
@@ -510,7 +559,9 @@ function VideoPlayerPage() {
     currentUserId,
     navigate,
     fromStart,
+    onPlaybackFinished: handlePlaybackFinished,
   });
+  markCurrentAsWatchedRef.current = markCurrentAsWatched;
 
   const trackSelection = useTrackSelection(video, videoLoaded);
 
@@ -566,9 +617,12 @@ function VideoPlayerPage() {
 
       {!!videoLoaded && !isRecoveringPlaybackError && (
         <VideoPlayer
+          key={video.id}
           video={video}
           trackSelection={trackSelection}
           onSeekCommitted={handleSeekCommitted}
+          nextEpisode={nextEpisode?.episode}
+          onPlayNext={playNextEpisode}
         />
       )}
     </>

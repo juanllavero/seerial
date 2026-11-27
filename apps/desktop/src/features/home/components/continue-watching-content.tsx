@@ -40,7 +40,11 @@ function ContinueWatchingContent({
         `/details/${element.seriesId ? 'series' : 'movie'}/${element.seriesId ?? element.movieId}`,
         {
           state: {
-            cachedDetails: element.details,
+            // The details of a series fall back to its poster: the season of the episode is better
+            cachedDetails: element.details && {
+              ...element.details,
+              backgroundSrc: element.backgroundImage || element.details.backgroundSrc,
+            },
             // Series: open on the season and episode the user is watching
             focusEpisodeId: element.episodeId,
             currentSeasonNumber: element.seasonNumber,

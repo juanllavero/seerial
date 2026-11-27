@@ -26,7 +26,7 @@ function DetailsHeader({ details, subtitle }: DetailsHeaderProps) {
         </Title>
       )}
 
-      {details?.subtitle && <Subtitle>{subtitle ?? details.subtitle}</Subtitle>}
+      {(subtitle || details?.subtitle) && <Subtitle>{subtitle || details?.subtitle}</Subtitle>}
 
       {details?.createdBy ? (
         <span className="text-[1.5vh] italic mb-5">{`${t('createdBy')} ${details.createdBy}`}</span>

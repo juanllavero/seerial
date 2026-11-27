@@ -111,6 +111,8 @@ export const es = {
     searchButton: 'Buscar',
     next: 'Siguiente',
     upNext: 'A continuación',
+    nextEpisode: 'Siguiente episodio',
+    nextEpisodeHint: 'Pulsa Intro para reproducir',
     repeat: 'Repetir',
     shuffle: 'Aleatorio',
     downloadImages: 'Descargar imágenes',

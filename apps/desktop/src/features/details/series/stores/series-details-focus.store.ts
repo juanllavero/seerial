@@ -12,6 +12,20 @@ interface SeriesDetailsFocusState {
   setSeasonForNavigation: (navigationKey: string, seasonId: string) => void;
   appliedEpisodeNavigations: Record<string, boolean>;
   markEpisodeNavigationApplied: (navigationKey: string) => void;
+  /**
+   * Episode the player moved on to by itself (next episode). Going back to the series must show
+   * it, even when it is in another season than the one the user left from.
+   */
+  playedEpisode: PlayedEpisode | null;
+  setPlayedEpisode: (playedEpisode: PlayedEpisode) => void;
+  /** Returns the played episode of the series, once. */
+  consumePlayedEpisode: (seriesId: string) => PlayedEpisode | null;
+}
+
+export interface PlayedEpisode {
+  seriesId: string;
+  seasonId: string;
+  episodeId: string;
 }
 
 export const useSeriesDetailsFocusStore = createWithEqualityFn<SeriesDetailsFocusState>(
@@ -45,6 +59,19 @@ export const useSeriesDetailsFocusStore = createWithEqualityFn<SeriesDetailsFocu
       set((state) => ({
         appliedEpisodeNavigations: { ...state.appliedEpisodeNavigations, [navigationKey]: true },
       }));
+    },
+
+    playedEpisode: null,
+
+    setPlayedEpisode(playedEpisode: PlayedEpisode) {
+      set({ playedEpisode });
+    },
+
+    consumePlayedEpisode(seriesId: string) {
+      const { playedEpisode } = get();
+      if (playedEpisode?.seriesId !== seriesId) return null;
+      set({ playedEpisode: null });
+      return playedEpisode;
     },
   }),
 );

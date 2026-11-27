@@ -52,16 +52,51 @@ interface SeriesDetailsProps {
 function getInitialSeason(
   series: Series | undefined,
   currentSeasonNumber: number | undefined,
+  focusedEpisodeId: string | undefined,
 ): Season | null {
   if (!series?.seasons?.length) {
     return null;
   }
 
+  // The season that holds the requested episode wins over its number, which may not match
+  const seasonByEpisode = focusedEpisodeId
+    ? series.seasons.find((season) =>
+        season.episodes.some((episode) => episode.id === focusedEpisodeId),
+      )
+    : null;
+  if (seasonByEpisode) return seasonByEpisode;
+
   const seasonByNumber = currentSeasonNumber
     ? series.seasons.find((season) => season.seasonNumber === currentSeasonNumber)
     : null;
 
-  return seasonByNumber ?? series.seasons[0] ?? null;
+  const firstSeason = series.seasons.toSorted((a, b) => a.seasonNumber - b.seasonNumber)[0];
+  return seasonByNumber ?? firstSeason ?? null;
+}
+
+/**
+ * Season to show for this history entry: the one the user chose in it, the one of the episode the
+ * player went on to, or the one the navigation asked for.
+ */
+function resolveSeasonToSelect(
+  series: Series | undefined,
+  navigationKey: string,
+  currentSeasonNumber: number | undefined,
+  focusedEpisodeId: string | undefined,
+): Season | null {
+  const store = useSeriesDetailsFocusStore.getState();
+  // The player went on to other episodes: show the last one played, whatever the season
+  const playedEpisode = series ? store.consumePlayedEpisode(series.id) : null;
+  if (playedEpisode) {
+    store.setSeasonForNavigation(navigationKey, playedEpisode.seasonId);
+    store.setLastFocusedEpisodeForSeason(playedEpisode.seasonId, playedEpisode.episodeId);
+  }
+
+  const chosenSeasonId = useSeriesDetailsFocusStore.getState().seasonByNavigation[navigationKey];
+  return (
+    series?.seasons?.find((season) => season.id === chosenSeasonId) ??
+    getInitialSeason(series, currentSeasonNumber, focusedEpisodeId)
+  );
 }
 
 function getSeasonEpisodeState(
@@ -235,8 +270,9 @@ function SeriesDetails({
     `hide-thumbnails-${series?.id ?? ''}`,
     false,
   );
+  // The season on screen wins: the cached details only cover the wait for the series
   const backgroundImageSrc =
-    details?.backgroundSrc ?? selectedSeason?.backgroundSrc ?? series?.coverSrc;
+    selectedSeason?.backgroundSrc || details?.backgroundSrc || series?.coverSrc;
 
   const { key: navigationKey } = useLocation();
   const setSeasonForNavigation = useSeriesDetailsFocusStore(
@@ -270,12 +306,14 @@ function SeriesDetails({
   }, [selectedEpisode, resolvedVideoData, updateMediaInfo]);
 
   useEffect(() => {
-    const chosenSeasonId = useSeriesDetailsFocusStore.getState().seasonByNavigation[navigationKey];
-    const seasonToSelect =
-      series?.seasons?.find((season) => season.id === chosenSeasonId) ??
-      getInitialSeason(series, currentSeasonNumber);
+    const seasonToSelect = resolveSeasonToSelect(
+      series,
+      navigationKey,
+      currentSeasonNumber,
+      focusedEpisodeId,
+    );
     dispatchSelection({ type: 'set-season', season: seasonToSelect });
-  }, [series, currentSeasonNumber, navigationKey]);
+  }, [series, currentSeasonNumber, focusedEpisodeId, navigationKey]);
 
   useEffect(() => {
     const store = useSeriesDetailsFocusStore.getState();

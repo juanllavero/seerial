@@ -109,6 +109,8 @@ export const en = {
     searchButton: 'Search',
     next: 'Next',
     upNext: 'Up next',
+    nextEpisode: 'Next episode',
+    nextEpisodeHint: 'Press Enter to play',
     repeat: 'Repeat',
     shuffle: 'Shuffle',
     downloadImages: 'Download images',

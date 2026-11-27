@@ -1,5 +1,5 @@
 import type { Season } from '@seerial/domain';
-import { memo, useEffect } from 'react';
+import { memo, useMemo } from 'react';
 import { NavigationButton, NavigationScrollView } from '@/shared/components/navigation';
 import FlexBox from '@/shared/components/ui/flex-box';
 
@@ -10,11 +10,12 @@ interface SeasonSelectorProps {
 }
 
 function SeasonSelector({ seasons, selectedSeasonId, onSelectSeason }: SeasonSelectorProps) {
-  useEffect(() => {
-    if (seasons.length > 0 && !selectedSeasonId) {
-      onSelectSeason(seasons[0]);
-    }
-  }, [seasons, selectedSeasonId, onSelectSeason]);
+  // The initial season is chosen by the parent: selecting one here would overwrite the season
+  // requested by the navigation (continue watching, back from the player) before it is applied
+  const sortedSeasons = useMemo(
+    () => seasons.toSorted((a, b) => a.seasonNumber - b.seasonNumber),
+    [seasons],
+  );
 
   return (
     <FlexBox gap={1} width={'100%'} height={'7dvh'} padding="1dvh" className="z-10">
@@ -26,19 +27,17 @@ function SeasonSelector({ seasons, selectedSeasonId, onSelectSeason }: SeasonSel
           focusedElementId={selectedSeasonId}
           isRestoringFocus={false}
         >
-          {seasons
-            .sort((a, b) => a.seasonNumber - b.seasonNumber)
-            .map((season) => (
-              <NavigationButton
-                variant="ghost"
-                key={season.id}
-                customKey={season.id}
-                text={season.name}
-                selected={selectedSeasonId === season.id}
-                className={`${selectedSeasonId === season.id ? 'color-app-color' : ''}`}
-                onClick={() => onSelectSeason(season)}
-              />
-            ))}
+          {sortedSeasons.map((season) => (
+            <NavigationButton
+              variant="ghost"
+              key={season.id}
+              customKey={season.id}
+              text={season.name}
+              selected={selectedSeasonId === season.id}
+              className={`${selectedSeasonId === season.id ? 'color-app-color' : ''}`}
+              onClick={() => onSelectSeason(season)}
+            />
+          ))}
         </NavigationScrollView>
       )}
     </FlexBox>

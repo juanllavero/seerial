@@ -29,6 +29,8 @@ interface UsePlayerControlsVisibilityOptions {
   enabled?: boolean;
   onTogglePlayPause?: () => void;
   onResumeIfPaused?: () => void;
+  /** Enter while the controls are hidden; returning true consumes the key. */
+  onHiddenConfirm?: () => boolean;
 }
 
 export function usePlayerControlsVisibility({
@@ -36,6 +38,7 @@ export function usePlayerControlsVisibility({
   enabled = true,
   onTogglePlayPause,
   onResumeIfPaused,
+  onHiddenConfirm,
 }: UsePlayerControlsVisibilityOptions) {
   const [mode, setMode] = useState<ControlsMode>('hidden');
   const hideTimeoutRef = useRef<number | null>(null);
@@ -90,6 +93,9 @@ export function usePlayerControlsVisibility({
         onTogglePlayPause?.();
         return;
       }
+      if (key === 'Enter' && onHiddenConfirm?.()) {
+        return;
+      }
       if (SEEK_KEYS.has(key)) {
         onResumeIfPaused?.();
         setMode('compact');
@@ -98,7 +104,7 @@ export function usePlayerControlsVisibility({
         showFull();
       }
     },
-    [showFull, scheduleHide, onTogglePlayPause, onResumeIfPaused],
+    [showFull, scheduleHide, onTogglePlayPause, onResumeIfPaused, onHiddenConfirm],
   );
 
   const handleCompactKey = useCallback(

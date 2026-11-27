@@ -523,10 +523,12 @@ export class WatchListRepositoryImpl extends BaseRepository implements WatchList
         episodeId: episode.id,
         seriesId: series.id,
         videoId: itemVideo.id,
+        // The series is loaded without its seasons: give the one of the episode
         details: await librariesRepo.generateItemDetails(
           series as unknown as SeriesModel,
           'series',
           item.userId,
+          { name: season.name, backgroundSrc: season.backgroundSrc },
         ),
       };
     }

@@ -1,10 +1,11 @@
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
-import type { Video } from '@seerial/domain';
+import type { Episode, Video } from '@seerial/domain';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ChapterList from '@/features/video-player/components/chapter-list';
 import Controls from '@/features/video-player/components/controls/controls';
 import VolumeIndicator from '@/features/video-player/components/controls/volume-slider';
+import NextEpisodeCard from '@/features/video-player/components/next-episode-card';
 import {
   useChapterThumbnails,
   usePlaybackPosition,
@@ -16,6 +17,7 @@ import { useVolumeIndicator } from '@/features/video-player/hooks/use-volume-ind
 import { normalizeChapters } from '@/features/video-player/utils/chapters';
 import { NavigationContainer } from '@/shared/components/navigation';
 import FlexBox from '@/shared/components/ui/flex-box';
+import { useIdleCursor } from '@/shared/hooks/use-idle-cursor';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
 import { usePlayerControlsVisibility } from '@/shared/hooks/use-player-controls-visibility';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
@@ -24,9 +26,49 @@ interface VideoPlayerProps {
   video: Video;
   trackSelection: TrackSelection;
   onSeekCommitted?: (position: number) => void;
+  nextEpisode?: Episode | null;
+  onPlayNext?: () => void;
 }
 
-export default function VideoPlayer({ video, trackSelection, onSeekCommitted }: VideoPlayerProps) {
+/** Share of the video after which the next episode is offered. */
+const NEXT_EPISODE_THRESHOLD = 0.9;
+const PROGRESS_POLL_INTERVAL_MS = 1000;
+
+/** Whether playback is past `threshold` of the duration (polled only while `enabled`). */
+function usePlaybackPastThreshold(enabled: boolean, threshold: number) {
+  const mpv = useMpvPlayer();
+  const [isPast, setIsPast] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      setIsPast(false);
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      try {
+        const { position, duration } = await mpv.getPlaybackStatus();
+        if (typeof position === 'number' && typeof duration === 'number' && duration > 0) {
+          setIsPast(position / duration >= threshold);
+        }
+      } catch {
+        // mpv may be reloading: keep the last known state
+      }
+    }, PROGRESS_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [enabled, threshold, mpv.getPlaybackStatus]);
+
+  return isPast;
+}
+
+export default function VideoPlayer({
+  video,
+  trackSelection,
+  onSeekCommitted,
+  nextEpisode,
+  onPlayNext,
+}: VideoPlayerProps) {
   const [isTimelineFocused, setIsTimelineFocused] = useState(false);
   const [tracksPanelOpen, setTracksPanelOpen] = useState(false);
   const [chaptersExpanded, setChaptersExpanded] = useState(false);
@@ -64,12 +106,28 @@ export default function VideoPlayer({ video, trackSelection, onSeekCommitted }: 
     void mpv.play();
   }, [mpv.play]);
 
+  const isNearEnd = usePlaybackPastThreshold(!!nextEpisode, NEXT_EPISODE_THRESHOLD);
+  const canPlayNext = !!nextEpisode && !!onPlayNext && isNearEnd && !tracksPanelOpen;
+
+  // Only called while the controls are hidden, which is when the card is on screen
+  const handleHiddenConfirm = useCallback(() => {
+    if (!canPlayNext) return false;
+    onPlayNext?.();
+    return true;
+  }, [canPlayNext, onPlayNext]);
+
   const { mode, isVisible } = usePlayerControlsVisibility({
     isTimelineFocused,
     enabled: playerInputEnabled,
     onTogglePlayPause: handleTogglePlayPause,
     onResumeIfPaused: handleResumeIfPaused,
+    onHiddenConfirm: handleHiddenConfirm,
   });
+
+  // Only over the bare video: the controls take the same space
+  const showNextEpisode = canPlayNext && !isVisible;
+
+  useIdleCursor();
 
   // Set initial focus on the timeline when controls become fully visible
   const isFull = mode === 'full';
@@ -107,6 +165,9 @@ export default function VideoPlayer({ video, trackSelection, onSeekCommitted }: 
   return (
     <NavigationContainer customFocusKey={NavigationFocusKeys.player.container}>
       <VolumeIndicator volume={volume} visible={volumeVisible} />
+      {!!nextEpisode && !!onPlayNext && (
+        <NextEpisodeCard episode={nextEpisode} visible={showNextEpisode} onPlay={onPlayNext} />
+      )}
       <FlexBox
         className="absolute w-full h-full overflow-hidden"
         css={{
