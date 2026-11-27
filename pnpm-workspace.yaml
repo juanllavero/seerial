@@ -1,0 +1,36 @@
+packages:
+  - "apps/*"
+  - "libs/*"
+
+allowBuilds:
+  '@parcel/watcher': true
+  bcrypt: true
+  better-sqlite3: true
+  electron: true
+  esbuild: true
+  lefthook: true
+  msgpackr-extract: true
+
+ignoredBuiltDependencies:
+  - "@scarf/scarf"
+  - esbuild
+  - unrs-resolver
+
+minimumReleaseAge: 1440
+
+onlyBuiltDependencies:
+  - bcrypt
+  - better-sqlite3
+  - electron
+  - msgpackr-extract
+  - electron-winstaller
+  - ffmpeg-static
+  - lefthook
+  - ngrok
+  - phantomjs-prebuilt
+  - sharp
+  - sqlite3
+
+overrides:
+  body-parser@>=2.2.0 <2.2.1: ">=2.2.1"
+  form-data@<2.5.4: ">=2.5.4"

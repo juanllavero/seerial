@@ -33,7 +33,6 @@ Seerial Media Server API Copy.postman_collection.json
 
 #lockfile
 package-lock.json
-pnpm-workspace.yaml
 yarn.lock
 /test-results/
 /playwright-report/
