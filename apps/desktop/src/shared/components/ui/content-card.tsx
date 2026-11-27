@@ -211,6 +211,9 @@ function ContentCard({
         flex: width ? `0 0 ${width}` : undefined,
         maxWidth: width,
         aspectRatio: `${cardAspectRatio}`,
+        // Not stretched by its row: WebKit kept the stretched height when the width grew
+        // (fewer cards per row), and the card lost its aspect ratio until it was remounted
+        alignSelf: 'flex-start',
       }}
     >
       <div
@@ -329,6 +332,12 @@ export default memo(
     prev.width === next.width &&
     prev.duration === next.duration &&
     prev.timeWatched === next.timeWatched &&
+    prev.watched === next.watched &&
+    prev.remainingItems === next.remainingItems &&
+    prev.showRemainingItems === next.showRemainingItems &&
+    prev.noInfo === next.noInfo &&
+    prev.defaultImageSrc === next.defaultImageSrc &&
+    !prev.onLongPress === !next.onLongPress &&
     prev.isReordering === next.isReordering &&
     prev.reorderingArrows?.up === next.reorderingArrows?.up &&
     prev.reorderingArrows?.down === next.reorderingArrows?.down &&

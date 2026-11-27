@@ -10,12 +10,13 @@ import AppAlertDialog from '@/shared/components/app-alert-dialog';
 import {
   resetAppShellBackground,
   setAppShellBackground,
+  waitForMpvCommands,
 } from '@/shared/components/details/details-background-mpv';
 import Loading from '@/shared/components/loading';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
 import { useAppSettingsMpv } from '../../../features/video-player/hooks/use-app-settings-mpv';
 
-const LOAD_TIMEOUT_MS = 15000;
+const LOAD_TIMEOUT_MS = 45000;
 const PLAYER_HEALTH_POLL_INTERVAL_MS = 1000;
 
 type PlayerErrorMode = 'load' | 'playback';
@@ -172,6 +173,9 @@ function VideoPlayerFilePage() {
 
     const loadInitialVideo = async () => {
       dispatchPlayerViewState({ videoLoaded: false });
+      // The theme music of the page we come from may still be fading out and stopping mpv
+      await waitForMpvCommands();
+      if (cancelled) return;
       const loaded = await loadVideo();
 
       if (cancelled || loaded) {

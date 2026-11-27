@@ -2,6 +2,7 @@ import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { Tertiary } from '@/shared/components/text';
+import { useScrollIntoViewOnFocus } from './use-scroll-into-view-on-focus';
 
 interface SettingSliderProps {
   focusKey: string;
@@ -54,6 +55,7 @@ function SettingSlider({
     },
     onEnterPress: () => setEditing((prev) => !prev),
   });
+  useScrollIntoViewOnFocus(ref, focused);
 
   // Exit edit mode when focus is lost
   if (!focused && editing) {

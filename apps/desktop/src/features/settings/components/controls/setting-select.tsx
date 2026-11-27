@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { memo, useCallback } from 'react';
 import { Tertiary } from '@/shared/components/text';
 import { useSettingsOptions } from '../settings-options-context';
+import { useScrollIntoViewOnFocus } from './use-scroll-into-view-on-focus';
 
 interface SelectOption {
   label: string;
@@ -44,6 +45,7 @@ function SettingSelect({
       return true;
     },
   });
+  useScrollIntoViewOnFocus(ref, focused);
 
   const currentLabel = currentIndex >= 0 ? options[currentIndex].label : value;
 

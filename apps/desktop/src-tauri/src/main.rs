@@ -11,7 +11,7 @@ use video::{
     exit_app,
     MpvState,
     // Playback
-    embed_mpv, play, pause, stop, toggle_play_pause, loadfile, load_url,
+    embed_mpv, play, pause, stop, toggle_play_pause, loadfile, load_url, seek_keyframe,
     get_position, set_position, get_duration, get_playback_status,
     // Video
     set_volume, get_volume, set_zoom, set_video_quality,
@@ -136,6 +136,7 @@ async fn main() {
             toggle_play_pause,
             loadfile,
             load_url,
+            seek_keyframe,
             get_position,
             set_position,
             get_duration,

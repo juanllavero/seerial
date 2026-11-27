@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { useCallback } from 'react';
 
 const READY_POLL_INTERVAL_MS = 250;
+/** mpv still idle this long after a load means the file could not be opened. */
+const LOAD_FAILED_IDLE_MS = 3000;
 
 export interface MpvPlaybackStatus {
   position?: number;
@@ -44,6 +46,12 @@ export function useMpvPlayer() {
     [],
   );
 
+  /** Fast, approximate seek (nearest keyframe): for resuming, not for user seeks. */
+  const seekToKeyframe = useCallback(
+    (position: number) => invoke<void>('seek_keyframe', { position }),
+    [],
+  );
+
   const getPlaybackStatus = useCallback(() => invoke<MpvPlaybackStatus>('get_playback_status'), []);
 
   const setVolume = useCallback((volume: number) => invoke('set_volume', { volume }), []);
@@ -67,9 +75,15 @@ export function useMpvPlayer() {
       }
 
       try {
-        const duration = await invoke<number>('get_duration');
-        if (Number.isFinite(duration) && duration > 0) {
+        const status = await invoke<MpvPlaybackStatus>('get_playback_status');
+        const { duration } = status;
+        if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
           return true;
+        }
+        // Opening a file (even a slow one, e.g. a disk spinning up) leaves idle mode at once:
+        // still idle means mpv gave up on it, no point in waiting for the timeout
+        if (status.idleActive && Date.now() - startedAt >= LOAD_FAILED_IDLE_MS) {
+          return false;
         }
       } catch {
         // Keep polling until timeout to allow MPV buffering and metadata parsing.
@@ -93,6 +107,7 @@ export function useMpvPlayer() {
     getPosition,
     getDuration,
     setPosition,
+    seekToKeyframe,
     getPlaybackStatus,
     setVolume,
     setAudioTrack,

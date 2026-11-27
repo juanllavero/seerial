@@ -2,6 +2,7 @@ import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { Check } from 'lucide-react';
 import { memo } from 'react';
 import { Tertiary } from '@/shared/components/text';
+import { useScrollIntoViewOnFocus } from './use-scroll-into-view-on-focus';
 
 interface SettingCheckboxProps {
   focusKey: string;
@@ -22,6 +23,7 @@ function SettingCheckbox({
     focusKey,
     onEnterPress: () => onChange(!checked),
   });
+  useScrollIntoViewOnFocus(ref, focused);
 
   return (
     <button

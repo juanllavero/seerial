@@ -32,20 +32,32 @@ export function enqueueMpvCommand<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/**
+ * Resolves once every queued theme music command ran. Leaving a details page fades its music
+ * out and then stops mpv: a video loaded before that stop was killed by it.
+ */
+export function waitForMpvCommands(): Promise<void> {
+  return mpvCommandQueue;
+}
+
+/**
+ * mpv volume (100 = the file as is) of the theme music. It plays under the interface, so even the
+ * highest level stays below full volume. (The old 100-150 were all full volume: mpv caps at 130.)
+ */
 export function getBackgroundPlaybackVolume(volume: ThemeMusicVolume): number {
   switch (volume) {
     case 'off':
       return 0;
     case 'low':
-      return 100;
+      return 40;
     case 'medium':
-      return 120;
+      return 55;
     case 'high':
-      return 140;
+      return 75;
     case 'veryHigh':
-      return 150;
+      return 90;
     default:
-      return 100;
+      return 55;
   }
 }
 

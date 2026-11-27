@@ -17,6 +17,7 @@ use objc2_foundation::NSRect;
 
 const NS_WINDOW_ABOVE: isize = 1;
 const NS_WINDOW_COLLECTION_FULLSCREEN_AUXILIARY: usize = 1 << 8;
+const NS_WINDOW_STYLE_MASK_TITLED: usize = 1 << 0;
 
 /// Makes the app window transparent so the video window underneath shows
 /// through the (also transparent) webview. Main thread only.
@@ -39,6 +40,10 @@ pub unsafe fn attach_child(parent: *mut c_void, child: *mut c_void) {
 
     let _: () = msg_send![child, setIgnoresMouseEvents: Bool::YES];
     let _: () = msg_send![child, setHasShadow: Bool::NO];
+    // Even with `border=no` mpv's window stays "titled": macOS draws a light 1pt highlight
+    // along its top edge (rounded corners too), the grey line over the top of the video.
+    let mask: usize = msg_send![child, styleMask];
+    let _: () = msg_send![child, setStyleMask: mask & !NS_WINDOW_STYLE_MASK_TITLED];
     let behavior: usize = msg_send![child, collectionBehavior];
     let _: () = msg_send![child, setCollectionBehavior: behavior | NS_WINDOW_COLLECTION_FULLSCREEN_AUXILIARY];
 

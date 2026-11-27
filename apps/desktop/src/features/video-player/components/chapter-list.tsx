@@ -1,7 +1,7 @@
 import { FocusContext, setFocus, useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import type { Chapter } from '@seerial/domain';
 import { invoke } from '@tauri-apps/api/core';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavigationScrollView } from '@/shared/components/navigation';
 import { ListTitle } from '@/shared/components/text';
@@ -38,13 +38,18 @@ function ChapterList({
   const { t } = useTranslation();
   const activeIndex = getActiveChapterIndex(chapters, position);
   const activeChapterId = `chapter-${activeIndex}`;
+  // The list follows the chapter with the focus; until there is one, the one playing
+  const [focusedChapterId, setFocusedChapterId] = useState<string | null>(null);
 
   const { ref, focusKey } = useFocusable({
     focusKey: NavigationFocusKeys.player.chapters,
     trackChildren: true,
     saveLastFocusedChild: false,
     onFocus: onExpand,
-    onBlur: onCollapse,
+    onBlur: () => {
+      setFocusedChapterId(null);
+      onCollapse();
+    },
     onArrowPress: (direction) => {
       if (direction === 'up') {
         onCollapse();
@@ -79,7 +84,7 @@ function ChapterList({
           customFocusKey={`${NavigationFocusKeys.player.chapters}-scroll`}
           direction="horizontal"
           scrollMode="center"
-          focusedElementId={activeChapterId}
+          focusedElementId={focusedChapterId ?? activeChapterId}
           isRestoringFocus={false}
           className="gap-4 pb-2"
         >
@@ -90,7 +95,7 @@ function ChapterList({
               isActive={i === activeIndex}
               focusKey={`chapter-${i}`}
               onEnterPress={() => handleChapterEnter(chapter.time)}
-              onFocus={() => {}}
+              onFocus={() => setFocusedChapterId(`chapter-${i}`)}
             />
           ))}
         </NavigationScrollView>

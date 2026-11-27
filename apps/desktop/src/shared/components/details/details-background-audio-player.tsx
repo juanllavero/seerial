@@ -165,22 +165,26 @@ function DetailsBackgroundAudioPlayer({
     }
   }, [localId, onUnavailable, serverUrl, targetVolume]);
 
+  // Stop only when leaving: another season (localId) may play the same theme, which
+  // loadAndPlay keeps playing; stopping first restarted it on every season change
   useEffect(() => {
     isDisposedRef.current = false;
-    eofGuardRef.current = false;
-
-    if (!localId || !serverUrl || targetVolume <= 0) {
-      return () => {
-        isDisposedRef.current = true;
-      };
-    }
-
-    void loadAndPlay();
-
     return () => {
       isDisposedRef.current = true;
       void stopPlayback();
     };
+  }, [stopPlayback]);
+
+  useEffect(() => {
+    eofGuardRef.current = false;
+
+    if (!localId || !serverUrl || targetVolume <= 0) {
+      // Theme music turned off in the settings while it was playing
+      if (hasActivePlaybackRef.current) void stopPlayback();
+      return;
+    }
+
+    void loadAndPlay();
   }, [localId, loadAndPlay, serverUrl, stopPlayback, targetVolume]);
 
   useEffect(() => {

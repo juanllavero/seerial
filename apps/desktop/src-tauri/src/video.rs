@@ -358,6 +358,10 @@ impl MpvState {
                 init.set_property("gpu-context", "macvk")?;
                 init.set_property("hwdec", "videotoolbox")?;
                 init.set_property("target-colorspace-hint", "yes")?;
+                // The hint defaults to the display's colorspace, which MoltenVK does not report:
+                // mpv then stays in SDR. Passing the source one (PQ/HLG) through enables EDR.
+                // Ignored if this libmpv does not know the option.
+                let _ = init.set_property("target-colorspace-hint-mode", "source");
                 init.set_property("icc-profile-auto", false)?;
                 init.set_property("video-output-levels", "auto")?;
 
@@ -381,7 +385,17 @@ impl MpvState {
             init.set_property("keep-open", "always")?;
             init.set_property("cursor-autohide", "100")?;
             init.set_property("msg-level", "all=debug")?;
+            #[cfg(not(target_os = "macos"))]
             init.set_property("log-file", "./logs/mpv_log.txt")?;
+            // macOS: every `stop` recreates mpv, which truncated the log of the video just played
+            #[cfg(target_os = "macos")]
+            {
+                let started = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis())
+                    .unwrap_or_default();
+                init.set_property("log-file", format!("./logs/mpv_log_{started}.txt"))?;
+            }
             #[cfg(not(target_os = "macos"))]
             {
                 init.set_property("force-window", "no")?;   // yes to open new window for MPV
@@ -541,6 +555,15 @@ pub fn get_position(state: State<MpvState>) -> Result<f64, String> {
 #[cfg_attr(target_os = "macos", tauri::command(async))]
 pub fn set_position(state: State<MpvState>, position: f64) -> Result<(), String> {
     state.with_mpv(|mpv| mpv.set_property("time-pos", position))
+}
+
+/// Seeks to the keyframe nearest to `position`. Used to resume: an exact seek has to download
+/// and decode everything from the previous keyframe up to the position (seconds on a 4K stream).
+#[cfg_attr(not(target_os = "macos"), tauri::command)]
+#[cfg_attr(target_os = "macos", tauri::command(async))]
+pub fn seek_keyframe(state: State<MpvState>, position: f64) -> Result<(), String> {
+    let target = position.to_string();
+    state.with_mpv(|mpv| mpv.command("seek", &[target.as_str(), "absolute+keyframes"]))
 }
 
 #[cfg_attr(not(target_os = "macos"), tauri::command)]

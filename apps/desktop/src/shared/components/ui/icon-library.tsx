@@ -191,13 +191,13 @@ export const RemoveFromListIcon = () => (
   </svg>
 );
 
-export const MarkWatchedIcon = () => (
+export const MarkWatchedIcon = ({ size = 52 }: { size?: number | string }) => (
   <svg
     aria-hidden="true"
     fill="currentColor"
-    height="52"
+    height={size}
     viewBox="0 0 48 48"
-    width="52"
+    width={size}
     xmlns="http://www.w3.org/2000/svg"
   >
     <path
@@ -213,13 +213,13 @@ export const MarkWatchedIcon = () => (
   </svg>
 );
 
-export const UnmarkWatchedIcon = () => (
+export const UnmarkWatchedIcon = ({ size = 52 }: { size?: number | string }) => (
   <svg
     aria-hidden="true"
     fill="currentColor"
-    height="52"
+    height={size}
     viewBox="0 0 48 48"
-    width="52"
+    width={size}
     xmlns="http://www.w3.org/2000/svg"
   >
     <path

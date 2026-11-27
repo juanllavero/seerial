@@ -10,7 +10,7 @@ interface NextEpisodeCardProps {
   onPlay: () => void;
 }
 
-/** Small card in the bottom right corner that starts the next episode. */
+/** Card in the top right corner that starts the next episode. */
 function NextEpisodeCard({ episode, visible, fallbackImageSrc, onPlay }: NextEpisodeCardProps) {
   const { t } = useTranslation();
   const label = `${t('seasonLetter')}${episode.seasonNumber}${t('episodeLetter')}${episode.episodeNumber}`;
@@ -21,10 +21,10 @@ function NextEpisodeCard({ episode, visible, fallbackImageSrc, onPlay }: NextEpi
       tabIndex={-1}
       onClick={onPlay}
       aria-hidden={!visible}
-      className="group fixed right-[4dvh] bottom-[6dvh] z-80 flex w-[44dvh] items-center gap-[1.6dvh] rounded-xl border border-white/10 bg-black/60 p-[1.2dvh] text-left backdrop-blur-md transition-all duration-500 ease-out hover:border-white/40 hover:bg-black/75"
+      className="group fixed top-[8dvh] right-[4dvh] z-80 flex w-[44dvh] items-center gap-[1.6dvh] rounded-xl border border-white/10 bg-black/60 p-[1.2dvh] text-left backdrop-blur-md transition-all duration-500 ease-out hover:border-white/40 hover:bg-black/75"
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(1.5dvh)',
+        transform: visible ? 'translateY(0)' : 'translateY(-1.5dvh)',
         pointerEvents: visible ? 'auto' : 'none',
       }}
     >
@@ -49,7 +49,9 @@ function NextEpisodeCard({ episode, visible, fallbackImageSrc, onPlay }: NextEpi
         <span className="text-[1.4dvh] font-semibold uppercase tracking-wide text-white/60">
           {t('nextEpisode')}
         </span>
-        <span className="truncate text-[1.9dvh] font-bold text-white">{episode.name}</span>
+        <span className="line-clamp-2 text-[1.9dvh] leading-snug font-bold text-white">
+          {episode.name}
+        </span>
         <span className="text-[1.5dvh] font-medium text-white/70">{label}</span>
         <span className="text-[1.3dvh] text-white/45">{t('nextEpisodeHint')}</span>
       </div>

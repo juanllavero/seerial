@@ -18,6 +18,7 @@ import AppAlertDialog from '@/shared/components/app-alert-dialog';
 import {
   resetAppShellBackground,
   setAppShellBackground,
+  waitForMpvCommands,
 } from '@/shared/components/details/details-background-mpv';
 import Loading from '@/shared/components/loading';
 import { useKeyboardBack } from '@/shared/hooks/use-keyboard-back';
@@ -25,7 +26,8 @@ import { useSettingsStore } from '@/shared/stores/settings.store';
 import { isGenuineEnd } from '@/shared/utils/playback-end';
 import { useAppSettingsMpv } from '../../../features/video-player/hooks/use-app-settings-mpv';
 
-const LOAD_TIMEOUT_MS = 15000;
+/** A sleeping server disk can take a while to spin up: real failures are detected earlier. */
+const LOAD_TIMEOUT_MS = 45000;
 const PLAYER_HEALTH_POLL_INTERVAL_MS = 1000;
 const MAX_PREMATURE_EOF_RETRIES = 3;
 const RECOVERY_PROGRESS_SECONDS = 15;
@@ -66,6 +68,7 @@ function useVideoPlayerPageController({
   navigate,
   fromStart,
   onPlaybackFinished,
+  reapplyAppSettings,
 }: {
   video?: Video;
   loadingVideo: boolean;
@@ -76,6 +79,8 @@ function useVideoPlayerPageController({
   fromStart: boolean;
   /** The video reached its real end (already marked as watched). */
   onPlaybackFinished?: () => void;
+  /** Settings of the app for a freshly created mpv instance. */
+  reapplyAppSettings: () => Promise<void>;
 }) {
   const mpv = useMpvPlayer();
   const [playerViewState, setPlayerViewState] = useReducer(
@@ -105,8 +110,13 @@ function useVideoPlayerPageController({
   // Last position seen while the video was actually playing (never the EOF jump of a failed seek)
   const lastPlayingPositionRef = useRef(0);
   const lastRecoveryPositionRef = useRef(0);
+  // Set once playback was handed over to another video: nothing may touch mpv any more
+  const leavingRef = useRef(false);
   const onPlaybackFinishedRef = useRef(onPlaybackFinished);
   onPlaybackFinishedRef.current = onPlaybackFinished;
+  // Through a ref: a settings change must not reload the video
+  const reapplyAppSettingsRef = useRef(reapplyAppSettings);
+  reapplyAppSettingsRef.current = reapplyAppSettings;
 
   const queryClient = useQueryClient();
   // Details and home show the progress: also runs after leaving the player
@@ -152,7 +162,8 @@ function useVideoPlayerPageController({
         }
 
         if (resumeAt > 0) {
-          await mpv.setPosition(resumeAt);
+          // A few seconds before or after the saved point is fine and saves a slow exact seek
+          await mpv.seekToKeyframe(resumeAt);
         }
 
         // A previous EOF/error leaves mpv paused (keep-open): a (re)load must always start playing
@@ -178,7 +189,7 @@ function useVideoPlayerPageController({
         }
       }
     },
-    [getSignedStreamUrl, mpv.loadUrl, mpv.waitForReady, mpv.setPosition, mpv.play],
+    [getSignedStreamUrl, mpv.loadUrl, mpv.waitForReady, mpv.seekToKeyframe, mpv.play],
   );
 
   useEffect(() => {
@@ -226,6 +237,13 @@ function useVideoPlayerPageController({
       prematureEofRetriesRef.current = 0;
       lastRecoveryPositionRef.current = 0;
       setPlayerViewState({ videoLoaded: false });
+
+      // The theme music of the page we come from may still be fading out and stopping mpv
+      await waitForMpvCommands();
+      if (cancelled) return;
+      // Its stop recreated mpv after this page applied the app settings: apply them again
+      await reapplyAppSettingsRef.current();
+      if (cancelled) return;
 
       const initialPosition = getInitialPlaybackPosition(video);
       const loaded = await loadVideo(video, initialPosition);
@@ -312,7 +330,11 @@ function useVideoPlayerPageController({
   }, []);
 
   const pollPlaybackHealth = useCallback(async () => {
-    if (healthCheckInFlightRef.current || playbackRecoveryInFlightRef.current) {
+    if (
+      leavingRef.current ||
+      healthCheckInFlightRef.current ||
+      playbackRecoveryInFlightRef.current
+    ) {
       return;
     }
 
@@ -372,6 +394,7 @@ function useVideoPlayerPageController({
         const playbackStatus = await mpv.getPlaybackStatus();
 
         if (
+          !leavingRef.current &&
           playbackStatus.eofReached &&
           isGenuineEnd(lastPlayingPositionRef.current, playbackStatus.duration) &&
           !videoEndedTrackedRef.current
@@ -416,7 +439,8 @@ function useVideoPlayerPageController({
         });
       }
 
-      void mpv.stop();
+      // Already stopped when another video took over (see openOtherVideo)
+      if (!leavingRef.current) void mpv.stop();
     };
   }, [updateWatchState, mpv.stop]);
 
@@ -425,6 +449,23 @@ function useVideoPlayerPageController({
     await mpv.embedMpv();
     navigate(-1);
   }, [navigate, mpv.stop, mpv.embedMpv]);
+
+  /**
+   * Plays another video (next episode) exactly as if the user left the player and opened it
+   * again: same teardown as going back, then the page is mounted from scratch for the new video.
+   * Loading a second file into the same mpv broke the video window glue on macOS.
+   */
+  const openOtherVideo = useCallback(
+    async (videoId: string) => {
+      if (leavingRef.current) return;
+      leavingRef.current = true;
+      setPlayerViewState({ videoLoaded: false, isPlayerLoading: true, isPlaybackBuffering: false });
+      await mpv.stop();
+      await mpv.embedMpv();
+      navigate(`/video-player/${videoId}`, { replace: true });
+    },
+    [navigate, mpv.stop, mpv.embedMpv],
+  );
 
   /** Marks the current video as watched (once), e.g. when skipping to the next episode. */
   const markCurrentAsWatched = useCallback(() => {
@@ -449,6 +490,12 @@ function useVideoPlayerPageController({
       isPlaybackBuffering: false,
     });
 
+    // A failed load ends mpv's only file (idle=once): it ignores any later load. Start from a
+    // new instance, as when entering the player.
+    await mpv.stop();
+    await mpv.embedMpv();
+    await reapplyAppSettings();
+
     const retryPosition =
       errorMode === 'playback' ? lastKnownPositionRef.current : getInitialPlaybackPosition(video);
     const loaded = await loadVideo(video, retryPosition);
@@ -459,7 +506,15 @@ function useVideoPlayerPageController({
     }
 
     setPlayerViewState({ isRecoveringPlaybackError: false });
-  }, [errorMode, getInitialPlaybackPosition, loadVideo, video]);
+  }, [
+    errorMode,
+    getInitialPlaybackPosition,
+    loadVideo,
+    video,
+    mpv.stop,
+    mpv.embedMpv,
+    reapplyAppSettings,
+  ]);
 
   useKeyboardBack({
     enabled: !videoLoaded && !isErrorDialogOpen,
@@ -495,6 +550,7 @@ function useVideoPlayerPageController({
     handleRetry,
     handleSeekCommitted,
     markCurrentAsWatched,
+    openOtherVideo,
   };
 }
 
@@ -507,7 +563,7 @@ function VideoPlayerPage() {
     currentUserId: state.currentUser?.id,
   }));
 
-  useAppSettingsMpv();
+  const reapplyAppSettings = useAppSettingsMpv();
 
   const {
     data: video,
@@ -519,6 +575,7 @@ function VideoPlayerPage() {
   const nextEpisode = useNextEpisode(video);
   const autoplayNext = useSettingsStore((state) => state.settings.autoplayNext);
   const markCurrentAsWatchedRef = useRef<() => void>(() => {});
+  const openOtherVideoRef = useRef<(videoId: string) => Promise<void>>(async () => {});
 
   // The player replaces itself: going back still leads to where playback was started from
   const playNextEpisode = useCallback(() => {
@@ -529,16 +586,12 @@ function VideoPlayerPage() {
       seasonId: nextEpisode.episode.seasonId,
       episodeId: nextEpisode.episode.id,
     });
-    navigate(`/video-player/${nextEpisode.episode.video.id}`, { replace: true });
-  }, [nextEpisode, navigate]);
+    void openOtherVideoRef.current(nextEpisode.episode.video.id);
+  }, [nextEpisode]);
 
   const handlePlaybackFinished = useCallback(() => {
-    // TEMP diagnostics, remove with the ones of useNextEpisode
-    if (import.meta.env.DEV) {
-      console.info('[next-episode] finished', { autoplayNext, next: nextEpisode?.episode.id });
-    }
     if (autoplayNext) playNextEpisode();
-  }, [autoplayNext, playNextEpisode, nextEpisode]);
+  }, [autoplayNext, playNextEpisode]);
 
   const {
     isPageLoading,
@@ -552,6 +605,7 @@ function VideoPlayerPage() {
     handleRetry,
     handleSeekCommitted,
     markCurrentAsWatched,
+    openOtherVideo,
   } = useVideoPlayerPageController({
     video,
     loadingVideo,
@@ -560,8 +614,10 @@ function VideoPlayerPage() {
     navigate,
     fromStart,
     onPlaybackFinished: handlePlaybackFinished,
+    reapplyAppSettings,
   });
   markCurrentAsWatchedRef.current = markCurrentAsWatched;
+  openOtherVideoRef.current = openOtherVideo;
 
   const trackSelection = useTrackSelection(video, videoLoaded);
 
@@ -629,4 +685,10 @@ function VideoPlayerPage() {
   );
 }
 
-export default memo(VideoPlayerPage);
+/** A new video is a new page: its player state starts from scratch, as when opened from the app. */
+function VideoPlayerRoute() {
+  const { videoId } = useParams();
+  return <VideoPlayerPage key={videoId} />;
+}
+
+export default memo(VideoPlayerRoute);

@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getSignedVideoStreamUrlPassthrough } from '@seerial/api';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import DetailsBackgroundAudioPlayer from '@/shared/components/details/details-background-audio-player';
 import DetailsBackgroundVideoPlayer from '@/shared/components/details/details-background-video-player';
 
@@ -6,6 +7,23 @@ type PlaybackMode = 'none' | 'audio' | 'video';
 
 function normalizeLocalIds(localIds: Array<string | null | undefined>): string[] {
   return Array.from(new Set(localIds.filter((value): value is string => Boolean(value))));
+}
+
+/** Index of the first candidate with a theme video, -1 when none has one. */
+async function findThemeVideoIndex(localIds: string[]): Promise<number> {
+  for (const [index, localId] of localIds.entries()) {
+    try {
+      const signedUrl = await getSignedVideoStreamUrlPassthrough({
+        filePath: 'none',
+        localId,
+        expiresIn: '10m',
+      });
+      if (signedUrl) return index;
+    } catch {
+      // No theme video for this candidate: try the next one
+    }
+  }
+  return -1;
 }
 
 interface DetailsBackgroundPlaybackProps {
@@ -24,8 +42,6 @@ function DetailsBackgroundPlayback({
 
   const audioCandidatesKey = audioCandidates.join('|');
   const videoCandidatesKey = videoCandidates.join('|');
-  const hasAudioCandidates = audioCandidates.length > 0;
-  const hasVideoCandidates = videoCandidates.length > 0;
 
   const [playbackState, setPlaybackState] = useState<{
     mode: PlaybackMode;
@@ -36,36 +52,35 @@ function DetailsBackgroundPlayback({
     audioIndex: 0,
     videoIndex: 0,
   });
-  const previousCandidatesRef = useRef({ audio: '', video: '' });
 
   const { mode, audioIndex, videoIndex } = playbackState;
 
+  // Picks what to play for new candidates (e.g. another season). Whether a theme video exists is
+  // asked first, without touching what plays: switching to the video player to find out unmounted
+  // the theme music and restarted it on every season change, even when it was the same song.
   useEffect(() => {
-    if (
-      previousCandidatesRef.current.audio === audioCandidatesKey &&
-      previousCandidatesRef.current.video === videoCandidatesKey
-    ) {
-      return;
-    }
+    let cancelled = false;
 
-    previousCandidatesRef.current = {
-      audio: audioCandidatesKey,
-      video: videoCandidatesKey,
+    void findThemeVideoIndex(videoCandidatesKey ? videoCandidatesKey.split('|') : []).then(
+      (videoIndex) => {
+        if (cancelled) return;
+        if (videoIndex !== -1) {
+          setPlaybackState({ mode: 'video', videoIndex, audioIndex: 0 });
+          return;
+        }
+        // Same audio player instance when it was already playing: it keeps the song if unchanged
+        setPlaybackState({
+          mode: audioCandidatesKey ? 'audio' : 'none',
+          audioIndex: 0,
+          videoIndex: 0,
+        });
+      },
+    );
+
+    return () => {
+      cancelled = true;
     };
-
-    let nextMode: PlaybackMode = 'none';
-    if (hasVideoCandidates) {
-      nextMode = 'video';
-    } else if (hasAudioCandidates) {
-      nextMode = 'audio';
-    }
-
-    setPlaybackState({
-      audioIndex: 0,
-      videoIndex: 0,
-      mode: nextMode,
-    });
-  }, [audioCandidatesKey, hasAudioCandidates, hasVideoCandidates, videoCandidatesKey]);
+  }, [audioCandidatesKey, videoCandidatesKey]);
 
   const handleVideoUnavailable = useCallback(() => {
     onVideoVisibilityChange?.(false);

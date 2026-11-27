@@ -72,10 +72,20 @@ describe('subtitle selection', () => {
   ];
   const prefs = (subsMode: string) => ({ preferAudioLan: 'es', preferSubLan: 'es', subsMode });
 
-  it('always: a track in the language whatever the audio is, "off" when there is none', () => {
+  it('always: a track in the language whatever the audio is', () => {
     expect(findPreferredSubtitleIndex(subtitles, audio('spa'), prefs('alwaysSubs'))).toBe(1);
     expect(findPreferredSubtitleIndex(subtitles, audio('eng'), prefs('alwaysSubs'))).toBe(1);
-    expect(findPreferredSubtitleIndex([sub('eng')], audio('eng'), prefs('alwaysSubs'))).toBe(-1);
+  });
+
+  it('always: without tracks in the language, the first full track, or else the first forced one', () => {
+    const others = [sub('fre', { forced: true }), sub('eng'), sub('ger')];
+    expect(findPreferredSubtitleIndex(others, audio('eng'), prefs('alwaysSubs'))).toBe(1);
+    const onlyForcedOthers = [sub('fre', { forced: true }), sub('eng', { forced: true })];
+    expect(findPreferredSubtitleIndex(onlyForcedOthers, audio('eng'), prefs('alwaysSubs'))).toBe(0);
+    // Also with no preferred language at all
+    expect(
+      findPreferredSubtitleIndex(others, audio('eng'), { ...prefs('alwaysSubs'), preferSubLan: '' }),
+    ).toBe(1);
   });
 
   it('always: uses a forced track only when there is no other in the language', () => {
@@ -91,12 +101,20 @@ describe('subtitle selection', () => {
     expect(findPreferredSubtitleIndex(subtitles, audio('spa'), prefs('autoSubs'))).toBe(2);
   });
 
-  it('foreign audio: forced subtitles when the foreign audio has no full track, otherwise off', () => {
-    const onlyForced = [sub('eng'), sub('spa', { forced: true })];
+  it('foreign audio: without a full track in the language, the first full track of the file', () => {
+    const others = [sub('fre', { forced: true }), sub('eng'), sub('spa', { forced: true })];
+    expect(findPreferredSubtitleIndex(others, audio('eng'), prefs('autoSubs'))).toBe(1);
+    expect(findPreferredSubtitleIndex([sub('eng')], audio('eng'), prefs('autoSubs'))).toBe(0);
+  });
+
+  it('foreign audio: forced subtitles in the language when there are no full tracks at all', () => {
+    const onlyForced = [sub('eng', { forced: true }), sub('spa', { forced: true })];
     expect(findPreferredSubtitleIndex(onlyForced, audio('eng'), prefs('autoSubs'))).toBe(1);
-    expect(findPreferredSubtitleIndex([sub('eng')], audio('eng'), prefs('autoSubs'))).toBe(-1);
-    // The audio is the preferred one and there are no forced tracks: off
+  });
+
+  it('foreign audio: the preferred audio only gets forced tracks in the language, otherwise off', () => {
     expect(findPreferredSubtitleIndex([sub('spa')], audio('spa'), prefs('autoSubs'))).toBe(-1);
+    expect(findPreferredSubtitleIndex([sub('eng')], audio('spa'), prefs('autoSubs'))).toBe(-1);
   });
 
   it('never: always off', () => {

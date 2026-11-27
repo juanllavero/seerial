@@ -227,11 +227,17 @@ const findSubtitleIndex = (
     return candidates[0];
 };
 
+/** The first track of any language that is forced (or not), -1 when there is none. */
+const findFirstSubtitleIndex = (tracks: SubtitleTrack[], forced: boolean): number =>
+    tracks.findIndex((track) => isForcedSubtitleTrack(track) === forced);
+
 /**
  * Chooses the subtitles for an audio track following the subtitle mode:
- * - always: a full track in the preferred language (a forced one when there is no other), none otherwise.
- * - auto: with foreign audio a full track in the preferred language; without it (or when there is
- *   none) a forced track in that language; none otherwise.
+ * - always: a full track in the preferred language, a forced one in it when there is no other;
+ *   without any in that language, the first full track of the file, or else its first forced one.
+ * - auto: with foreign audio a full track in the preferred language, or else the first full track
+ *   of the file; without foreign audio (or when there are no full tracks) a forced track in the
+ *   preferred language; none otherwise.
  * - manual: none.
  *
  * @returns The index of the track or {@link SUBTITLES_OFF}.
@@ -245,27 +251,31 @@ export const findPreferredSubtitleIndex = (
     if (!subtitleTracks || subtitleTracks.length === 0) return SUBTITLES_OFF;
 
     const mode = normalizeSubtitleMode(preferences.subsMode);
+    if (mode === "manualSubs") return SUBTITLES_OFF;
+
     const wanted = normalizeLanguage(preferences.preferSubLan);
-    if (mode === "manualSubs" || wanted === "") return SUBTITLES_OFF;
-
     const variant = getSpanishVariantPreference(appLanguage);
-    const full = () => findSubtitleIndex(subtitleTracks, wanted, false, variant);
-    const forced = () => findSubtitleIndex(subtitleTracks, wanted, true, variant);
-
-    if (mode === "alwaysSubs") {
-        const index = full();
-        return index !== -1 ? index : forced();
-    }
-
-    if (mode === "autoSubs") {
-        if (isForeignAudio(audioTrack, preferences.preferAudioLan)) {
-            const index = full();
+    // Without a preferred language there is nothing "in the preferred language" to find
+    const full = () => (wanted === "" ? -1 : findSubtitleIndex(subtitleTracks, wanted, false, variant));
+    const forced = () => (wanted === "" ? -1 : findSubtitleIndex(subtitleTracks, wanted, true, variant));
+    const firstOf = (...candidates: (() => number)[]) => {
+        for (const candidate of candidates) {
+            const index = candidate();
             if (index !== -1) return index;
         }
-        return forced();
+        return SUBTITLES_OFF;
+    };
+    const anyFull = () => findFirstSubtitleIndex(subtitleTracks, false);
+    const anyForced = () => findFirstSubtitleIndex(subtitleTracks, true);
+
+    if (mode === "alwaysSubs") {
+        return firstOf(full, forced, anyFull, anyForced);
     }
 
-    return SUBTITLES_OFF;
+    if (isForeignAudio(audioTrack, preferences.preferAudioLan)) {
+        return firstOf(full, anyFull, forced);
+    }
+    return firstOf(forced);
 };
 
 export interface DefaultTrackSelection {

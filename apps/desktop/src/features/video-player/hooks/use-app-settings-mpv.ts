@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useSettingsStore } from '@/shared/stores';
 
 /**
@@ -31,4 +31,14 @@ export function useAppSettingsMpv() {
   useEffect(() => {
     invoke('set_audio_exclusive', { enabled: exclusiveAudio }).catch(console.error);
   }, [exclusiveAudio]);
+
+  /** Applies everything again, for an mpv instance created after mount (stop recreates it). */
+  return useCallback(async () => {
+    await Promise.all([
+      invoke('set_hwdec', { enabled: hardwareDecoding }),
+      invoke('set_video_quality', { quality: videoQuality }),
+      invoke('set_audio_normalize', { enabled: normalizeMultichannel }),
+      invoke('set_audio_exclusive', { enabled: exclusiveAudio }),
+    ]).catch(console.error);
+  }, [hardwareDecoding, videoQuality, normalizeMultichannel, exclusiveAudio]);
 }

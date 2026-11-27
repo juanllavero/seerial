@@ -1,85 +1,125 @@
 import { pause, resume } from '@noriginmedia/norigin-spatial-navigation';
-import { useEffect, useState } from 'react';
-import '@/shared/styles/animations.css';
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useSettingsStore } from '@/shared/stores';
+import './logo-intro.css';
 
-type LogoIntroStage = 'initial' | 'logo-appear' | 'logo-move' | 'text-appear' | 'fade-out';
+const PLAYED_KEY = 'seerial_intro_played_v2';
 
-function getAnimationStage(elapsedMs: number): LogoIntroStage {
-  if (elapsedMs >= 4000) return 'fade-out';
-  if (elapsedMs >= 1400) return 'text-appear';
-  if (elapsedMs >= 1200) return 'logo-move';
-  if (elapsedMs >= 100) return 'logo-appear';
-  return 'initial';
-}
+/**
+ * Development aid: with `pnpm dev` the intro plays over and over (and is never marked as played),
+ * so it can be tuned with hot reload. No effect on builds.
+ */
+const LOOP_IN_DEV = false;
+const LOOPING = import.meta.env.DEV && LOOP_IN_DEV;
+/** Black pause between two loops. */
+const LOOP_GAP_MS = 600;
+const WORD = 'eerial';
+
+/** When the full timeline (see logo-intro.css) hands over to the exit. */
+const EXIT_AT_MS = 3000;
+const REDUCED_EXIT_AT_MS = 900;
+/** Length of the exit animation, after which the intro is removed. */
+const EXIT_MS = 950;
+const REDUCED_EXIT_MS = 400;
+
+type Stage = 'playing' | 'exiting';
 
 const LogoIntro = () => {
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const reduceAnimations = useSettingsStore((state) => state.settings.reduceAnimations);
   const [hasPlayed, setHasPlayed] = useState(
-    () => sessionStorage.getItem('seerial_intro_played') === 'true',
+    () => !LOOPING && sessionStorage.getItem(PLAYED_KEY) === 'true',
   );
+  const [stage, setStage] = useState<Stage>('playing');
+  // Remounts the intro (its CSS animations start over) on every loop
+  const [cycle, setCycle] = useState(0);
+  const [shift, setShift] = useState(0);
+  const wordRef = useRef<HTMLDivElement>(null);
 
+  // The S starts centered on screen: it has to move by half the width of the name
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured again on every loop
+  useLayoutEffect(() => {
+    if (hasPlayed || !wordRef.current) return;
+    setShift(wordRef.current.offsetWidth / 2);
+  }, [hasPlayed, cycle]);
+
+  const exit = useCallback(() => setStage('exiting'), []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restarts the timeline on every loop
   useEffect(() => {
     if (hasPlayed) return;
 
-    // Disable spatial navigation while intro is active
+    // No navigation behind the intro
     pause();
+    const timer = window.setTimeout(exit, reduceAnimations ? REDUCED_EXIT_AT_MS : EXIT_AT_MS);
 
-    const start = Date.now();
-    const intervalId = window.setInterval(() => {
-      const newElapsed = Date.now() - start;
-      setElapsedMs(newElapsed);
-
-      if (newElapsed >= 5000) {
-        sessionStorage.setItem('seerial_intro_played', 'true');
-        setHasPlayed(true);
-      }
-    }, 50);
+    // Any key or click skips it
+    window.addEventListener('keydown', exit);
+    window.addEventListener('mousedown', exit);
 
     return () => {
-      window.clearInterval(intervalId);
-      // Re-enable spatial navigation when intro unmounts
+      window.clearTimeout(timer);
+      window.removeEventListener('keydown', exit);
+      window.removeEventListener('mousedown', exit);
       resume();
     };
-  }, [hasPlayed]);
+  }, [hasPlayed, exit, reduceAnimations, cycle]);
+
+  useEffect(() => {
+    if (stage !== 'exiting') return;
+
+    const timer = window.setTimeout(
+      () => {
+        if (LOOPING) {
+          setStage('playing');
+          setCycle((current) => current + 1);
+          return;
+        }
+        sessionStorage.setItem(PLAYED_KEY, 'true');
+        setHasPlayed(true);
+      },
+      (reduceAnimations ? REDUCED_EXIT_MS : EXIT_MS) + (LOOPING ? LOOP_GAP_MS : 0),
+    );
+    return () => window.clearTimeout(timer);
+  }, [stage, reduceAnimations]);
 
   if (hasPlayed) return null;
 
-  const animationStage = getAnimationStage(elapsedMs);
+  const className = [
+    'seerial-intro',
+    stage === 'exiting' && 'seerial-intro--exit',
+    reduceAnimations && 'seerial-intro--reduced',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <div className="fixed z-999 inset-0 bg-[#000000] flex items-center justify-center overflow-hidden">
-      <div
-        className={`relative ${animationStage === 'fade-out' ? 'opacity-0' : 'opacity-100'}`}
-        style={{ transition: 'opacity 1s ease-out' }}
-      >
-        <div className="flex items-center justify-center">
-          <div
-            className={`origin-center transition-scale duration-500 ease-in-out ${
-              animationStage === 'initial' ? 'scale-0' : 'scale-100'
-            }`}
-            style={{
-              transition:
-                animationStage === 'logo-appear'
-                  ? 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  : 'transform 0.6s ease-out',
-            }}
-          >
-            <img src="/Seerial_logo.svg" alt="Logo" className="w-[20dvh]" />
-          </div>
-
-          <div
-            className={`${
-              animationStage === 'text-appear' || animationStage === 'fade-out'
-                ? 'opacity-100 translate-x-0'
-                : 'opacity-0 translate-x-50'
-            }`}
-            style={{
-              transition:
-                'opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-            }}
-          >
-            <span className="text-8xl font-black text-white">eerial</span>
-          </div>
+    <div key={cycle} className={className} aria-hidden="true">
+      <div className="seerial-intro__lockup">
+        <div
+          className="seerial-intro__mark-slot"
+          style={{ '--shift': `${shift}px` } as CSSProperties}
+        >
+          <img className="seerial-intro__mark" src="/img/seerial-mark.png" alt="" />
+          <div className="seerial-intro__shine" />
+        </div>
+        <div ref={wordRef} className="seerial-intro__word">
+          {WORD.split('').map((letter, index) => (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: fixed word, letters repeat
+              key={index}
+              className="seerial-intro__letter"
+              style={{ '--i': index } as CSSProperties}
+            >
+              {letter}
+            </span>
+          ))}
         </div>
       </div>
     </div>

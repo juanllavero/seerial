@@ -5,6 +5,7 @@ import { Tertiary } from '@/shared/components/text';
 import FlexBox from '@/shared/components/ui/flex-box';
 import { useKeyboardShortcut } from '@/shared/hooks/use-keyboard-shortcut';
 import { NavigationFocusKeys } from '@/shared/navigation/constants';
+import { useAcceleratedSeek } from '../../hooks/use-accelerated-seek';
 import { useMpvPlayer } from '../../hooks/use-mpv-player';
 import SeekIndicator from './seek-indicator';
 
@@ -115,24 +116,17 @@ function TimelineSlider({
     }
   };
 
-  const seekRelative = useCallback(
-    async (delta: number) => {
-      // Show visual indicator
-      setSeekDirection(delta < 0 ? 'left' : 'right');
+  const commitSeek = useCallback(
+    async (target: number) => {
       pendingSeekCountRef.current += 1;
       seeking.current = true;
 
       try {
-        const currentPos = await getPlaybackPosition();
-        const currentDur = await getPlaybackDuration();
-
-        const newPos = Math.max(0, Math.min(currentDur, currentPos + delta));
-        const nextSeek = seekQueueRef.current.then(() => setPlaybackPosition(newPos));
+        const nextSeek = seekQueueRef.current.then(() => setPlaybackPosition(target));
         seekQueueRef.current = nextSeek.catch(() => undefined);
         await nextSeek;
-        setPosition(newPos);
-        setDuration(currentDur);
-        onSeekCommitted?.(newPos);
+        setPosition(target);
+        onSeekCommitted?.(target);
       } catch (error) {
         console.error('Seek failed:', error);
       } finally {
@@ -140,15 +134,33 @@ function TimelineSlider({
         seeking.current = pendingSeekCountRef.current > 0;
       }
     },
-    [
-      getPlaybackDuration,
-      getPlaybackPosition,
-      onSeekCommitted,
-      setPlaybackPosition,
-      setPosition,
-      setDuration,
-    ],
+    [onSeekCommitted, setPlaybackPosition, setPosition],
   );
+
+  const getPlaybackState = useCallback(async () => {
+    const [currentPosition, currentDuration] = await Promise.all([
+      getPlaybackPosition(),
+      getPlaybackDuration(),
+    ]);
+    return { position: currentPosition, duration: currentDuration };
+  }, [getPlaybackPosition, getPlaybackDuration]);
+
+  const previewSeek = useCallback(
+    (target: number, currentDuration: number) => {
+      setPosition(target);
+      setDuration(currentDuration);
+    },
+    [setPosition, setDuration],
+  );
+
+  // Seek only when the timeline is focused: a tap jumps 10 s, holding scrubs faster and faster
+  const { isHolding } = useAcceleratedSeek({
+    enabled: shortcutsEnabled,
+    getPlaybackState,
+    onPreview: previewSeek,
+    onCommit: commitSeek,
+    onStart: (direction) => setSeekDirection(direction < 0 ? 'left' : 'right'),
+  });
 
   // Calculate knob position as a percentage
   const getKnobPosition = () => {
@@ -156,19 +168,6 @@ function TimelineSlider({
     const percentage = (position / duration) * 100;
     return percentage;
   };
-
-  // Seek only when the timeline is focused
-  useKeyboardShortcut({
-    key: ['ArrowLeft', 'ArrowRight'],
-    enabled: shortcutsEnabled,
-    onKeyDown: useCallback(
-      (e: KeyboardEvent) => {
-        e.preventDefault();
-        seekRelative(e.key === 'ArrowLeft' ? -10 : 10);
-      },
-      [seekRelative],
-    ),
-  });
 
   useKeyboardShortcut({
     key: [' ', 'Enter', 'Spacebar'],
@@ -183,7 +182,7 @@ function TimelineSlider({
   });
 
   const syncPlaybackPosition = useEffectEvent(() => {
-    if (!seeking.current) {
+    if (!seeking.current && !isHolding()) {
       getPlaybackPosition().then(setPosition).catch(console.error);
     }
   });

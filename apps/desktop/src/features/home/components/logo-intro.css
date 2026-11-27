@@ -1,0 +1,183 @@
+/*
+ * Seerial intro. The whole timeline lives here (delays relative to mount); React only mounts it,
+ * switches it to the exit (end of the timeline or a key press) and removes it.
+ *
+ *   0.15s  the S comes into focus (blur + scale)
+ *   1.00s  a light sweep crosses the S
+ *   1.15s  the S slides left while "eerial" writes itself in, letter by letter
+ *   exit   everything grows, blurs and fades: the app shows through
+ */
+
+.seerial-intro {
+  --intro-cyan: 30 226 238;
+  --intro-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --mark-height: 17dvh;
+  /* How far the S sits below the baseline of "eerial" (share of its height) */
+  --mark-drop: 0.05;
+
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000000;
+  cursor: none;
+}
+
+.seerial-intro__lockup {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6dvh;
+}
+
+.seerial-intro__mark-slot {
+  position: relative;
+  height: var(--mark-height);
+  aspect-ratio: 400 / 656;
+  flex-shrink: 0;
+  margin-bottom: calc(var(--mark-height) * var(--mark-drop) * -1);
+  /* Starts centered on screen (--shift is half the width of the name), then makes room for it */
+  transform: translateX(var(--shift, 0px));
+  animation: intro-mark-slide 0.9s var(--intro-ease) 1.15s forwards;
+}
+
+.seerial-intro__mark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  filter: blur(18px) drop-shadow(0 0 0 rgb(var(--intro-cyan) / 0));
+  transform: scale(0.8) translateY(2dvh);
+  animation: intro-mark-focus 1.2s var(--intro-ease) 0.15s forwards;
+}
+
+/* Specular sweep, cut to the shape of the S */
+.seerial-intro__shine {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: url('/img/seerial-mark.png') center / contain no-repeat;
+  mask: url('/img/seerial-mark.png') center / contain no-repeat;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgb(255 255 255 / 0.85) 50%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+  background-position: 120% 0;
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: intro-shine 0.95s cubic-bezier(0.45, 0, 0.2, 1) 1s forwards;
+}
+
+.seerial-intro__word {
+  position: relative;
+  display: flex;
+  font-family: 'Satoshi-Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 900;
+  font-size: calc(var(--mark-height) * 0.74);
+  line-height: 0.74;
+  letter-spacing: -0.02em;
+  color: #fff;
+  /* Sits on the baseline of the S */
+  padding-bottom: calc(var(--mark-height) * 0.015);
+}
+
+.seerial-intro__letter {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateY(0.18em);
+  animation: intro-letter 0.7s var(--intro-ease) forwards;
+  animation-delay: calc(1.3s + var(--i) * 0.065s);
+}
+
+/* Exit: the camera goes through the logo */
+.seerial-intro--exit {
+  /* The logo is almost gone before the app starts to show through */
+  animation: intro-backdrop-out 0.55s ease-out 0.4s forwards;
+}
+
+.seerial-intro--exit .seerial-intro__lockup {
+  animation: intro-lockup-out 0.6s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+/* "Reduce animations": just the logo, then a short fade */
+.seerial-intro--reduced * {
+  animation: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.seerial-intro--reduced .seerial-intro__shine {
+  opacity: 0 !important;
+}
+
+.seerial-intro--reduced.seerial-intro--exit {
+  animation: intro-backdrop-out 0.4s ease-out forwards;
+}
+
+@keyframes intro-mark-focus {
+  60% {
+    filter: blur(0) drop-shadow(0 0 3.5dvh rgb(var(--intro-cyan) / 0.55));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0) drop-shadow(0 0 1.6dvh rgb(var(--intro-cyan) / 0.28));
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes intro-mark-slide {
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes intro-shine {
+  0% {
+    opacity: 1;
+    background-position: 120% 0;
+  }
+  100% {
+    opacity: 1;
+    background-position: -20% 0;
+  }
+}
+
+@keyframes intro-letter {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes intro-lockup-out {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+  60% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: scale(1.12);
+  }
+  to {
+    opacity: 0;
+    filter: blur(16px);
+    transform: scale(1.18);
+  }
+}
+
+@keyframes intro-backdrop-out {
+  to {
+    opacity: 0;
+  }
+}

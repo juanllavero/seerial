@@ -30,18 +30,18 @@ interface VideoPlayerProps {
   onPlayNext?: () => void;
 }
 
-/** Share of the video after which the next episode is offered. */
-const NEXT_EPISODE_THRESHOLD = 0.9;
+/** The next episode is offered when this many seconds of the video are left. */
+const NEXT_EPISODE_SECONDS_LEFT = 90;
 const PROGRESS_POLL_INTERVAL_MS = 1000;
 
-/** Whether playback is past `threshold` of the duration (polled only while `enabled`). */
-function usePlaybackPastThreshold(enabled: boolean, threshold: number) {
+/** Whether `secondsLeft` or less of the video remain (polled only while `enabled`). */
+function usePlaybackNearEnd(enabled: boolean, secondsLeft: number) {
   const mpv = useMpvPlayer();
-  const [isPast, setIsPast] = useState(false);
+  const [isNearEnd, setIsNearEnd] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
-      setIsPast(false);
+      setIsNearEnd(false);
       return;
     }
 
@@ -49,7 +49,7 @@ function usePlaybackPastThreshold(enabled: boolean, threshold: number) {
       try {
         const { position, duration } = await mpv.getPlaybackStatus();
         if (typeof position === 'number' && typeof duration === 'number' && duration > 0) {
-          setIsPast(position / duration >= threshold);
+          setIsNearEnd(duration - position <= secondsLeft);
         }
       } catch {
         // mpv may be reloading: keep the last known state
@@ -57,9 +57,9 @@ function usePlaybackPastThreshold(enabled: boolean, threshold: number) {
     }, PROGRESS_POLL_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [enabled, threshold, mpv.getPlaybackStatus]);
+  }, [enabled, secondsLeft, mpv.getPlaybackStatus]);
 
-  return isPast;
+  return isNearEnd;
 }
 
 export default function VideoPlayer({
@@ -106,7 +106,7 @@ export default function VideoPlayer({
     void mpv.play();
   }, [mpv.play]);
 
-  const isNearEnd = usePlaybackPastThreshold(!!nextEpisode, NEXT_EPISODE_THRESHOLD);
+  const isNearEnd = usePlaybackNearEnd(!!nextEpisode, NEXT_EPISODE_SECONDS_LEFT);
   const canPlayNext = !!nextEpisode && !!onPlayNext && isNearEnd && !tracksPanelOpen;
 
   // Only called while the controls are hidden, which is when the card is on screen

@@ -1,6 +1,6 @@
 import { useGetEpisode, useGetSeason, useGetSeries } from '@seerial/api';
 import type { Episode, Season, Series, Video } from '@seerial/domain';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 const SPECIALS_SEASON_NUMBER = 0;
 
@@ -47,55 +47,19 @@ export interface NextEpisodeInfo {
 export function useNextEpisode(video: Video | undefined): NextEpisodeInfo | null {
   const episodeId = video?.episodeId ?? '';
 
-  const episodeQuery = useGetEpisode<Episode>(episodeId, { enabled: !!episodeId });
-  const seasonId = episodeQuery.data?.seasonId ?? '';
-  const seasonQuery = useGetSeason<Season>(seasonId, 'none', { enabled: !!seasonId });
-  const seriesId = seasonQuery.data?.seriesId ?? '';
+  const { data: episode } = useGetEpisode<Episode>(episodeId, { enabled: !!episodeId });
+  const seasonId = episode?.seasonId ?? '';
+  const { data: season } = useGetSeason<Season>(seasonId, 'none', { enabled: !!seasonId });
+  const seriesId = season?.seriesId ?? '';
   // Same query as the details page, so it usually comes from the cache
-  const seriesQuery = useGetSeries<Series>(seriesId, {
+  const { data: series } = useGetSeries<Series>(seriesId, {
     enabled: !!seriesId,
     params: { include: 'all' },
   });
-  const series = seriesQuery.data;
 
-  const nextEpisode = useMemo(() => {
+  return useMemo(() => {
     if (!episodeId || !series) return null;
     const next = findNextEpisode(series, episodeId);
     return next ? { seriesId: series.id, episode: next } : null;
   }, [episodeId, series]);
-
-  // TEMP diagnostics: the next episode is not found in the app, remove once fixed
-  useEffect(() => {
-    if (!import.meta.env.DEV || !video) return;
-    console.info('[next-episode]', {
-      videoId: video.id,
-      episodeId: video.episodeId,
-      episode: episodeQuery.status,
-      episodeError: episodeQuery.error,
-      seasonId,
-      season: seasonQuery.status,
-      seasonError: seasonQuery.error,
-      seriesId,
-      series: seriesQuery.status,
-      seriesError: seriesQuery.error,
-      seasons: series?.seasons?.map((s) => `${s.seasonNumber}:${s.episodes?.length ?? 'none'}`),
-      next: nextEpisode
-        ? `S${nextEpisode.episode.seasonNumber}E${nextEpisode.episode.episodeNumber} ${nextEpisode.episode.video?.id}`
-        : null,
-    });
-  }, [
-    video,
-    episodeQuery.status,
-    episodeQuery.error,
-    seasonId,
-    seasonQuery.status,
-    seasonQuery.error,
-    seriesId,
-    seriesQuery.status,
-    seriesQuery.error,
-    series,
-    nextEpisode,
-  ]);
-
-  return nextEpisode;
 }

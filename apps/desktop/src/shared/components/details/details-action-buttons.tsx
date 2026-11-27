@@ -52,7 +52,7 @@ function DetailsActionButtons({
       <NavigationButton
         customKey={NavigationFocusKeys.details.markWatchedButton}
         text={isWatched ? t('markAsUnwatched') : t('markAsWatched')}
-        icon={isWatched ? <UnmarkWatchedIcon /> : <MarkWatchedIcon />}
+        icon={isWatched ? <UnmarkWatchedIcon size="3.5dvh" /> : <MarkWatchedIcon size="3.5dvh" />}
         onClick={handleMarkWatched}
         hideText
         animateText

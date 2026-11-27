@@ -70,7 +70,9 @@ function getInitialSeason(
     ? series.seasons.find((season) => season.seasonNumber === currentSeasonNumber)
     : null;
 
-  const firstSeason = series.seasons.toSorted((a, b) => a.seasonNumber - b.seasonNumber)[0];
+  // Specials (season 0) only when the series has nothing else
+  const sortedSeasons = series.seasons.toSorted((a, b) => a.seasonNumber - b.seasonNumber);
+  const firstSeason = sortedSeasons.find((season) => season.seasonNumber > 0) ?? sortedSeasons[0];
   return seasonByNumber ?? firstSeason ?? null;
 }
 

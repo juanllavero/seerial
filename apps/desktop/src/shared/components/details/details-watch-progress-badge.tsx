@@ -27,7 +27,7 @@ function DetailsWatchProgressBadge({
       padding="0.3rem 0.8rem"
       gap={0.8}
     >
-      <svg aria-hidden="true" className="shrink-0" height="24" viewBox="0 0 24 24" width="24">
+      <svg aria-hidden="true" className="shrink-0" height="20" viewBox="0 0 24 24" width="24">
         <circle
           cx="12"
           cy="12"

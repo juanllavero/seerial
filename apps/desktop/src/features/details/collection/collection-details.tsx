@@ -69,6 +69,28 @@ function splitCollectionAlbums(
   };
 }
 
+/** What the collection holds, e.g. "2 series" or "3 movies · 1 series". */
+function buildContentSummary(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  content: CollectionContentData | undefined,
+): string {
+  const counts: [string, number][] = [
+    ['movieCount', content?.movies?.length ?? 0],
+    ['showCount', content?.series?.length ?? 0],
+    ['albumCount', content?.albums?.length ?? 0],
+  ];
+  return counts
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => t(key, { count }))
+    .join(' · ');
+}
+
+/** The years of the collection, when it has real ones (the server sends "-" or nothing otherwise). */
+function getCollectionYears(year: string | undefined): string | undefined {
+  const text = year?.trim();
+  return text && text !== '-' && text !== 'N/A' ? text : undefined;
+}
+
 function buildSectionsByKey(
   t: (key: string) => string,
   collectionContent: CollectionContentData | undefined,
@@ -444,7 +466,11 @@ function CollectionDetailsContent({
           <Subtitle className="line-clamp-2 max-h-[8vh] leading-none text-center">
             {details?.title ?? collection?.title ?? ''}
           </Subtitle>
-          <Tertiary>{details?.year ?? 'N/A'}</Tertiary>
+          <Tertiary>
+            {[getCollectionYears(details?.year), buildContentSummary(t, collectionContent)]
+              .filter(Boolean)
+              .join(' · ')}
+          </Tertiary>
         </FlexBox>
       </FlexBox>
 
