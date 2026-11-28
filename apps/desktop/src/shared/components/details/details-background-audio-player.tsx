@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAppSettingsMpv } from '@/features/video-player/hooks/use-app-settings-mpv';
 import { useSettingsStore } from '@/shared/stores';
+import { getSignedUrlFileIdentity } from '@/shared/utils/signed-url-identity';
 import {
   enqueueMpvCommand,
   fadeOutAndStopMpv,
@@ -22,34 +23,6 @@ interface PlaybackStatus {
 interface DetailsBackgroundAudioPlayerProps {
   localId: string;
   onUnavailable?: () => void;
-}
-
-function getSongIdentityFromSignedUrl(signedUrl: string): string | null {
-  try {
-    const parsed = new URL(signedUrl, 'http://localhost');
-    const token = parsed.searchParams.get('token');
-    if (!token) {
-      return null;
-    }
-
-    const tokenParts = token.split('.');
-    if (tokenParts.length < 2) {
-      return null;
-    }
-
-    const payloadPart = tokenParts[1]?.replace(/-/g, '+').replace(/_/g, '/');
-    if (!payloadPart) {
-      return null;
-    }
-
-    const paddedPayload = payloadPart.padEnd(Math.ceil(payloadPart.length / 4) * 4, '=');
-    const payloadJson = atob(paddedPayload);
-    const payload = JSON.parse(payloadJson) as { path?: string };
-
-    return payload.path ?? null;
-  } catch {
-    return null;
-  }
 }
 
 function DetailsBackgroundAudioPlayer({
@@ -114,7 +87,7 @@ function DetailsBackgroundAudioPlayer({
           isDesktop: true,
         });
 
-        const nextSongIdentity = signedUrl ? getSongIdentityFromSignedUrl(signedUrl) : null;
+        const nextSongIdentity = signedUrl ? getSignedUrlFileIdentity(signedUrl) : null;
         const canReuseCurrentPlayback =
           !!nextSongIdentity &&
           hasActivePlaybackRef.current &&

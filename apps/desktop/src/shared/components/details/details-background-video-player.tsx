@@ -1,6 +1,7 @@
 import { getSignedVideoStreamUrlPassthrough } from '@seerial/api';
 import { useServerStore } from '@seerial/stores';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getSignedUrlFileIdentity } from '@/shared/utils/signed-url-identity';
 
 const VIDEO_REVEAL_DELAY_MS = 1250;
 
@@ -22,6 +23,8 @@ function DetailsBackgroundVideoPlayer({
   const isDisposedRef = useRef(false);
   const revealTimerRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // File of the video on screen: another season (localId) with the same file keeps playing it
+  const currentFileRef = useRef<string | null>(null);
 
   const clearRevealTimer = useCallback(() => {
     if (revealTimerRef.current !== null) {
@@ -32,7 +35,6 @@ function DetailsBackgroundVideoPlayer({
 
   useEffect(() => {
     isDisposedRef.current = false;
-    setVideoSrc(null);
 
     if (!localId || !serverUrl) {
       return () => {
@@ -51,6 +53,10 @@ function DetailsBackgroundVideoPlayer({
           return;
         }
 
+        const file = getSignedUrlFileIdentity(signedUrl);
+        if (file && file === currentFileRef.current) return;
+
+        currentFileRef.current = file;
         setVideoSrc(`${serverUrl}${signedUrl}`);
       })
       .catch(() => {
