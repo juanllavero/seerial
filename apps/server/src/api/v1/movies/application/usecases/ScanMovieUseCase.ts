@@ -1,6 +1,7 @@
 import { isThemeVideoFile } from '@/api/v1/shared/infrastructure/services/artwork/themeFileNames';
 import { syncContentImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import { type Video, VideoType } from '@seerial/domain';
+import path from 'node:path';
 import type { MovieResponse } from 'moviedb-promise';
 import type { CollectionsRepositoryPort } from '@/api/v1/collections/application/ports/CollectionsRepositoryPort';
 import type { Collection } from '@/api/v1/collections/domain/Collection';
@@ -17,6 +18,7 @@ import type { VideoRepositoryPort } from '@/api/v1/videos/application/ports/Vide
 import logger from '@/utils/logger';
 import { getFileName } from '@/utils/utils';
 import type { Movie } from '../../domain/Movie';
+import { findMovie } from '../services/movieMatching';
 import type { MoviesRepositoryPort } from '../ports/MoviesRepositoryPort';
 
 export class ScanMovieUseCase {
@@ -225,13 +227,18 @@ export class ScanMovieUseCase {
         ? folderCollection
         : undefined;
 
-    // Search Metadata (if not locked or if it's new)
-    const nameAndYear = extractNameAndYear(getFileName(folderPath));
+    // A single movie at the root of the library is a file, so its name has an extension. The
+    // names of folders can have dots that are part of the title
+    const folderName =
+      mainFiles[0] === folderPath ? getFileName(folderPath) : path.basename(folderPath);
+    const [name, year] = extractNameAndYear(folderName);
 
-    const name = nameAndYear[0];
-    const year = nameAndYear[1];
-
-    const movieMetadata = await this.searchMovieMetadata(name, year, library.language);
+    // A movie already identified keeps its identification: searching again would undo the
+    // corrections of the user
+    const movieMetadata =
+      movie.themdbId > 0
+        ? await this.getMovieMetadata(movie.themdbId, library.language)
+        : await this.identifyMovie(folderName, mainFiles, library.language);
 
     if (movieMetadata) {
       await this.metadataProvider
@@ -454,26 +461,37 @@ export class ScanMovieUseCase {
     return movie;
   }
 
-  /**
-   * Search TMDB for movie metadata
-   * @param name Movie title
-   * @param year Release date
-   * @param lang Language
-   * @returns Movie metadata or null
-   */
-  private async searchMovieMetadata(
-    name: string,
-    year: string,
+  private async getMovieMetadata(id: number, lang: string): Promise<MovieResponse | null> {
+    try {
+      return await this.metadataProvider.getMovie(id, lang);
+    } catch (_e) {
+      logger.warn({ id }, 'TMDB request failed');
+      return null;
+    }
+  }
+
+  /** Searches TMDB for the movie of these files, by title, year and duration */
+  private async identifyMovie(
+    folderName: string,
+    mainFiles: string[],
     lang: string,
   ): Promise<MovieResponse | null> {
+    const [name, folderYear] = extractNameAndYear(folderName);
+    // With several files none of their names or durations is the one of the movie
+    const file = mainFiles.length === 1 ? mainFiles[0] : undefined;
+    const [fileName, fileYear] = file ? extractNameAndYear(getFileName(file)) : ['', '1'];
+    // extractNameAndYear answers '1' when there is no year
+    const year = [folderYear, fileYear].find((value) => value !== '1');
+
     try {
-      const results = await this.metadataProvider.searchMovies(name, year);
-      if (!results || results.length === 0) return null;
-      const firstResultId = results[0]?.id;
-      if (!firstResultId) return null;
-      return await this.metadataProvider.getMovie(firstResultId, lang);
-    } catch (_e) {
-      logger.warn({ name, year }, 'TMDB Search failed');
+      const runtime = file ? await getOnlyRuntime(file) : 0;
+      return await findMovie(
+        this.metadataProvider,
+        { names: [...new Set([name, fileName].filter(Boolean))], year, runtime },
+        lang,
+      );
+    } catch (error) {
+      logger.warn({ error, name, year }, 'TMDB Search failed');
       return null;
     }
   }

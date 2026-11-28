@@ -22,13 +22,13 @@ import type { Series } from '@/api/v1/series/domain/Series';
 
 export interface MetadataProviderPort {
   // Search
-  searchMovies(name: string, year: string): Promise<MovieResult[]>;
-  searchTVShows(name: string, year: string): Promise<TvResult[]>;
+  searchMovies(name: string, year: string, language?: string, page?: number): Promise<MovieResult[]>;
+  searchTVShows(name: string, year: string, language?: string, page?: number): Promise<TvResult[]>;
   searchEpisodeGroups(id: string): Promise<TvEpisodeGroupsResponse | null>;
 
   // Get Data
-  getMovie(id: number, language: string): Promise<MovieResponse | null>;
-  getTVShow(id: number, language: string): Promise<ShowResponse | null>;
+  getMovie(id: number, language: string, append?: string[]): Promise<MovieResponse | null>;
+  getTVShow(id: number, language: string, append?: string[]): Promise<ShowResponse | null>;
   getSeason(
     showID: number,
     seasonNumber: number,

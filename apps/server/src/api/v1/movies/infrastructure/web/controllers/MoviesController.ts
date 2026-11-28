@@ -137,8 +137,9 @@ export class MoviesController extends Controller {
   public async searchMovies(
     @Query() name: string,
     @Query() year?: string,
+    @Query() language?: string,
   ): Promise<ApiResponse<MovieResult[]>> {
-    const result = await externalSearchService.searchMovies(name, year);
+    const result = await externalSearchService.searchMovies(name, year, language);
     return ApiResponse.success(result, messages.success.fetch);
   }
 

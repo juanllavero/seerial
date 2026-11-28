@@ -6,8 +6,8 @@ import { ModalWrapper } from '../../../../../shared/ui/modal-wrapper';
 import { useDialogStore } from '../../../stores/dialog-store';
 import GenericFormTab from '../components/generic-form-tab';
 import ImageListTab from '../components/image-list-tab';
+import VideoMediaInfo from '../components/video-media-info';
 import { episodeInfoConfig } from '../forms-config';
-import EpisodeMediaInfoTab from './components/episode-media-info-tab';
 
 interface EpisodeImageState {
   images: string[];
@@ -86,7 +86,7 @@ function EpisodeDialog() {
         },
         {
           title: t('details'),
-          content: <EpisodeMediaInfoTab video={episode.video} />,
+          content: <VideoMediaInfo videoId={episode.video.id} />,
         },
       ]}
       isOpen={true}

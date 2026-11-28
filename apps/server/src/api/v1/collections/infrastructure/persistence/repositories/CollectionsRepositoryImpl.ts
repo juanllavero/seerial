@@ -1,5 +1,6 @@
 ﻿import type { Album, Movie, Series, Song } from '@seerial/domain';
 import { IsNull, Not } from 'typeorm';
+import { sortCollectionItems } from '@/api/v1/collections/domain/sortCollectionItems';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import { LibraryCollectionModel } from '@/api/v1/libraries/infrastructure/persistence/models/LibraryCollectionModel';
@@ -73,14 +74,17 @@ export class CollectionsRepositoryImpl extends BaseRepository implements Collect
     const collection = await CollectionModel.findOne({ where: { id: validatedId } });
     if (!collection) return null;
 
-    const [movies, series, albums] = await Promise.all([
-      MovieModel.find({ where: { collectionId: validatedId }, order: { collectionOrder: 'ASC' } }),
-      SeriesModel.find({
-        where: { collectionId: validatedId },
-        order: { collectionOrder: 'ASC' },
-      }),
-      AlbumModel.find({ where: { collectionId: validatedId }, order: { collectionOrder: 'ASC' } }),
-    ]);
+    const [movies, series, albums] = (
+      await Promise.all([
+        MovieModel.find({ where: { collectionId: validatedId } }),
+        SeriesModel.find({ where: { collectionId: validatedId } }),
+        AlbumModel.find({ where: { collectionId: validatedId } }),
+      ])
+    ).map((items) => sortCollectionItems<MovieModel | SeriesModel | AlbumModel>(items)) as [
+      MovieModel[],
+      SeriesModel[],
+      AlbumModel[],
+    ];
 
     const songs = await this.findPrioritizedCollectionSongs(validatedId, albums);
 
@@ -422,19 +426,19 @@ export class CollectionsRepositoryImpl extends BaseRepository implements Collect
           await queryRunner.manager.update(
             MovieModel,
             { id: item.id, collectionId: validatedId },
-            { collectionOrder: index },
+            { collectionOrder: index + 1 },
           );
         } else if (type === 'series' || type === 'show' || type === 'shows') {
           await queryRunner.manager.update(
             SeriesModel,
             { id: item.id, collectionId: validatedId },
-            { collectionOrder: index },
+            { collectionOrder: index + 1 },
           );
         } else if (type === 'album' || type === 'albums') {
           await queryRunner.manager.update(
             AlbumModel,
             { id: item.id, collectionId: validatedId },
-            { collectionOrder: index },
+            { collectionOrder: index + 1 },
           );
         }
       }

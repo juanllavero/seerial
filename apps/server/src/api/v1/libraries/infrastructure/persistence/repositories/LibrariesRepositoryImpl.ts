@@ -3,6 +3,7 @@ import type { DetailsData } from '@seerial/domain';
 import { type ItemType, type LibraryItem, LibraryTypes, localizeSeasonName } from '@seerial/domain';
 import { In, Not } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { sortCollectionItems } from '@/api/v1/collections/domain/sortCollectionItems';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
 import { BaseRepository } from '@/api/v1/base-repository/BaseRepository';
 import type { CollectionContentDTO } from '@/api/v1/collections/application/dtos/CollectionDTOs';
@@ -248,12 +249,11 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
   }
 
   async getCollectionContent(collectionId: string, userId: string): Promise<CollectionContentDTO> {
-    const [movies, series, albums] = await Promise.all([
+    const [foundMovies, foundSeries, foundAlbums] = await Promise.all([
       MovieModel.find({
         where: { collectionId },
         relations: ['watchLists', 'videos'],
         relationLoadStrategy: 'query',
-        order: { collectionOrder: 'ASC' },
       }),
       SeriesModel.find({
         where: { collectionId },
@@ -264,23 +264,18 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
           'seasons.episodes.watchLists',
         ],
         relationLoadStrategy: 'query',
-        order: { collectionOrder: 'ASC' },
       }),
       AlbumModel.find({
         where: { collectionId },
         // Only the number of songs is needed to list the albums: load their ids, not the songs
         loadRelationIds: { relations: ['songs'] },
-        order: { collectionOrder: 'ASC' },
       }),
     ]);
 
-    const hasMovieCustomOrder = movies.some((m) => m.collectionOrder !== 0);
-    const hasSeriesCustomOrder = series.some((s) => s.collectionOrder !== 0);
-    const hasAlbumCustomOrder = albums.some((a) => a.collectionOrder !== 0);
-
-    const movieOrderMap = new Map(movies.map((m) => [m.id, m.collectionOrder]));
-    const seriesOrderMap = new Map(series.map((s) => [s.id, s.collectionOrder]));
-    const albumOrderMap = new Map(albums.map((a) => [a.id, a.collectionOrder]));
+    // The builders of the items keep the order they receive
+    const movies = sortCollectionItems(foundMovies);
+    const series = sortCollectionItems(foundSeries);
+    const albums = sortCollectionItems(foundAlbums);
 
     const emptySet = new Set<string>();
 
@@ -303,30 +298,7 @@ export class LibrariesRepositoryImpl extends BaseRepository implements Libraries
       ),
     ]);
 
-    const sortByYear = (a: LibraryItem, b: LibraryItem, desc = false): number => {
-      const yearA = a.years === '-' ? null : (a.years ?? null);
-      const yearB = b.years === '-' ? null : (b.years ?? null);
-      if (yearA === null && yearB === null) return 0;
-      if (yearA === null) return 1;
-      if (yearB === null) return -1;
-      return desc ? yearB.localeCompare(yearA) : yearA.localeCompare(yearB);
-    };
-
-    const sortedMovies = hasMovieCustomOrder
-      ? movieItems.sort((a, b) => (movieOrderMap.get(a.id) ?? 0) - (movieOrderMap.get(b.id) ?? 0))
-      : movieItems.sort((a, b) => sortByYear(a, b));
-
-    const sortedSeries = hasSeriesCustomOrder
-      ? seriesItems.sort(
-        (a, b) => (seriesOrderMap.get(a.id) ?? 0) - (seriesOrderMap.get(b.id) ?? 0),
-      )
-      : seriesItems.sort((a, b) => sortByYear(a, b));
-
-    const sortedAlbums = hasAlbumCustomOrder
-      ? albumItems.sort((a, b) => (albumOrderMap.get(a.id) ?? 0) - (albumOrderMap.get(b.id) ?? 0))
-      : albumItems.sort((a, b) => sortByYear(a, b, true));
-
-    return { movies: sortedMovies, series: sortedSeries, albums: sortedAlbums };
+    return { movies: movieItems, series: seriesItems, albums: albumItems };
   }
 
   private getCollectionRelations(type: Library['type']): string[] {

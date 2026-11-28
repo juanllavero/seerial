@@ -6,7 +6,7 @@ import { Ellipsis, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
 import { useDialogStore } from '@/features/management';
 import { CollectionImage } from '@/features/media-details';
@@ -22,6 +22,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 
 function CollectionDetailsPage() {
   const { collectionId, type } = useParams();
+  const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const { openDialog } = useDialogStore((state) => ({ openDialog: state.openDialog }), shallow);
   const { setCurrentBackground, currentBackground } = useDataStore(
@@ -123,8 +124,8 @@ function CollectionDetailsPage() {
     }
 
     try {
+      // The server rejects any other field
       await create(API.collections.reorderContent(collectionId ?? ''), {
-        collectionId: collectionId,
         orderedItems: orderedItemsForApi,
       });
     } catch (_error) {
@@ -197,7 +198,7 @@ function CollectionDetailsPage() {
                 title={item.title}
                 subtitle={item.year ? new Date(item.year).getFullYear().toString() : ''}
                 action={() => {
-                  window.location.href = `/album/${item.id}`;
+                  navigate(`/library/${item.libraryId}/album/${item.id}`);
                 }}
                 hideButtons={false}
                 menu={undefined}
@@ -236,12 +237,12 @@ function CollectionDetailsPage() {
               <Card
                 itemKey={item.id}
                 imgSrc={item.coverSrc}
-                aspectRatio={1}
+                aspectRatio={2 / 3}
                 width={isMobile ? 100 : 150}
                 title={item.name}
                 subtitle={item.year ? new Date(item.year).getFullYear().toString() : ''}
                 action={() => {
-                  window.location.href = `/movie/${item.id}`;
+                  navigate(`/library/${item.libraryId}/movie/${item.id}`);
                 }}
                 hideButtons={false}
                 menu={undefined}
@@ -273,12 +274,12 @@ function CollectionDetailsPage() {
               <Card
                 itemKey={item.id}
                 imgSrc={item.coverSrc}
-                aspectRatio={1}
+                aspectRatio={2 / 3}
                 width={isMobile ? 100 : 150}
                 title={item.name}
                 subtitle={item.year ? new Date(item.year).getFullYear().toString() : ''}
                 action={() => {
-                  window.location.href = `/series/${item.id}`;
+                  navigate(`/library/${item.libraryId}/series/${item.id}`);
                 }}
                 hideButtons={false}
                 menu={undefined}
@@ -384,7 +385,8 @@ function CollectionDetailsPage() {
         <Skeleton className="h-30 w-90" />
       ) : (
         orderMap[type as ContentType].map((key) => {
-          const items = collection[key];
+          // The local copy shows the new order as soon as an item is dropped
+          const items = (localCollection ?? collection)[key];
 
           if (!items || items.length === 0) {
             return null;

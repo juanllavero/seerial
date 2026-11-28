@@ -20,6 +20,8 @@ function DetailsBackgroundVideoPlayer({
 }: DetailsBackgroundVideoPlayerProps) {
   const serverUrl = useServerStore((state) => state.selectedServer?.url ?? '');
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  // Set when the file has black side bars: the picture is shown without them
+  const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
   const isDisposedRef = useRef(false);
   const revealTimerRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -57,6 +59,8 @@ function DetailsBackgroundVideoPlayer({
         if (file && file === currentFileRef.current) return;
 
         currentFileRef.current = file;
+        const aspect = new URL(signedUrl, 'http://localhost').searchParams.get('aspect');
+        setAspectRatio(Number(aspect) || undefined);
         setVideoSrc(`${serverUrl}${signedUrl}`);
       })
       .catch(() => {
@@ -101,6 +105,7 @@ function DetailsBackgroundVideoPlayer({
       style={{
         WebkitMaskImage: mask,
         maskImage: mask,
+        aspectRatio,
       }}
     >
       {/** biome-ignore lint/a11y/useMediaCaption: background decorative video, no captions needed */}

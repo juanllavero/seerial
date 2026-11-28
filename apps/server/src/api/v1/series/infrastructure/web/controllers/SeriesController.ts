@@ -193,8 +193,9 @@ export class SeriesController extends Controller {
   public async searchSeries(
     @Query() name: string,
     @Query() year?: string,
+    @Query() language?: string,
   ): Promise<ApiResponse<TvResult[]>> {
-    const result = await externalSearchService.searchTvShows(name, year);
+    const result = await externalSearchService.searchTvShows(name, year, language);
     return ApiResponse.success(result, messages.success.fetch);
   }
 

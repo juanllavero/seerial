@@ -26,6 +26,7 @@ function DialogManager() {
     'downloadMedia',
     'identification',
     'episodesGroup',
+    'mediaInfo',
   ];
 
   return (

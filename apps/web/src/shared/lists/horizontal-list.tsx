@@ -9,9 +9,11 @@ interface HorizontalListProps {
   title?: string;
   className?: string;
   children: React.ReactNode;
+  /** For lists whose items are dragged with the mouse */
+  disableMouseDrag?: boolean;
 }
 
-function HorizontalList({ title, className, children }: HorizontalListProps) {
+function HorizontalList({ title, className, children, disableMouseDrag }: HorizontalListProps) {
   const childrenCount = React.Children.count(children);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
 
@@ -109,6 +111,9 @@ function HorizontalList({ title, className, children }: HorizontalListProps) {
           align: 'start',
           dragFree: true,
           containScroll: 'trimSnaps',
+          ...(disableMouseDrag && {
+            watchDrag: (_: unknown, event: Event) => event.type !== 'mousedown',
+          }),
         }}
         setApi={setCarouselApi}
       >

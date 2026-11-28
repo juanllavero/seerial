@@ -34,13 +34,21 @@ export class MetadataProviderImpl implements MetadataProviderPort {
   private readonly BASE_URL: string = 'https://image.tmdb.org/t/p/original';
 
   //#region SEARCH
-  public async searchMovies(name: string, year: string): Promise<MovieResult[]> {
+  public async searchMovies(
+    name: string,
+    year: string,
+    language = '',
+    page = 1,
+  ): Promise<MovieResult[]> {
     try {
       // Prepare query parameters
       const queryParams = {
         query: name.trim(),
         year: year.trim(),
         include_adult: false,
+        // Titles in the language of the library, as its folders are expected to be
+        language: language.trim(),
+        page: String(page),
       };
 
       // Make API request
@@ -67,13 +75,20 @@ export class MetadataProviderImpl implements MetadataProviderPort {
     }
   }
 
-  public async searchTVShows(name: string, year: string): Promise<TvResult[]> {
+  public async searchTVShows(
+    name: string,
+    year: string,
+    language = '',
+    page = 1,
+  ): Promise<TvResult[]> {
     try {
       // Prepare query parameters
       const queryParams = {
         query: name.trim(),
         first_air_date_year: year.trim(),
         include_adult: false,
+        language: language.trim(),
+        page: String(page),
       };
 
       // Make API request
@@ -123,11 +138,15 @@ export class MetadataProviderImpl implements MetadataProviderPort {
   //#endregion
 
   //#region GET DATA
-  public async getMovie(id: number, language: string): Promise<MovieResponse | null> {
+  public async getMovie(
+    id: number,
+    language: string,
+    append: string[] = [],
+  ): Promise<MovieResponse | null> {
     if (id < 1) return null;
 
     try {
-      const queryParams = { language: language.trim() };
+      const queryParams = { language: language.trim(), append_to_response: append.join(',') };
       const data = await this.apiClient.makeRequest(`movie/${id}`, queryParams);
 
       if (!data) {
@@ -146,11 +165,15 @@ export class MetadataProviderImpl implements MetadataProviderPort {
     }
   }
 
-  public async getTVShow(id: number, language: string): Promise<ShowResponse | null> {
+  public async getTVShow(
+    id: number,
+    language: string,
+    append: string[] = [],
+  ): Promise<ShowResponse | null> {
     if (id < 1) return null;
 
     try {
-      const queryParams = { language: language.trim() };
+      const queryParams = { language: language.trim(), append_to_response: append.join(',') };
       const data = await this.apiClient.makeRequest(`tv/${id}`, queryParams);
 
       if (!data) {

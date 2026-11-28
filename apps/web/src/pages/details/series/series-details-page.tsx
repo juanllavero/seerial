@@ -3,7 +3,7 @@ import type { Season, Series } from '@seerial/domain';
 import { useIsAdmin } from '@seerial/hooks';
 import { useDataStore, useServerStore } from '@seerial/stores';
 import { t } from 'i18next';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, ScanSearch, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
@@ -233,6 +233,15 @@ function SeriesDetailsPage() {
                 }}
               >
                 <Pencil />
+              </Button>
+            )}
+            {isAdmin && seriesId && (
+              <Button
+                variant={'ghost'}
+                title={t('correctIdentification')}
+                onClick={() => openDialog('identification', { seriesId })}
+              >
+                <ScanSearch />
               </Button>
             )}
             {isAdmin && seriesId && (

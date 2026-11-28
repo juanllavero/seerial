@@ -33,12 +33,14 @@ interface SortableItemProps {
   id: string;
   children: React.ReactNode;
   index: number;
+  /** Touch is left to the container, which scrolls with it */
+  ignoreTouch?: boolean;
 }
 
 /** Pixels the pointer must travel before a press becomes a drag (below that it is a plain click). */
 const DRAG_THRESHOLD_PX = 6;
 
-export function SortableItem({ id, children, index }: SortableItemProps) {
+export function SortableItem({ id, children, index, ignoreTouch }: SortableItemProps) {
   const { sourceIndex, targetIndex, beginDrag } = useSortableListContext();
   const dragStartedRef = useRef(false);
   const isDragging = sourceIndex === index;
@@ -60,7 +62,7 @@ export function SortableItem({ id, children, index }: SortableItemProps) {
       data-sortable-item-id={id}
       data-sortable-item-index={index}
       onPointerDown={(event) => {
-        if (event.button !== 0) return;
+        if (event.button !== 0 || (ignoreTouch && event.pointerType === 'touch')) return;
         dragStartedRef.current = false;
 
         const rect = event.currentTarget.getBoundingClientRect();

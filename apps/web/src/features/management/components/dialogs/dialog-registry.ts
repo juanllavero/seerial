@@ -16,6 +16,7 @@ export const dialogRegistry = {
   downloadMedia: lazy(() => import('./download-media/download-media-dialog')),
   identification: lazy(() => import('./identification/change-identification-dialog')),
   episodesGroup: lazy(() => import('./episodes-group/change-episodes-group-dialog')),
+  mediaInfo: lazy(() => import('./media-info/media-info-dialog')),
   deleteSeries: DeleteDialog,
   deleteMovie: DeleteDialog,
   deleteSeason: DeleteDialog,

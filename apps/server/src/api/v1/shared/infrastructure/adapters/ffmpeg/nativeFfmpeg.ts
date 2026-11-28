@@ -484,10 +484,15 @@ export function readFfmpegStreamSummary(
   filePath: string,
   timeoutMs: number = 10000,
 ): Promise<string> {
+  return readFfmpegLog(['-hide_banner', '-nostdin', '-i', filePath], timeoutMs);
+}
+
+/** Runs ffmpeg and returns what it prints on stderr, whatever its exit code */
+export function readFfmpegLog(args: string[], timeoutMs: number = 10000): Promise<string> {
   return new Promise((resolve, reject) => {
     let stderr = '';
 
-    const ffmpegProcess = spawn(getFfmpegExecutableForSpawn(), ['-hide_banner', '-nostdin', '-i', filePath], {
+    const ffmpegProcess = spawn(getFfmpegExecutableForSpawn(), args, {
       stdio: ['ignore', 'ignore', 'pipe'],
     });
 

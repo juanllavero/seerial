@@ -71,12 +71,12 @@ function Card({
       }}
     >
       <div className={`card ${loading ? 'loading' : ''}`}>
-        {progress && !watched && (
+        {!!progress && !watched && (
           <FlexBox className="progress" justify="end" align="end" width="100%" height={'100%'}>
             <Progress value={progress} className="rounded-xs" />
           </FlexBox>
         )}
-        {(cornerNumber || watched) && (
+        {(!!cornerNumber || watched) && (
           <div className="rightCorner">
             <span>{watched ? <Check size={20} /> : cornerNumber}</span>
           </div>

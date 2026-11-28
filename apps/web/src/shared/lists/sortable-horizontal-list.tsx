@@ -1,5 +1,6 @@
 import HorizontalList from './horizontal-list';
-import { SortableGrid } from './sortable-grid';
+import { SortableProvider } from './sortable-grid';
+import { SortableItem } from './sortable-item';
 
 interface SortableEntity {
   id: string;
@@ -14,7 +15,8 @@ interface SortableHorizontalListProps<T extends SortableEntity> {
 
 /**
  * Horizontal list whose items can be reordered by dragging. It shares the drag engine of
- * SortableGrid (items need its SortableListContext, which SortableGrid provides).
+ * SortableGrid. Each item is its own slide, so with the mouse dragging reorders and the list is
+ * moved with its buttons; with touch, swiping moves the list.
  */
 export function SortableHorizontalList<T extends SortableEntity>({
   title,
@@ -23,8 +25,14 @@ export function SortableHorizontalList<T extends SortableEntity>({
   renderItem,
 }: SortableHorizontalListProps<T>) {
   return (
-    <HorizontalList title={title}>
-      <SortableGrid items={items} onDragEnd={onDragEnd} renderItem={renderItem} />
-    </HorizontalList>
+    <SortableProvider items={items} onDragEnd={onDragEnd} renderItem={renderItem}>
+      <HorizontalList title={title} disableMouseDrag>
+        {items.map((item, index) => (
+          <SortableItem key={item.id} id={item.id} index={index} ignoreTouch>
+            {renderItem(item)}
+          </SortableItem>
+        ))}
+      </HorizontalList>
+    </SortableProvider>
   );
 }

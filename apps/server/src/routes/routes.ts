@@ -4936,6 +4936,7 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
         const argsMoviesController_searchMovies: Record<string, TsoaRoute.ParameterSchema> = {
                 name: {"in":"query","name":"name","required":true,"dataType":"string"},
                 year: {"in":"query","name":"year","dataType":"string"},
+                language: {"in":"query","name":"language","dataType":"string"},
         };
         app.get('/api/movies/search',
             authenticateMiddleware([{"adminAuth":[]}]),
@@ -5636,6 +5637,7 @@ export function RegisterRoutes(app: Router,opts?:{multer?:ReturnType<typeof mult
         const argsSeriesController_searchSeries: Record<string, TsoaRoute.ParameterSchema> = {
                 name: {"in":"query","name":"name","required":true,"dataType":"string"},
                 year: {"in":"query","name":"year","dataType":"string"},
+                language: {"in":"query","name":"language","dataType":"string"},
         };
         app.get('/api/series/search',
             authenticateMiddleware([{"adminAuth":[]}]),

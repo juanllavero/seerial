@@ -1,5 +1,6 @@
 import { useGradientStore } from '@seerial/stores';
 import { useEffect } from 'react';
+import BackgroundImage from './background-image';
 
 interface DetailsBackgroundLayersProps {
   imageSrc?: string;
@@ -17,7 +18,7 @@ function DetailsBackgroundLayers({ imageSrc, isHidden = false }: DetailsBackgrou
 
   return (
     <div className={`absolute z-[-1] inset-0 transition-opacity duration-700 ${opacityClass}`}>
-      {/* <BackgroundImage imageSrc={imageSrc} /> */}
+      <BackgroundImage imageSrc={imageSrc} />
     </div>
   );
 }

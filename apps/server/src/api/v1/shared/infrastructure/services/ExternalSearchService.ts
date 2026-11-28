@@ -7,16 +7,29 @@ import logger from '@/utils/logger';
 
 const externalSearchLogger = logger.child({ category: 'External Search' });
 
+/** Pages of TMDB (20 results each) of a search made by hand: a common title needs more than one */
+const SEARCH_PAGES = [1, 2, 3];
+
+const searchPages = async <T extends { id?: number }>(
+  search: (page: number) => Promise<T[]>,
+): Promise<T[]> => {
+  const results = (await Promise.all(SEARCH_PAGES.map(search))).flat();
+  return [...new Map(results.map((result) => [result.id, result])).values()];
+};
+
 export class ExternalSearchService {
   /**
    * Searches for movies on TheMovieDB.
    * @param name - The name of the movie to search for.
    * @param year - The optional release year of the movie.
+   * @param language - Language of the titles, also the one TMDB searches in.
    * @returns A promise that resolves to the search results.
    */
-  public async searchMovies(name: string, year?: string) {
+  public async searchMovies(name: string, year?: string, language?: string) {
     try {
-      return await metadataProvider.searchMovies(name, year ?? '');
+      return await searchPages((page) =>
+        metadataProvider.searchMovies(name, year ?? '', language ?? '', page),
+      );
     } catch (error) {
       externalSearchLogger.error(error, 'Error searching movies on TheMovieDB');
       throw new Error('External movie search service is unavailable.');
@@ -27,11 +40,14 @@ export class ExternalSearchService {
    * Searches for TV shows on TheMovieDB.
    * @param name - The name of the TV show to search for.
    * @param year - The optional first air year of the show.
+   * @param language - Language of the titles, also the one TMDB searches in.
    * @returns A promise that resolves to the search results.
    */
-  public async searchTvShows(name: string, year?: string) {
+  public async searchTvShows(name: string, year?: string, language?: string) {
     try {
-      return await metadataProvider.searchTVShows(name, year ?? '');
+      return await searchPages((page) =>
+        metadataProvider.searchTVShows(name, year ?? '', language ?? '', page),
+      );
     } catch (error) {
       externalSearchLogger.error(error, 'Error searching TV shows on TheMovieDB');
       throw new Error('External TV show search service is unavailable.');

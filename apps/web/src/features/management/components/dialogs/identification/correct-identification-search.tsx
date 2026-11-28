@@ -2,6 +2,7 @@ import {
   API,
   useChangeMovieIdentification,
   useGet,
+  useGetLibrary,
   useGetMovie,
   useGetSeries,
   useUpdateSeriesShowId,
@@ -19,6 +20,7 @@ import LazyImage from '@/shared/ui/lazy-image';
 import Loading from '@/shared/ui/loading';
 import { useDialogStore } from '../../../stores/dialog-store';
 import './correct-identification-search.css';
+import { searchFromFolder } from './search-from-folder';
 
 interface IdentificationResult {
   id: number;
@@ -69,7 +71,7 @@ function renderIdentificationResults(
 
       <FlexBox width={'25%'}>
         <LazyImage
-          src={`https://image.tmdb.org/t/p/original/${result.poster_path}`}
+          src={`https://image.tmdb.org/t/p/w342${result.poster_path}`}
           alt={result.name ?? result.title ?? 'Poster'}
           width={'100%'}
           height={'auto'}
@@ -114,9 +116,20 @@ function CorrectIdentificationSearch() {
     enabled: Boolean(movieId),
   });
 
-  const searchUrl = searchQuery
-    ? `${isShow ? API.series.search : API.movies.search}?name=${encodeURIComponent(searchQuery.name)}&year=${encodeURIComponent(searchQuery.year)}`
-    : null;
+  // TMDB finds titles in the language they are asked in: "Seven" is "Se7en" in English
+  const libraryId = (isShow ? series?.libraryId : movie?.libraryId) ?? '';
+  const { data: library, isLoading: isLoadingLibrary } = useGetLibrary(libraryId, {
+    enabled: Boolean(libraryId),
+  });
+
+  const searchUrl =
+    searchQuery && !isLoadingLibrary
+      ? `${isShow ? API.series.search : API.movies.search}?${new URLSearchParams({
+          name: searchQuery.name,
+          year: searchQuery.year,
+          language: library?.language ?? '',
+        })}`
+      : null;
 
   const { data: identificationResults, isLoading: isSearching } =
     useGet<IdentificationResult[]>(searchUrl);
@@ -124,14 +137,16 @@ function CorrectIdentificationSearch() {
   const { mutateAsync: updateSeriesShowId } = useUpdateSeriesShowId();
   const { mutateAsync: changeMovieIdentification } = useChangeMovieIdentification(movieId ?? '');
 
-  useEffect(() => {
-    const defaultName = isShow ? (series?.name ?? '') : (movie?.name ?? '');
-    const rawYear = isShow ? (series?.year ?? '') : (movie?.year ?? '');
-    const defaultYear = rawYear.split('-')[0];
+  const folder = (isShow ? series?.folder : movie?.folder) ?? '';
 
-    setName(defaultName);
-    setYear(defaultYear);
-    setSearchQuery({ name: defaultName, year: defaultYear });
+  // The folder, not the current identification: that one is what the user wants to change
+  useEffect(() => {
+    if (!folder) return;
+
+    const query = searchFromFolder(folder);
+    setName(query.name);
+    setYear(query.year);
+    setSearchQuery(query);
 
     // Focus the search button when the dialog is opened
     const timeout = setTimeout(() => {
@@ -139,7 +154,7 @@ function CorrectIdentificationSearch() {
     }, 0);
 
     return () => clearTimeout(timeout);
-  }, [isShow, movie?.name, movie?.year, series?.name, series?.year]);
+  }, [folder]);
 
   const search = (name: string, year: string) => {
     setSearchQuery({ name, year });
@@ -163,7 +178,7 @@ function CorrectIdentificationSearch() {
   };
 
   return (
-    <FlexBox direction="column" gap={1} height={'35rem'} width={'35rem'}>
+    <FlexBox direction="column" gap={1} height={'100%'} width={'100%'} padding="0 1rem 1rem">
       <FlexBox gap={1} justify="center" align="center">
         <LabeledInputWrapper label={t('name')}>
           <Input
@@ -192,7 +207,7 @@ function CorrectIdentificationSearch() {
         </FlexBox>
       </FlexBox>
 
-      <FlexBox direction="column" scroll="vertical" hideScrollbar height={'100%'} width={'100%'}>
+      <FlexBox className="min-h-0 flex-1" direction="column" scroll="vertical" width={'100%'}>
         {/* Results List */}
         {renderIdentificationResults(
           isSearching,

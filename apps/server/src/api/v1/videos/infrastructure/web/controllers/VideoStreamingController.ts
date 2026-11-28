@@ -19,6 +19,7 @@ import { verifyVideoStreamToken } from '@/middleware/video.middleware';
 import { getJwtSecret } from '@/utils/jwt-secret';
 import type { StreamUrlDTO, VideoUrlDTO } from '../../../application/dtos/VideoStreamingDTOs';
 import type { TranscodeVideoParams } from '../../../application/ports/VideoProcessingServicePort';
+import { prepareBackgroundVideo } from '../../services/backgroundVideo';
 
 type AuthenticatedRequest = ExpressRequest & { user?: { id?: string } };
 type VideoParamsRequest = ExpressRequest & {
@@ -189,11 +190,15 @@ export class VideoStreamingController extends Controller {
     const userId = (req as AuthenticatedRequest).user?.id as string;
     const { filePath, localId, collectionId, expiresIn } = body;
 
-    const path = await this.resolveVideoPath(filePath, localId, req, collectionId);
+    let path = await this.resolveVideoPath(filePath, localId, req, collectionId);
 
     if (!path) {
       return ApiResponse.success(null, messages.success.fetch);
     }
+
+    // A localId asks for a background video
+    const background = localId ? await prepareBackgroundVideo(path) : null;
+    path = background?.path ?? path;
 
     const token = jwt.sign(
       {
@@ -205,6 +210,8 @@ export class VideoStreamingController extends Controller {
     );
 
     const params = new URLSearchParams({ token });
+    // Picture without the side bars of the file, for the player to crop them
+    if (background?.aspect) params.set('aspect', background.aspect.toFixed(4));
     const url = `/video-streaming/passthrough?${params.toString()}`;
 
     return ApiResponse.success(url, messages.success.fetch);

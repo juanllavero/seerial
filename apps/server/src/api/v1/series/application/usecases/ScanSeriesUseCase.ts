@@ -27,6 +27,7 @@ import logger from '@/utils/logger';
 import type { Episode as EpisodeLocal } from '../../../episodes/domain/Episode';
 import type { Series } from '../../domain/Series';
 import type { SeriesRepositoryPort } from '../ports/SeriesRepositoryPort';
+import { findSeries, type SeriesQuery } from '../services/seriesMatching';
 import { matchSpecialEpisode } from '../utils/matchSpecialEpisode';
 
 /** Season and episode written in the file name: S02E00 */
@@ -34,6 +35,9 @@ const EXPLICIT_SEASON_EPISODE = /s\d{1,4}(?:[.]|[\s-]+)?ep?\d{1,4}/i;
 
 /** Point of the video where the thumbnail of an episode without images is taken */
 const THUMBNAIL_POSITION = 0.25;
+
+/** Folders inside a series whose videos are not episodes */
+const EXTRAS_FOLDER = /^(extras?|featurettes|trailers|behind the scenes|deleted scenes|interviews|shorts)$/i;
 
 interface EpisodeResolution {
   videoSrc: string;
@@ -128,7 +132,7 @@ export class ScanSeriesUseCase {
     }
 
     // Search and update metadata
-    const hasValidMetadata = await this.ensureSeriesMetadata(library, show, root);
+    const hasValidMetadata = await this.ensureSeriesMetadata(library, show, root, videoFiles);
     if (!hasValidMetadata) {
       await this.cleanupInvalidSeries(library, show, root);
       return;
@@ -312,6 +316,7 @@ export class ScanSeriesUseCase {
     library: Library,
     show: Series,
     root: string,
+    videoFiles: string[],
   ): Promise<boolean> {
     const parsed = this.extractSeriesNameAndYear(root);
 
@@ -327,9 +332,13 @@ export class ScanSeriesUseCase {
       );
 
       try {
-        const showsSearch = await this.metadataProvider.searchTVShows(parsed.name, parsed.year);
+        const found = await findSeries(
+          this.metadataProvider,
+          await this.buildSeriesQuery(parsed, videoFiles),
+          library.language,
+        );
 
-        if (!showsSearch || showsSearch.length === 0) {
+        if (!found) {
           logger.warn(
             {
               seriesId: show.id,
@@ -341,7 +350,7 @@ export class ScanSeriesUseCase {
           return false;
         }
 
-        show.themdbId = showsSearch[0].id ?? -1;
+        show.themdbId = found.id ?? -1;
       } catch (error) {
         logger.error(
           {
@@ -393,15 +402,63 @@ export class ScanSeriesUseCase {
   private extractSeriesNameAndYear(root: string): { name: string; year: string } {
     let name: string = root.split(/[/\\]/).pop() ?? '';
     const pattern = /^(.*?)(?:\s(\d{4}))?$/;
-    let year = '1';
+    let year = '';
     const matcher = name.replace(/[()]/g, '').match(pattern);
 
     if (matcher) {
       name = matcher[1];
-      year = matcher[2] ?? '1';
+      year = matcher[2] ?? '';
     }
 
     return { name, year };
+  }
+
+  /** What the files say about the series, to tell it apart from others with a similar name */
+  private async buildSeriesQuery(
+    parsed: { name: string; year: string },
+    videoFiles: string[],
+  ): Promise<SeriesQuery> {
+    const files = videoFiles
+      .filter((file) => !EXTRAS_FOLDER.test(path.basename(path.dirname(file))))
+      .sort();
+    const numbered = files.flatMap((file) => {
+      const [episode, season] = this.extractEpisodeSeason(path.parse(file).name);
+      return Number.isNaN(episode) ? [] : [{ file, season, episode }];
+    });
+
+    // The name written before the number of the episode: "[Group] Name - 01", "Name S01E01"
+    const fileName = path
+      .parse(numbered[0]?.file ?? videoFiles[0])
+      .name.replace(/\[[^\]]*\]|\([^)]*\)/g, ' ')
+      .replace(/[._]/g, ' ');
+    const nameInFiles = /^(.*?)(?:\bs\d{1,4}\s*ep?\d|\s-\s*\d)/i.exec(fileName)?.[1].replace(/[\s\-–—]+$/, '')
+      .trim();
+    const names = [parsed.name.trim()];
+    if (nameInFiles && nameInFiles.toLowerCase() !== names[0].toLowerCase()) {
+      names.push(nameInFiles);
+    }
+
+    return {
+      names,
+      year: parsed.year || undefined,
+      // Specials are often longer or shorter than the episodes
+      runtime: await this.getEpisodeRuntime(
+        numbered.filter(({ season }) => season !== 0).map(({ file }) => file),
+      ),
+      episodes: numbered.map(({ season, episode }) => ({ season, episode })),
+    };
+  }
+
+  /** Median of a few episodes: the first one is often longer than the rest */
+  private async getEpisodeRuntime(files: string[]): Promise<number | undefined> {
+    const samples = new Set([files[0], files[Math.floor(files.length / 2)], files.at(-1)]);
+    const runtimes = (
+      await Promise.all([...samples].map((file) => (file ? getOnlyRuntime(file) : 0)))
+    )
+      .filter((runtime) => runtime > 0)
+      .sort((a, b) => a - b);
+
+    return runtimes[Math.floor((runtimes.length - 1) / 2)];
   }
 
   private async cleanupInvalidSeries(library: Library, show: Series, root: string): Promise<void> {

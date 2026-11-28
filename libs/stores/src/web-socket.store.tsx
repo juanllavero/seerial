@@ -232,6 +232,10 @@ function handleWebSocketMessage(
     case MessageType.MUTATE_MOVIE:
       handleMutateMovie(message.body);
       break;
+    case MessageType.CONTENT_REPLACED:
+      // Data and images of a content changed, some in files with the same name: load all again
+      void seerialQueryClient.invalidateQueries();
+      break;
     case MessageType.MUTATE_ALBUM:
       handleMutateAlbum(message.body);
       break;

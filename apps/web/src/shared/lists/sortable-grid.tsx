@@ -11,11 +11,25 @@ interface SortableGridProps<T extends SortableEntity> {
   renderItem: (item: T) => React.ReactNode;
 }
 
-export function SortableGrid<T extends SortableEntity>({
+export function SortableGrid<T extends SortableEntity>(props: SortableGridProps<T>) {
+  return (
+    <SortableProvider {...props}>
+      {props.items?.map((item, index) => (
+        <SortableItem key={item.id} id={item.id} index={index}>
+          {props.renderItem(item)}
+        </SortableItem>
+      ))}
+    </SortableProvider>
+  );
+}
+
+/** Drag engine shared by the sortable lists: the children place their own SortableItem */
+export function SortableProvider<T extends SortableEntity>({
   items,
   onDragEnd,
   renderItem,
-}: SortableGridProps<T>) {
+  children,
+}: SortableGridProps<T> & { children: React.ReactNode }) {
   const onDragEndRef = useRef(onDragEnd);
   const sourceIndexRef = useRef<number | null>(null);
   const pointerPositionRef = useRef<{ x: number; y: number } | null>(null);
@@ -140,11 +154,7 @@ export function SortableGrid<T extends SortableEntity>({
           {renderItem(items[sourceIndex])}
         </div>
       )}
-      {items?.map((item, index) => (
-        <SortableItem key={item.id} id={item.id} index={index}>
-          {renderItem(item)}
-        </SortableItem>
-      ))}
+      {children}
     </SortableListContext.Provider>
   );
 }

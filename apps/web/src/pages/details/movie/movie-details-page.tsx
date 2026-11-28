@@ -19,7 +19,7 @@ import { type Movie, formatTimeForView } from '@seerial/domain';
 import { useIsAdmin } from '@seerial/hooks';
 import { useServerStore, useDataStore } from '@seerial/stores';
 import { t } from 'i18next';
-import { Pencil } from 'lucide-react';
+import { Info, Pencil, ScanSearch } from 'lucide-react';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { shallow } from 'zustand/shallow';
@@ -199,6 +199,32 @@ function MovieDetailsPage() {
                 }}
               >
                 <Pencil />
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant={'ghost'}
+                title={t('correctIdentification')}
+                onClick={() => {
+                  if (movie) {
+                    openDialog('identification', { movieId: movie.id });
+                  }
+                }}
+              >
+                <ScanSearch />
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant={'ghost'}
+                title={t('mediaInfo')}
+                onClick={() => {
+                  if (movie) {
+                    openDialog('mediaInfo', { movieId: movie.id });
+                  }
+                }}
+              >
+                <Info />
               </Button>
             )}
             {/* <Button

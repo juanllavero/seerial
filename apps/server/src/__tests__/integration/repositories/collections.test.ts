@@ -200,8 +200,9 @@ describe('CollectionsRepositoryImpl', () => {
     const orderedSeries = await SeriesModel.findOne({ where: { id: series.id } });
     const orderedMovie = await MovieModel.findOne({ where: { id: movie.id } });
 
-    expect(orderedSeries!.collectionOrder).toBe(0);
-    expect(orderedMovie!.collectionOrder).toBe(1);
+    // Positions start at 1: 0 is an item the user has not placed
+    expect(orderedSeries!.collectionOrder).toBe(1);
+    expect(orderedMovie!.collectionOrder).toBe(2);
 
     dataSourceSpy.mockRestore();
   });

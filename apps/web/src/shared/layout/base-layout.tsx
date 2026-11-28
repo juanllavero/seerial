@@ -52,7 +52,10 @@ export default function BaseLayout({ children }: { children: React.ReactNode }) 
     <div className="relative">
       <GradientBackground imageSrc={selectedBackgroundForGradient} showGradient={inMusicPage} />
 
-      {inDetailsPage && <DetailsBackgroundLayers imageSrc={currentBackground} />}
+      {/* Albums have their own gradient: the image of the last movie or series must not cover it */}
+      {inDetailsPage && (
+        <DetailsBackgroundLayers imageSrc={currentBackground} isHidden={inMusicPage} />
+      )}
 
       {/* Toaster root */}
       <Toaster theme="dark" richColors />

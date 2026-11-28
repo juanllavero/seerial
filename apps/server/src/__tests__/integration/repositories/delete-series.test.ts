@@ -94,6 +94,20 @@ describe('DeleteSeriesUseCase', () => {
     expect(mockCleanup.cleanVideo).toHaveBeenCalledTimes(40);
   });
 
+  it('keeps the series, and its folder, to identify its files again', async () => {
+    await createLibraryWithSeries(3);
+
+    await useCase().execute('series', { keepSeries: true });
+
+    expect(await SeriesModel.count()).toBe(1);
+    expect(await SeasonModel.count()).toBe(0);
+    expect(await VideoModel.count()).toBe(0);
+
+    const library = (await LibraryModel.findOne({ where: { id: 'lib' } }))!;
+    expect(library.analyzedFiles).toEqual({ '/other/file.mkv': 'other-episode' });
+    expect(library.analyzedFolders['/anime/S1']).toBe('series');
+  });
+
   it('does not take longer for series with many seasons', async () => {
     await createLibraryWithSeries(300);
 

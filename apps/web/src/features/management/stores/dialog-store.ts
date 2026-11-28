@@ -31,6 +31,7 @@ export type DialogPayloads = {
   // Feature dialogs
   identification: { seriesId?: string; movieId?: string };
   episodesGroup: { seriesId: string };
+  mediaInfo: { movieId: string };
   downloadMedia: {
     type: 'music' | 'video';
     seriesId?: string;

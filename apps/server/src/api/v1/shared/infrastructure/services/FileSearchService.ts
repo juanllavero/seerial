@@ -203,54 +203,62 @@ export function extractNameAndYear(source: string) {
   return [name, year];
 }
 
+/** Fields the user can lock: another title brings all of its own data */
+const unlockedFields = (content: object) =>
+  Object.fromEntries(
+    Object.keys(content)
+      .filter((key) => key.endsWith('Lock'))
+      .map((key) => [key, false]),
+  );
+
+/** Tells the clients that data and images of a content changed, so they load them again */
+function notifyContentReplaced() {
+  notificationService.broadcast(JSON.stringify({ header: 'CONTENT_REPLACED' }));
+}
+
 export async function changeIdentificationShow(
   showId: string,
   newTheMovieDBID: number,
   newepisodeGroupId?: string,
 ) {
   const show = await useCases.getSeriesById().execute(showId);
-
   if (!show) return;
 
-  // Delete previous data
-  await useCases.deleteSeriesData().execute(show.id);
-
   const library = await useCases.getLibrary().execute(show.libraryId);
-
   if (!library) return;
 
-  // Restore folder stored in library
-  await useCases.addAnalyzedFolder().execute(library.id, show.folder, show.id);
-
-  // Clear season list
-  show.seasons = [];
+  // Its seasons are deleted to be read again: without the files they would be lost
+  if (!fileSystemService.existsSync(show.folder)) {
+    logger.warn({ folder: show.folder }, 'The folder of the series is not available');
+    return;
+  }
 
   const isAnotherTitle = show.themdbId !== newTheMovieDBID;
 
-  // Update TheMovieDB ID
-  show.themdbId = newTheMovieDBID;
+  // Seasons and episodes are the ones of the previous identification. The series stays
+  await useCases.deleteSeries().execute(show.id, { keepSeries: true });
 
-  // Update EpisodeGroup ID if param is passed
-  if (newepisodeGroupId) {
-    show.episodeGroupId = newepisodeGroupId;
-  }
+  await useCases.updateSeries().execute(show.id, {
+    ...(isAnotherTitle ? { ...unlockedFields(show), episodeGroupId: '' } : {}),
+    ...(newepisodeGroupId ? { episodeGroupId: newepisodeGroupId } : {}),
+    themdbId: newTheMovieDBID,
+    // Set element loading to show in client
+    analyzingFiles: true,
+  });
 
-  // Set element loading to show in client
-  show.analyzingFiles = true;
-
-  // Save changes in DB
-  useCases.updateSeries().execute(show.id, show);
-
-  notificationService.mutateSeries(show);
-  notificationService.mutateSeason();
   notificationService.mutateLibrary(library.id);
+  notifyContentReplaced();
 
-  // Get new data
-  await useCases.scanSeries().execute(library, show.folder);
+  try {
+    // Read again: the files of the series are no longer analyzed
+    const updated = await useCases.getLibrary().execute(library.id);
+    if (updated) await useCases.scanSeries().execute(updated, show.folder);
 
-  if (isAnotherTitle) {
-    await replaceSeriesImages(show.id);
-    notificationService.mutateSeries(show);
+    if (isAnotherTitle) await replaceSeriesImages(show.id);
+  } finally {
+    await useCases.updateSeries().execute(show.id, { analyzingFiles: false });
+    notificationService.mutateLibrary(library.id);
+    notifyContentReplaced();
   }
 }
 
@@ -266,6 +274,7 @@ export async function changeIdentificationMovie(movieId: string, newTheMovieDBID
   const isAnotherTitle = movie.themdbId !== newTheMovieDBID;
 
   // Update TheMovieDB ID and save to DB
+  if (isAnotherTitle) Object.assign(movie, unlockedFields(movie));
   movie.themdbId = newTheMovieDBID;
   await useCases.updateMovie().execute(movie.id, movie);
 
@@ -276,10 +285,10 @@ export async function changeIdentificationMovie(movieId: string, newTheMovieDBID
   // Fetch and apply new metadata using the updated TMDB ID
   await useCases.refreshMovieMetadata().execute(movie.id);
 
-  if (isAnotherTitle) {
-    await replaceImagesWithRemote('movie', movie.id);
-    notificationService.mutateMovie(movie);
-  }
+  if (isAnotherTitle) await replaceImagesWithRemote('movie', movie.id);
+
+  notificationService.mutateLibrary(library.id);
+  notifyContentReplaced();
 }
 
 /** The first image in internet of each kind, which is the one metadata assign by default */

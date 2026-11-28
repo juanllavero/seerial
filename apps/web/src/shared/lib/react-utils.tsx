@@ -8,7 +8,6 @@ import { ScreenHeight } from '@/shared/data/enums/screen';
 import Image from '@/shared/ui/image';
 import { iso1to3 } from '@/shared/lib/utils';
 
-const tailwindSizes = [40, 48, 56, 60, 64, 72, 80, 96, 100, 112, 120, 128, 144, 160, 192];
 
 export const getVideoProgress = (runtime: number, watchedTime?: number) => {
   const timeWatched = watchedTime ? watchedTime / 60 : 0;
@@ -63,45 +62,24 @@ export const useMediaActions = () => {
   };
 };
 
+// Written in full: Tailwind only generates the classes it finds literally in the code
+const COVER_SIZES = {
+  poster: ['w-40 h-60', 'w-53 h-80', 'w-67 h-100', 'w-80 h-120'],
+  square: ['w-60 h-60', 'w-80 h-80', 'w-100 h-100', 'w-120 h-120'],
+  background: ['w-107 h-60', 'w-142 h-80', 'w-178 h-100', 'w-213 h-120'],
+};
+
 export const getCoverSize = (
   screenHeight: ScreenHeight,
   isPoster: boolean,
   isBackground: boolean,
 ) => {
-  let height: number;
-
-  switch (screenHeight) {
-    case ScreenHeight.HD:
-      height = 60;
-      break;
-    case ScreenHeight.FHD:
-      height = 80;
-      break;
-    case ScreenHeight.QHD:
-      height = 100;
-      break;
-    case ScreenHeight.UHD:
-      height = 120;
-      break;
-    default:
-      return 'w-60 h-60';
-  }
-
-  let aspectRatio = 1;
-
-  if (isPoster) {
-    aspectRatio = 2 / 3;
-  } else if (isBackground) {
-    aspectRatio = 16 / 9;
-  }
-
-  const idealWidth = height * aspectRatio;
-
-  const closestWidth = tailwindSizes.reduce((prev, curr) =>
-    Math.abs(curr - idealWidth) < Math.abs(prev - idealWidth) ? curr : prev,
+  const sizes = COVER_SIZES[isPoster ? 'poster' : isBackground ? 'background' : 'square'];
+  const index = [ScreenHeight.HD, ScreenHeight.FHD, ScreenHeight.QHD, ScreenHeight.UHD].indexOf(
+    screenHeight,
   );
 
-  return `w-${closestWidth} h-${height}`;
+  return sizes[index] ?? 'w-60 h-60';
 };
 
 export const getTitleSize = (screenHeight: ScreenHeight, isMobile: boolean) => {
@@ -318,22 +296,6 @@ export const isAbsolutePath = (pathString: string): boolean => {
   const unixPathRegex = /^\//;
 
   return windowsPathRegex.test(pathString) || unixPathRegex.test(pathString);
-};
-
-export const getFirstImage = (collection: Collection, type: string) => {
-  if (type === 'Movies' && collection.movies && collection.movies.length > 0) {
-    return collection.movies[0].coverSrc;
-  }
-
-  if (type === 'Series' && collection.shows && collection.shows.length > 0) {
-    return collection.shows[0].coverSrc;
-  }
-
-  if (type === 'Music' && collection.albums && collection.albums.length > 0) {
-    return collection.albums[0].coverSrc;
-  }
-
-  return '';
 };
 
 export const getPosterImage = (collectionId: string, images: string[], type: string) => {
