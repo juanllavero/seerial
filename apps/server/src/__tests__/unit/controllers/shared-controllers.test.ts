@@ -13,6 +13,16 @@ import { messages } from '@/config/messages';
 
 const adminReq = { user: { id: 'user-1', type: 'admin' } } as never;
 
+jest.mock('@/api/v1/shared/infrastructure/services/artwork/contentArtwork', () => ({
+  findContent: jest.fn(async (_owner: string, id: string) => ({ id })),
+}));
+jest.mock('@/api/v1/shared/infrastructure/services/artwork/themeMedia', () => ({
+  themeMediaSlot: jest.fn(async (_owner: string, _entity: object, kind: string) => ({
+    folder: '/content',
+    name: kind,
+  })),
+}));
+
 jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => {
   const nodeFs = jest.requireActual('node:fs');
   return {
@@ -32,8 +42,7 @@ jest.mock('@/api/v1/shared/infrastructure/adapters/di/container', () => {
       getAPIKeyStatus: jest.fn(),
     },
     downloaderService: {
-      downloadVideo: jest.fn(),
-      downloadAudio: jest.fn(),
+      downloadThemeMedia: jest.fn(),
     },
     externalSearchService: {
       searchDownloadableMedia: jest.fn(),
@@ -212,30 +221,17 @@ describe('Shared controllers', () => {
   });
 
   describe('DownloadController', () => {
-    it('delegates video and music downloads to downloader service', async () => {
+    it('downloads videos and themes into the place of their content', async () => {
       const controller = new DownloadController();
 
-      await controller.downloadVideo({
-        url: 'https://example.com/video',
-        downloadFolder: 'videos',
-        fileName: 'video.mp4',
-      });
-      await controller.downloadMusic({
-        url: 'https://example.com/audio',
-        downloadFolder: 'music',
-        fileName: 'song.mp3',
-      });
+      await controller.downloadVideo({ url: 'https://example.com/video', owner: 'movie', id: 'm' });
+      await controller.downloadMusic({ url: 'https://example.com/audio', owner: 'season', id: 's' });
 
-      expect(container.downloaderService.downloadVideo).toHaveBeenCalledWith(
-        'https://example.com/video',
-        'videos',
-        'video.mp4',
-      );
-      expect(container.downloaderService.downloadAudio).toHaveBeenCalledWith(
-        'https://example.com/audio',
-        'music',
-        'song.mp3',
-      );
+      const options = (name: string) => ({ overwrite: true, name });
+      expect(container.downloaderService.downloadThemeMedia.mock.calls).toEqual([
+        ['https://example.com/video', 'video', { folder: '/content', name: 'video' }, options('m')],
+        ['https://example.com/audio', 'theme', { folder: '/content', name: 'theme' }, options('s')],
+      ]);
     });
 
     it('validates and downloads image with extension fallback', async () => {

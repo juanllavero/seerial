@@ -1,3 +1,4 @@
+import { migrateThemeMedia } from '@/api/v1/shared/infrastructure/services/artwork/migrateThemeMedia';
 import { migrateArtwork } from '@/api/v1/shared/infrastructure/services/artwork/migrateArtwork';
 import type http from 'node:http';
 import type https from 'node:https';
@@ -272,9 +273,12 @@ if (hasSingleInstanceLock) {
       logger.error({ error }, 'Failed to prepare the track preferences of the libraries'),
     );
 
-    // Images of the previous layout (media folders) are moved next to their content, in the
+    // Images and themes of previous layouts are moved next to their content, in the
     // background. Nothing to do once moved.
-    migrateArtwork().catch((error) => logger.error({ error }, 'Failed to migrate the images'));
+    migrateArtwork()
+      .catch((error) => logger.error({ error }, 'Failed to migrate the images'))
+      .then(() => migrateThemeMedia())
+      .catch((error) => logger.error({ error }, 'Failed to migrate the themes'));
 
     // Collections created by hand were not shown in the libraries of their items
     await useCases

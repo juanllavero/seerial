@@ -11,6 +11,15 @@ import { SeriesModel } from '@/api/v1/series/infrastructure/persistence/models/S
 import { artworkService } from '@/api/v1/shared/infrastructure/services/artwork/ArtworkService';
 import { applyUserImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import { migrateArtwork } from '@/api/v1/shared/infrastructure/services/artwork/migrateArtwork';
+import { migrateThemeMedia } from '@/api/v1/shared/infrastructure/services/artwork/migrateThemeMedia';
+import {
+  commitThemeMedia,
+  findThemeMedia,
+  temporaryStem,
+  themeMediaSlot,
+} from '@/api/v1/shared/infrastructure/services/artwork/themeMedia';
+import { isThemeVideoFile } from '@/api/v1/shared/infrastructure/services/artwork/themeFileNames';
+import { simplifyOnlySeasonBackground } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import { LibraryTypes } from '@/data/interfaces/Media';
 import { downloadImage } from '@/utils/downloadImage';
 import { clearAllTables, closeTestDataSource, getTestDataSource } from '../../helpers/test-db';
@@ -315,3 +324,109 @@ describe('migration from the media folders', () => {
     expect(fs.existsSync(path.join(movie, 'media', 'poster.jpg'))).toBe(true);
   });
 });
+
+describe('themes, background videos and general season files', () => {
+  const addShow = async (seasons: number) => {
+    const folder = path.join(root, 'Show');
+    fs.mkdirSync(folder, { recursive: true });
+    await SeriesModel.save({ id: 's', libraryId: 'lib', folder } as SeriesModel);
+    for (let number = 1; number <= seasons; number++) {
+      await SeasonModel.save({
+        id: `s${number}`,
+        seriesId: 's',
+        seasonNumber: number,
+        order: number,
+      } as SeasonModel);
+    }
+    return folder;
+  };
+  const season = (number: number) => ({ id: `s${number}`, seriesId: 's', seasonNumber: number });
+  const song = (id: string) => write(path.join(appData, 'resources', 'music', id, `${id}.opus`));
+
+  it('uses the general file for the seasons without their own one', async () => {
+    const folder = await addShow(2);
+    const general = write(path.join(folder, 'theme.mp3'));
+
+    expect(await findThemeMedia('season', season(2), 'theme')).toBe(general);
+    const own = write(path.join(folder, 'season02-theme.opus'));
+    expect(await findThemeMedia('season', season(2), 'theme')).toBe(own);
+    expect(await findThemeMedia('season', season(1), 'theme')).toBe(general);
+  });
+
+  it('names the first chosen file simply, and the next ones by season', async () => {
+    const folder = await addShow(2);
+
+    expect((await themeMediaSlot('season', season(2), 'video'))!.name).toBe('video');
+    write(path.join(folder, 'video.mp4'));
+    expect((await themeMediaSlot('season', season(1), 'video'))!.name).toBe('season01-video');
+  });
+
+  it('replaces the general file of an only season', async () => {
+    const folder = await addShow(1);
+    write(path.join(folder, 'theme.mp3'));
+
+    expect((await themeMediaSlot('season', season(1), 'theme'))!.name).toBe('theme');
+  });
+
+  it('replaces a previous file only when asked to', async () => {
+    const folder = path.join(root, 'Akira');
+    const own = write(path.join(folder, 'theme.mp3'));
+    const slot = { folder, name: 'theme' };
+    const download = () => {
+      const stem = temporaryStem(slot);
+      write(`${stem}.opus`, PNG);
+      return stem;
+    };
+
+    expect(commitThemeMedia(slot, 'theme', download(), { overwrite: false })).toBe(own);
+    expect(list(folder)).toEqual(['theme.mp3']);
+    commitThemeMedia(slot, 'theme', download(), { overwrite: true });
+    expect(list(folder)).toEqual(['theme.opus']);
+  });
+
+  it('moves the downloaded songs, and never replaces the one of the user', async () => {
+    const empty = path.join(root, 'Akira');
+    const owned = path.join(root, 'Paprika');
+    fs.mkdirSync(empty);
+    write(path.join(owned, 'theme.mp3'), PNG);
+    const loose = write(path.join(root, 'Loose.mkv'));
+    await addMovie('a', empty);
+    await addMovie('p', owned);
+    await addMovie('l', loose);
+    const songs = ['a', 'p', 'l'].map(song);
+
+    await migrateThemeMedia({ dryRun: true });
+    expect(songs.every((file) => fs.existsSync(file))).toBe(true);
+    expect(list(empty)).toEqual([]);
+
+    const report = await migrateThemeMedia();
+
+    expect(list(empty)).toEqual(['theme.opus']);
+    expect(list(owned)).toEqual(['theme.mp3']);
+    expect(fs.readFileSync(path.join(owned, 'theme.mp3'))).toEqual(PNG);
+    // Moved, removed because the user had one, and kept for the movie without folder
+    expect(songs.map((file) => fs.existsSync(file))).toEqual([false, false, true]);
+    expect(report).toMatchObject({ failed: 0, unreachable: 0 });
+    expect((await migrateThemeMedia()).moved).toEqual([]);
+  });
+
+  it('gives the simple name to the background of an only season', async () => {
+    const folder = await addShow(1);
+    write(path.join(folder, 'season01-background.jpg'));
+
+    await simplifyOnlySeasonBackground('s');
+
+    expect(list(folder)).toEqual(['background.jpg']);
+    expect((await SeasonModel.findOne({ where: { id: 's1' } }))!.backgroundSrc).toBe(
+      path.join(folder, 'background.jpg'),
+    );
+  });
+
+  it('does not take the background videos as content', () => {
+    expect(['video.mp4', 'season02-video.webm', '.video-a1.tmp.webm'].every(isThemeVideoFile)).toBe(
+      true,
+    );
+    expect(['Video Killer (1999).mkv', 'S01E01.mkv'].some(isThemeVideoFile)).toBe(false);
+  });
+});
+

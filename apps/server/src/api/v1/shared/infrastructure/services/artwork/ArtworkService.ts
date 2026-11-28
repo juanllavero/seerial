@@ -4,6 +4,7 @@ import path from 'node:path';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
 import { LibraryModel } from '@/api/v1/libraries/infrastructure/persistence/models/LibraryModel';
 import { MovieModel } from '@/api/v1/movies/infrastructure/persistence/models/MovieModel';
+import { SeasonModel } from '@/api/v1/seasons/infrastructure/persistence/models/SeasonModel';
 import { SeriesModel } from '@/api/v1/series/infrastructure/persistence/models/SeriesModel';
 import { fileSystemService } from '@/api/v1/shared/infrastructure/adapters/di/container';
 import { downloadImage, isRemoteUrl } from '@/utils/downloadImage';
@@ -207,6 +208,50 @@ export class ArtworkService {
     return { folder: location.folder, name: `${location.prefix}${ARTWORK_FIELDS[owner][field]}` };
   }
 
+  /** Image that a content uses: a season without its own one uses the general one of the series */
+  findLocal(location: ArtworkLocation, owner: ArtworkOwner, field: string): string | null {
+    return (
+      findArtwork(this.slot(location, owner, field)) ??
+      (location.prefix
+        ? findArtwork({ folder: location.folder, name: ARTWORK_FIELDS[owner][field] })
+        : null)
+    );
+  }
+
+  /**
+   * Where a file chosen for a content is saved, given its simple name (background, theme, video).
+   * A season keeps its own file when it has one. Otherwise it uses the simple name if there is no
+   * general file yet or it is the only season, and season01-name in other case.
+   */
+  async writeSlot(
+    location: ArtworkLocation,
+    owner: ArtworkOwner,
+    entity: ArtworkEntity,
+    name: string,
+    exists: (slot: ArtworkSlot) => boolean,
+  ): Promise<ArtworkSlot> {
+    const own = { folder: location.folder, name: `${location.prefix}${name}` };
+    if (owner !== 'season' || exists(own)) return own;
+
+    const general = { folder: location.folder, name };
+    if (!exists(general)) return general;
+
+    const seasons = await SeasonModel.find({ where: { seriesId: entity.seriesId } });
+    return seasons.length > 1 ? own : general;
+  }
+
+  /** Slot of an image chosen by the user */
+  private chosenSlot(
+    location: ArtworkLocation,
+    owner: ArtworkOwner,
+    entity: ArtworkEntity,
+    field: string,
+  ): Promise<ArtworkSlot> {
+    return this.writeSlot(location, owner, entity, ARTWORK_FIELDS[owner][field], (slot) =>
+      Boolean(findArtwork(slot)),
+    );
+  }
+
   /** Local images of a content, by field */
   async find(owner: ArtworkOwner, entity: ArtworkEntity): Promise<Record<string, string>> {
     if (owner === 'collection' && !(await this.mayHaveImages(entity.id, entity.kind))) return {};
@@ -215,7 +260,7 @@ export class ArtworkService {
     if (!location) return found;
 
     for (const field of Object.keys(ARTWORK_FIELDS[owner])) {
-      const file = findArtwork(this.slot(location, owner, field));
+      const file = this.findLocal(location, owner, field);
       if (file) found[field] = file;
     }
 
@@ -271,7 +316,7 @@ export class ArtworkService {
       const slot = this.slot(location, owner, field);
       const value = values[field];
       try {
-        let local = findArtwork(slot);
+        let local = this.findLocal(location, owner, field);
         if (!local && value) {
           if (isRemoteUrl(value)) {
             local = await this.download(slot, value);
@@ -318,7 +363,7 @@ export class ArtworkService {
 
     for (const field of changed) {
       values[field] = await this.store(
-        this.slot(location, owner, field),
+        await this.chosenSlot(location, owner, entity, field),
         values[field] as string,
       );
     }
@@ -348,7 +393,7 @@ export class ArtworkService {
     const location = await this.locate(owner, entity);
     if (!location) throw new Error('The folder of this content is not available');
 
-    const slot = this.slot(location, owner, field);
+    const slot = await this.chosenSlot(location, owner, entity, field);
     return Buffer.isBuffer(source)
       ? storeArtworkBuffer(slot, source)
       : this.download(slot, source);

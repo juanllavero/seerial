@@ -269,14 +269,12 @@ interface WebSocketState {
   downloadAudio: (
     elementId: string,
     url: string,
-    mediaFolder: string,
-    fileName: string,
+    target: { owner: 'movie' | 'series' | 'season'; id: string },
   ) => Promise<void>;
   downloadVideo: (
     elementId: string,
     url: string,
-    mediaFolder: string,
-    fileName: string,
+    target: { owner: 'movie' | 'series' | 'season'; id: string },
   ) => Promise<void>;
   addMessageToQueue: (message: WebSocketMessage) => void;
   clearMessageQueue: () => void;
@@ -375,7 +373,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
     }
   },
 
-  downloadVideo: async (elementId, url, mediaFolder, fileName) => {
+  downloadVideo: async (elementId, url, target) => {
     set({
       downloadingElementId: elementId,
       downloadPercentage: 0,
@@ -388,8 +386,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
     try {
       const response = await api.post<{ data?: unknown }>(API.downloads.video, {
         url,
-        downloadFolder: mediaFolder,
-        fileName,
+        ...target,
       });
       if (!response?.data) {
         throw new Error();
@@ -401,7 +398,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
     }
   },
 
-  downloadAudio: async (elementId, url, mediaFolder, fileName) => {
+  downloadAudio: async (elementId, url, target) => {
     set({
       downloadingElementId: elementId,
       downloadPercentage: 0,
@@ -414,8 +411,7 @@ export const useWebSocketStore = createWithEqualityFn<WebSocketState>((set, get)
     try {
       const response = await api.post<{ data?: unknown }>(API.downloads.music, {
         url,
-        downloadFolder: mediaFolder,
-        fileName,
+        ...target,
       });
       if (!response?.data) {
         throw new Error();

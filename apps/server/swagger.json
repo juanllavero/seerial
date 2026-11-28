@@ -2644,17 +2644,22 @@
 					"url": {
 						"type": "string"
 					},
-					"downloadFolder": {
-						"type": "string"
+					"owner": {
+						"type": "string",
+						"enum": [
+							"movie",
+							"series",
+							"season"
+						]
 					},
-					"fileName": {
+					"id": {
 						"type": "string"
 					}
 				},
 				"required": [
 					"url",
-					"downloadFolder",
-					"fileName"
+					"owner",
+					"id"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -2664,17 +2669,22 @@
 					"url": {
 						"type": "string"
 					},
-					"downloadFolder": {
-						"type": "string"
+					"owner": {
+						"type": "string",
+						"enum": [
+							"movie",
+							"series",
+							"season"
+						]
 					},
-					"fileName": {
+					"id": {
 						"type": "string"
 					}
 				},
 				"required": [
 					"url",
-					"downloadFolder",
-					"fileName"
+					"owner",
+					"id"
 				],
 				"type": "object",
 				"additionalProperties": false

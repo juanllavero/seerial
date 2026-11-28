@@ -974,8 +974,8 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "url": {"dataType":"string","required":true},
-            "downloadFolder": {"dataType":"string","required":true},
-            "fileName": {"dataType":"string","required":true},
+            "owner": {"dataType":"union","subSchemas":[{"dataType":"enum","enums":["movie"]},{"dataType":"enum","enums":["series"]},{"dataType":"enum","enums":["season"]}],"required":true},
+            "id": {"dataType":"string","required":true},
         },
         "additionalProperties": false,
     },
@@ -984,8 +984,8 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "url": {"dataType":"string","required":true},
-            "downloadFolder": {"dataType":"string","required":true},
-            "fileName": {"dataType":"string","required":true},
+            "owner": {"dataType":"union","subSchemas":[{"dataType":"enum","enums":["movie"]},{"dataType":"enum","enums":["series"]},{"dataType":"enum","enums":["season"]}],"required":true},
+            "id": {"dataType":"string","required":true},
         },
         "additionalProperties": false,
     },

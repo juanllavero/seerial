@@ -1,3 +1,4 @@
+import { simplifyOnlySeasonBackground } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import { localizeSeasonName } from '@seerial/domain';
 import path from 'node:path';
 import type { Video } from '@seerial/domain';
@@ -134,7 +135,7 @@ export class ScanSeriesUseCase {
     }
 
     // Download main theme in parallel
-    downloaderService.autoDownloadFirstAudioResult(`${show.name} main theme`, show.id, {
+    downloaderService.autoDownloadFirstAudioResult(`${show.name} main theme`, 'series', show, {
       id: library.id,
       name: library.name,
     });
@@ -248,6 +249,8 @@ export class ScanSeriesUseCase {
       });
       return;
     }
+
+    await this.writeQueue.enqueue(() => simplifyOnlySeasonBackground(show.id));
 
     // Update series analyzing status
     await this.writeQueue.enqueue(async () => {

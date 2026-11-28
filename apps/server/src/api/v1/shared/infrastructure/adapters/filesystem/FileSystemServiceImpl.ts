@@ -1,3 +1,4 @@
+import { isThemeVideoFile } from '@/api/v1/shared/infrastructure/services/artwork/themeFileNames';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
@@ -220,7 +221,7 @@ export class FileSystemServiceImpl implements FileSystemServicePort {
       const filesAndFolders = await this.getFilesInFolder(folderPath);
       for (const fileOrFolder of filesAndFolders) {
         const fullPath = path.join(folderPath, fileOrFolder.name);
-        if (fileOrFolder.isFile() && this.isVideoFile(fullPath)) {
+        if (fileOrFolder.isFile() && this.isVideoFile(fullPath) && !isThemeVideoFile(fullPath)) {
           videoFiles.push(fullPath);
         } else if (fileOrFolder.isDirectory() && fileOrFolder.name.toLowerCase() !== 'media') {
           // The videos of the media folder are not content (background video of the series)
@@ -228,7 +229,7 @@ export class FileSystemServiceImpl implements FileSystemServicePort {
           for (const subFile of subFiles) {
             const subFilePath = path.join(fullPath, subFile);
             const st = await fs.promises.stat(subFilePath);
-            if (st.isFile() && this.isVideoFile(subFilePath)) {
+            if (st.isFile() && this.isVideoFile(subFilePath) && !isThemeVideoFile(subFilePath)) {
               videoFiles.push(subFilePath);
             }
           }

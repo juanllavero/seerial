@@ -1,3 +1,4 @@
+import { findThemeMedia } from '@/api/v1/shared/infrastructure/services/artwork/themeMedia';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import jwt from 'jsonwebtoken';
 import path from 'node:path';
@@ -95,32 +96,25 @@ export class VideoStreamingController extends Controller {
       return null;
     }
 
-    // Try movie media folder
     const movie = moviesRepo?.findById ? await moviesRepo.findById(localId) : null;
-    if (movie && req?.user) {
-      await AccessControlService.assertAccess(req.user, 'movie', localId);
-    }
-    if (movie?.folder) {
-      const mediaFolder = path.join(movie.folder, 'media');
-      const [videoPath] = await fileSystemService.getValidVideoFiles(mediaFolder);
-      if (videoPath) return videoPath;
+    if (movie) {
+      if (req?.user) await AccessControlService.assertAccess(req.user, 'movie', localId);
+      const file = await findThemeMedia('movie', movie, 'video');
+      if (file) return file;
     }
 
-    // Try season media folder (localId is season id)
     const season = seasonsRepo?.findById ? await seasonsRepo.findById(localId, 'few') : null;
     if (season) {
       if (req?.user) await AccessControlService.assertAccess(req.user, 'season', localId);
-      const series = seriesRepo?.findById ? await seriesRepo.findById(season.seriesId, 'few') : null;
-      if (series?.folder) {
-        const mediaFolder = path.join(series.folder, 'media');
-        const prefix = `s${season.seasonNumber}_video`;
-        const [videoPath] = await fileSystemService.getValidVideoFiles(mediaFolder);
-        if (videoPath && path.basename(videoPath).startsWith(prefix)) return videoPath;
-        // Fallback: any video prefixed with sN_
-        const all = await fileSystemService.getValidVideoFiles(mediaFolder);
-        const match = all.find((p) => path.basename(p).startsWith(`s${season.seasonNumber}_`));
-        if (match) return match;
-      }
+      const file = await findThemeMedia('season', season, 'video');
+      if (file) return file;
+    }
+
+    const series = seriesRepo?.findById ? await seriesRepo.findById(localId, 'few') : null;
+    if (series) {
+      if (req?.user) await AccessControlService.assertAccess(req.user, 'series', localId);
+      const file = await findThemeMedia('series', series, 'video');
+      if (file) return file;
     }
 
     // Legacy fallback: resources/videos/{localId}

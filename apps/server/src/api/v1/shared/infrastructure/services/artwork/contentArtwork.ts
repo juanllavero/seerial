@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import logger from '@/utils/logger';
 import { AlbumModel } from '@/api/v1/albums/infrastructure/persistence/models/AlbumModel';
 import { CollectionModel } from '@/api/v1/collections/infrastructure/persistence/models/CollectionModel';
@@ -16,6 +18,7 @@ import {
   artworkService,
   toFilePath,
 } from './ArtworkService';
+import { findArtwork } from './artworkFiles';
 
 /** Collections call `posterSrc` what clients receive as `coverSrc` */
 const clientField = (owner: ArtworkOwner, field: string) =>
@@ -141,5 +144,30 @@ export async function syncContentImages(owner: ArtworkOwner, id: string): Promis
     await saveContentFields(owner, id, await artworkService.sync(owner, content));
   } catch (error) {
     logger.warn({ error, owner, id }, 'Failed to synchronize the local images');
+  }
+}
+
+/**
+ * For the end of a series scan, when all its seasons are known: the background of an only season
+ * gets the simple name, which the seasons added later will also use.
+ */
+export async function simplifyOnlySeasonBackground(seriesId: string): Promise<void> {
+  try {
+    const seasons = await SeasonModel.find({ where: { seriesId } });
+    if (seasons.length !== 1) return;
+
+    const [season] = seasons;
+    const location = await artworkService.locate('season', season);
+    if (!location) return;
+
+    const own = findArtwork(artworkService.slot(location, 'season', 'backgroundSrc'));
+    const general = { folder: location.folder, name: 'background' };
+    if (!own || findArtwork(general)) return;
+
+    const destination = path.join(general.folder, `${general.name}${path.extname(own)}`);
+    fs.renameSync(own, destination);
+    await saveContentFields('season', season.id, { backgroundSrc: destination });
+  } catch (error) {
+    logger.warn({ error, seriesId }, 'Failed to rename the background of the season');
   }
 }

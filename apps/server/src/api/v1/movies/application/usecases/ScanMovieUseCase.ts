@@ -1,3 +1,4 @@
+import { isThemeVideoFile } from '@/api/v1/shared/infrastructure/services/artwork/themeFileNames';
 import { syncContentImages } from '@/api/v1/shared/infrastructure/services/artwork/contentArtwork';
 import { type Video, VideoType } from '@seerial/domain';
 import type { MovieResponse } from 'moviedb-promise';
@@ -63,7 +64,7 @@ export class ScanMovieUseCase {
         isDir: await this.filesManager.isFolder(`${root}/${f.name}`),
       })),
     );
-    // The media folder holds the images, theme and background video of the movie: it is not content
+    // Media folders held the images, theme and background video in previous versions: not content
     const validFolders = subFolders
       .filter((f) => f.isDir && getFileName(f.path).toLowerCase() !== 'media')
       .map((f) => f.path);
@@ -191,7 +192,7 @@ export class ScanMovieUseCase {
           extraFiles.push(...extrasInFolder);
         }
       } else {
-        if (this.filesManager.isVideoFile(fullPath)) {
+        if (this.filesManager.isVideoFile(fullPath) && !isThemeVideoFile(fullPath)) {
           mainFiles.push(fullPath);
         }
       }
@@ -250,7 +251,7 @@ export class ScanMovieUseCase {
     this.notificationService.mutateMovie(movie);
 
     // Download main theme in parallel
-    downloaderService.autoDownloadFirstAudioResult(`${movie.name} main theme`, movie.id, {
+    downloaderService.autoDownloadFirstAudioResult(`${movie.name} main theme`, 'movie', movie, {
       id: library.id,
       name: library.name,
     });

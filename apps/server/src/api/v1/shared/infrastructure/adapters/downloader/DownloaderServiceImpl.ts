@@ -1,3 +1,15 @@
+import type { ArtworkEntity } from '@/api/v1/shared/infrastructure/services/artwork/ArtworkService';
+import type { ArtworkSlot } from '@/api/v1/shared/infrastructure/services/artwork/artworkFiles';
+import {
+  commitThemeMedia,
+  findInSlot,
+  findThemeMedia,
+  removeTemporaryFiles,
+  temporaryStem,
+  type ThemeKind,
+  type ThemeOwner,
+  themeMediaSlot,
+} from '@/api/v1/shared/infrastructure/services/artwork/themeMedia';
 import { spawn } from 'node:child_process';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
@@ -104,6 +116,13 @@ function runProcessCaptureStdout(command: string, args: string[]): Promise<strin
       );
     });
   });
+}
+
+interface ThemeDownloadOptions {
+  overwrite: boolean;
+  /** Sent to the clients when the download ends */
+  name: string;
+  waitForCompletion?: boolean;
 }
 
 export class DownloaderServiceImpl implements DownloaderServicePort {
@@ -387,62 +406,29 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
     }
   }
 
-  public async downloadVideo(url: string, downloadFolder: string, fileName: string): Promise<void> {
-    if (!isSafeMediaUrl(url)) {
-      throw new Error('Invalid media URL');
-    }
-
-    const folder = path.isAbsolute(downloadFolder)
-      ? downloadFolder
-      : fileSystemService.getExternalPath(downloadFolder);
-
-    // Make sure the download path has a trailing slash
-    const outputPath = path.join(folder, `${fileName}.webm`);
-
-    // An existing file is not removed first: `--force-overwrite` replaces it only when the new
-    // download succeeds, so a failed download (YouTube refusing, no connection) does not lose it.
-
-    const command = downloaderService.getYtDlpPath();
-    const args = ['-f', 'bestvideo*+bestaudio/best', '-o', outputPath, url, '-q', '--progress', '--force-overwrite'];
-
-    if (ffmpegLocation) {
-      args.push('--ffmpeg-location', ffmpegLocation);
-    }
-
-    args.push(...YT_DLP_JS_RUNTIME_ARGS);
-
-    this.downloadContent(command, args, fileName);
-  }
-
   /**
-   * Downloads the audio of a URL. The download runs in the background unless `waitForCompletion`
-   * is set, which resolves once yt-dlp has finished (used by the queued automatic downloads).
+   * Downloads a theme song or background video into its place. It is downloaded to a temporary file
+   * first, so a failed download does not lose the previous one. Without `overwrite` an existing
+   * file always wins. Runs in the background unless `waitForCompletion` is set.
    */
-  public async downloadAudio(
+  public async downloadThemeMedia(
     url: string,
-    downloadFolder: string,
-    fileName: string,
-    waitForCompletion = false,
+    kind: ThemeKind,
+    slot: ArtworkSlot,
+    { overwrite, name, waitForCompletion = false }: ThemeDownloadOptions,
   ): Promise<void> {
     if (!isSafeMediaUrl(url)) {
       throw new Error('Invalid media URL');
     }
 
-    const folder = path.isAbsolute(downloadFolder)
-      ? downloadFolder
-      : fileSystemService.getExternalPath(downloadFolder);
+    fileSystemService.createFolder(slot.folder);
 
-    // Create folder if it doesn't exist
-    fileSystemService.createFolder(folder);
-
-    // Make sure the download path has a trailing slash
-    const outputPath = path.join(folder, `${fileName}.opus`);
-
-    // An existing file is not removed first: `--force-overwrite` replaces it only when the new
-    // download succeeds, so a failed download (YouTube refusing, no connection) does not lose it.
+    const stem = temporaryStem(slot);
+    const [format, extension] =
+      kind === 'theme' ? ['bestaudio/best', 'opus'] : ['bestvideo*+bestaudio/best', 'webm'];
 
     const command = downloaderService.getYtDlpPath();
-    const args = ['-f', 'bestaudio/best', '-o', outputPath, url, '-q', '--progress', '--force-overwrite'];
+    const args = ['-f', format, '-o', `${stem}.${extension}`, url, '-q', '--progress'];
 
     if (ffmpegLocation) {
       args.push('--ffmpeg-location', ffmpegLocation);
@@ -450,11 +436,20 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
 
     args.push(...YT_DLP_JS_RUNTIME_ARGS);
 
-    const finished = this.downloadContent(command, args, fileName);
+    const finished = this.downloadContent(command, args, name, (succeeded) => {
+      if (succeeded) return commitThemeMedia(slot, kind, stem, { overwrite }) !== null;
+      removeTemporaryFiles(stem);
+      return false;
+    });
     if (waitForCompletion) await finished;
   }
 
-  private downloadContent(command: string, args: string[], fileName: string): Promise<void> {
+  private downloadContent(
+    command: string,
+    args: string[],
+    fileName: string,
+    settle: (succeeded: boolean) => boolean,
+  ): Promise<void> {
     let finish: () => void = () => {};
     const finished = new Promise<void>((resolve) => {
       finish = resolve;
@@ -514,8 +509,15 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
       });
 
       process.on('close', (code: number) => {
+        // The file is in its place before the clients are told
+        let saved = false;
+        try {
+          saved = settle(code === 0);
+        } catch (error) {
+          downloaderLogger.error(error, 'The downloaded file could not be saved');
+        }
         finish();
-        if (code === 0) {
+        if (saved) {
           // Generate message for WebSockets
           const message = {
             header: 'DOWNLOAD_COMPLETE',
@@ -543,46 +545,51 @@ export class DownloaderServiceImpl implements DownloaderServicePort {
     return finished;
   }
 
-  public autoDownloadFirstAudioResult(
+  public async autoDownloadFirstAudioResult(
     query: string,
-    elementId: string,
+    owner: ThemeOwner,
+    entity: ArtworkEntity,
     library?: { id: string; name: string },
   ): Promise<void> {
-    // Themes that were already downloaded are kept: scans run often and must not download (and
-    // replace) the theme of every movie and series again each time
-    const themePath = path.join(
-      fileSystemService.getExternalPath(fileSystemService.join('resources', 'music', elementId)),
-      `${elementId}.opus`,
-    );
-    if (fileSystemService.existsSync(themePath) || failedThemeDownloads.has(elementId)) {
-      return Promise.resolve();
+    const elementId = entity.id;
+    try {
+      // The themes the content already has are kept: scans run often, and what the user has in
+      // local is never replaced
+      const slot = await themeMediaSlot(owner, entity, 'theme');
+      if (!slot || failedThemeDownloads.has(elementId)) return;
+      if (await findThemeMedia(owner, entity, 'theme')) return;
+      // Downloaded by a previous version and not moved yet
+      const previous = fileSystemService.join('resources', 'music', elementId, `${elementId}.opus`);
+      if (fileSystemService.existsSync(fileSystemService.getExternalPath(previous))) return;
+
+      if (library) scanActivity.musicQueued(library.id, library.name);
+
+      // Enqueue so downloads run sequentially in the background, avoiding
+      // spawning a yt-dlp process per item during large scans.
+      autoDownloadQueue
+        .enqueue(async () => {
+          const [video] = await this.searchVideos(query, 1);
+
+          if (!video) {
+            downloaderLogger.warn({ query }, 'No results found for auto-download');
+            failedThemeDownloads.add(elementId);
+            return;
+          }
+
+          await this.downloadThemeMedia(video.url, 'theme', slot, {
+            overwrite: false,
+            name: elementId,
+            waitForCompletion: true,
+          });
+          if (!findInSlot(slot, 'theme')) failedThemeDownloads.add(elementId);
+        })
+        .catch((error) => downloaderLogger.error({ error, query }, 'Auto-download failed'))
+        .finally(() => {
+          if (library) scanActivity.musicSettled(library.id);
+        });
+      // The caller (scan use-case) does not need to wait for the download
+    } catch (error) {
+      downloaderLogger.error({ error, query }, 'Auto-download failed');
     }
-
-    if (library) scanActivity.musicQueued(library.id, library.name);
-
-    // Enqueue so downloads run sequentially in the background, avoiding
-    // spawning a yt-dlp process per item during large scans.
-    autoDownloadQueue.enqueue(async () => {
-      const result = await this.searchVideos(query, 1);
-
-      if (result.length === 0) {
-        downloaderLogger.warn({ query }, 'No results found for auto-download');
-        failedThemeDownloads.add(elementId);
-        return;
-      }
-
-      const video = result[0];
-      const downloadFolder = fileSystemService.join('resources', 'music', elementId);
-
-      await this.downloadAudio(video.url, downloadFolder, elementId, true);
-      if (!fileSystemService.existsSync(themePath)) failedThemeDownloads.add(elementId);
-    })
-      .catch((error) => downloaderLogger.error({ error, query }, 'Auto-download failed'))
-      .finally(() => {
-        if (library) scanActivity.musicSettled(library.id);
-      });
-
-    // Return immediately — the caller (scan use-case) does not need to await this.
-    return Promise.resolve();
   }
 }

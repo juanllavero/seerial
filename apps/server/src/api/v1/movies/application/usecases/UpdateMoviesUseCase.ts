@@ -1,34 +1,12 @@
-import path from 'node:path';
 import type { Movie } from '../../domain/Movie';
 import type { MoviesRepositoryPort } from '../ports/MoviesRepositoryPort';
-import { downloadImage, isRemoteUrl } from '@/utils/downloadImage';
-
-const MEDIA_FIELDS = [
-  { field: 'videoSrc', fileName: 'video' },
-  { field: 'musicSrc', fileName: 'theme' },
-] as const;
+import { saveRemoteThemeMedia } from '@/api/v1/shared/infrastructure/services/artwork/saveRemoteThemeMedia';
 
 export class UpdateMovieUseCase {
-  constructor(private moviesRepo: MoviesRepositoryPort) { }
+  constructor(private moviesRepo: MoviesRepositoryPort) {}
 
   async execute(id: string, data: Partial<Movie>): Promise<Movie> {
-    const movie = await this.moviesRepo.findById(id);
-    if (movie?.folder) {
-      const mediaFolder = path.join(movie.folder, 'media');
-      for (const { field, fileName } of MEDIA_FIELDS) {
-        const value = data[field as keyof Partial<Movie>] as string | undefined;
-        if (value && isRemoteUrl(value)) {
-          const ext = path.extname(new URL(value).pathname) || '.mp4';
-          const destPath = path.join(mediaFolder, `${fileName}${ext}`);
-          try {
-            await downloadImage(value, destPath);
-            (data as Record<string, string>)[field] = destPath;
-          } catch {
-            // Keep original URL if download fails
-          }
-        }
-      }
-    }
+    await saveRemoteThemeMedia('movie', data, () => this.moviesRepo.findById(id));
     return this.moviesRepo.update(id, data);
   }
 }

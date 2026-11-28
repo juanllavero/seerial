@@ -1,3 +1,4 @@
+import { findThemeMedia } from '@/api/v1/shared/infrastructure/services/artwork/themeMedia';
 import type { LyricsLine } from '@seerial/domain';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import jwt from 'jsonwebtoken';
@@ -99,31 +100,22 @@ export class SongsController extends Controller {
       return null;
     }
 
-    // Try movie media folder
     const movie = moviesRepo?.findById ? await moviesRepo.findById(localId) : null;
-    if (movie?.folder) {
-      const mediaFolder = path.join(movie.folder, 'media');
-      const [musicPath] = await fileSystemService.getValidMusicFiles(mediaFolder);
-      if (musicPath) return musicPath;
+    if (movie) {
+      const file = await findThemeMedia('movie', movie, 'theme');
+      if (file) return file;
     }
 
-    // Try season media folder (localId is season id)
     const season = seasonsRepo?.findById ? await seasonsRepo.findById(localId, 'few') : null;
     if (season) {
-      const series = seriesRepo?.findById ? await seriesRepo.findById(season.seriesId, 'few') : null;
-      if (series?.folder) {
-        const mediaFolder = path.join(series.folder, 'media');
-        const all = await fileSystemService.getValidMusicFiles(mediaFolder);
-        const match = all.find((p) =>
-          path.basename(p).startsWith(`s${season.seasonNumber}_theme`),
-        );
-        if (match) return match;
-        // Fallback: any music file prefixed with sN_
-        const fallback = all.find((p) =>
-          path.basename(p).startsWith(`s${season.seasonNumber}_`),
-        );
-        if (fallback) return fallback;
-      }
+      const file = await findThemeMedia('season', season, 'theme');
+      if (file) return file;
+    }
+
+    const series = seriesRepo?.findById ? await seriesRepo.findById(localId, 'few') : null;
+    if (series) {
+      const file = await findThemeMedia('series', series, 'theme');
+      if (file) return file;
     }
 
     // Legacy fallback: resources/music/{localId}

@@ -86,7 +86,7 @@ export async function migrateArtwork({ dryRun = false } = {}): Promise<ArtworkMi
           const value = content[field] as string | undefined;
           const current = value ? artworkService.resolveFile(value) : null;
           const stored = current && artworkService.isManagedFile(current) ? current : null;
-          let local = findArtwork(slot);
+          let local = artworkService.findLocal(location, owner, field);
 
           if (!local) {
             const source =

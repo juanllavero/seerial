@@ -14,11 +14,6 @@ import { type DialogPayloads, useDialogStore } from '../../../stores/dialog-stor
 import DownloadMediaCard from './download-media-card';
 import DownloadMediaCardSkeleton from './download-media-card-skeleton';
 
-interface DownloadTarget {
-  mediaFolder: string;
-  fileBaseName: string;
-}
-
 function buildDefaultSearchText(
   type: 'music' | 'video',
   isShow: boolean,
@@ -36,34 +31,6 @@ function buildDefaultSearchText(
   if (baseText === '') return '';
 
   return baseText + (type === 'music' ? ' ost' : ' trailer');
-}
-
-function getDownloadTarget(
-  isMovie: boolean,
-  isSeason: boolean,
-  movie: Movie | null | undefined,
-  season: Season | null | undefined,
-  series: Series | null | undefined,
-): DownloadTarget {
-  if (isMovie) {
-    return {
-      mediaFolder: movie?.folder ? `${movie.folder}/media` : '',
-      fileBaseName: '',
-    };
-  }
-
-  if (isSeason) {
-    const seasonNum = season?.seasonNumber ?? 1;
-    return {
-      mediaFolder: series?.folder ? `${series.folder}/media` : '',
-      fileBaseName: `s${seasonNum}_`,
-    };
-  }
-
-  return {
-    mediaFolder: series?.folder ? `${series.folder}/media` : '',
-    fileBaseName: '',
-  };
 }
 
 function renderResults(
@@ -194,15 +161,19 @@ function DownloadMediaSearch() {
   }, [downloaded, closeDialog, setDownloaded]);
 
   const downloadMedia = async (media: MediaSearchResult) => {
-    const { mediaFolder, fileBaseName } = getDownloadTarget(isMovie, isSeason, movie, season, series);
-    const fileName = fileBaseName + (type === 'music' ? 'theme' : 'video');
+    // The server decides where the file goes and how it is named
+    const target = movieId
+      ? { owner: 'movie' as const, id: movieId }
+      : seasonId
+        ? { owner: 'season' as const, id: seasonId }
+        : { owner: 'series' as const, id: seriesId ?? '' };
 
     await connectWS();
 
     if (type === 'music') {
-      await downloadAudio(media.id, media.url, mediaFolder, fileName);
+      await downloadAudio(media.id, media.url, target);
     } else {
-      await downloadVideo(media.id, media.url, mediaFolder, fileName);
+      await downloadVideo(media.id, media.url, target);
     }
   };
 
